@@ -1,6 +1,8 @@
 defmodule PhpInternals.Api.Docs.Symbol do
   use PhpInternals.Web, :model
 
+  @default_order_by "name"
+  @valid_order_bys ["name"]
   @required_fields [
     "name",
     "description",
@@ -9,7 +11,6 @@ defmodule PhpInternals.Api.Docs.Symbol do
     "type",
     "categories"
   ]
-
   @optional_fields [
     "declaration",
     "parameters",
@@ -39,6 +40,18 @@ defmodule PhpInternals.Api.Docs.Symbol do
       {:ok}
     else
       {:error, 400, "Contains unknown fields"}
+    end
+  end
+
+  def valid_order_by?(order_by) do
+    if order_by === nil do
+      {:ok, @default_order_by}
+    else
+      if Enum.member?(@valid_order_bys, order_by) do
+        {:ok, order_by}
+      else
+        {:error, 400, "Invalid order by field given"}
+      end
     end
   end
 
@@ -192,8 +205,16 @@ defmodule PhpInternals.Api.Docs.Symbol do
     end
   end
 
-  def fetch_all_symbols do
-    Neo4j.query!(Neo4j.conn, "MATCH (symbol:Symbol) RETURN symbol")
+  def fetch_all_symbols(order_by, ordering, offset, limit) do
+    query = """
+      MATCH (symbol:Symbol)
+      RETURN symbol
+      ORDER BY symbol.#{order_by} #{ordering}
+      SKIP #{offset}
+      LIMIT #{limit}
+    """
+
+    Neo4j.query!(Neo4j.conn, query)
   end
 
   def fetch_all_symbols_patches do

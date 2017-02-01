@@ -55,9 +55,18 @@ defmodule PhpInternals.Api.Docs.SymbolController do
     render(conn, "index_deleted.json", symbols: all_deleted_symbols)
   end
 
-  def index(conn, _params) do
-    all_symbols = Symbol.fetch_all_symbols
-    render(conn, "index.json", symbols: all_symbols)
+  def index(conn, params) do
+    with {:ok, order_by} <- Symbol.valid_order_by?(params["order_by"]),
+         {:ok, ordering} <- Utilities.valid_ordering?(params["ordering"]),
+         {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
+         {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
+      render(conn, "index.json", symbols: Symbol.fetch_all_symbols(order_by, ordering, offset, limit))
+    else
+      {:error, status_code, error} ->
+        conn
+        |> put_status(status_code)
+        |> render(PhpInternals.ErrorView, "error.json", error: error)
+    end
   end
 
   def show(conn, %{"symbol_name" => symbol_url, "view" => "overview"}) do
