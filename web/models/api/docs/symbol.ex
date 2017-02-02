@@ -3,6 +3,8 @@ defmodule PhpInternals.Api.Docs.Symbol do
 
   @default_order_by "name"
   @valid_order_bys ["name"]
+  @default_symbol_type "all"
+  @valid_symbol_types ["macro", "function", "variable", "type"]
   @required_fields [
     "name",
     "description",
@@ -51,6 +53,18 @@ defmodule PhpInternals.Api.Docs.Symbol do
         {:ok, order_by}
       else
         {:error, 400, "Invalid order by field given"}
+      end
+    end
+  end
+
+  def valid_symbol_type?(symbol_type) do
+    if symbol_type === nil do
+      {:ok, @default_symbol_type}
+    else
+      if Enum.member?(@valid_symbol_types, symbol_type) do
+        {:ok, symbol_type}
+      else
+        {:error, 400, "Invalid symbol type field given"}
       end
     end
   end
@@ -205,9 +219,10 @@ defmodule PhpInternals.Api.Docs.Symbol do
     end
   end
 
-  def fetch_all_symbols(order_by, ordering, offset, limit) do
-    query = """
-      MATCH (symbol:Symbol)
+  def fetch_all_symbols(order_by, ordering, offset, limit, symbol_type) do
+    query = "MATCH (symbol:Symbol)" <>
+      if symbol_type === "all", do: "", else: "WHERE symbol.type = '#{symbol_type}'"
+      <> """
       RETURN symbol
       ORDER BY symbol.#{order_by} #{ordering}
       SKIP #{offset}
