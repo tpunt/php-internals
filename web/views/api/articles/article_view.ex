@@ -14,7 +14,7 @@ defmodule PhpInternals.Api.Articles.ArticleView do
   end
 
   def render("article.json", %{article: %{"article" => article}}) do
-    %{title: article["title"], url: article["url"], body: article["body"]}
+    %{title: article["title"], url: article["url"], body: article["body"], date: article["date"]}
     |> Map.merge(UserView.render("show.json", %{user: %{"user" => article["user"]}}))
     |> Map.merge(CategoryView.render("index_overview.json", %{categories: article["categories"]}))
   end
