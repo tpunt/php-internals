@@ -10,7 +10,6 @@ defmodule PhpInternals.Router do
     pipe_through :api
 
     scope "/docs", Docs do
-      get "/types", TypeController, :index
       get "/categories", CategoryController, :index
       post "/categories", CategoryController, :insert
       get "/categories/:category_name", CategoryController, :show
