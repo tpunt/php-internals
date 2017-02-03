@@ -220,14 +220,16 @@ defmodule PhpInternals.Api.Docs.Symbol do
   end
 
   def fetch_all_symbols(order_by, ordering, offset, limit, symbol_type) do
-    query = "MATCH (symbol:Symbol)" <>
-      if symbol_type === "all", do: "", else: "WHERE symbol.type = '#{symbol_type}'"
-      <> """
+    query1 = "MATCH (symbol:Symbol)"
+    query2 = if symbol_type === "all", do: "", else: "WHERE symbol.type = '#{symbol_type}'"
+    query3 = """
       RETURN symbol
       ORDER BY symbol.#{order_by} #{ordering}
       SKIP #{offset}
       LIMIT #{limit}
     """
+
+    query = query1 <> query2 <> query3
 
     Neo4j.query!(Neo4j.conn, query)
   end
