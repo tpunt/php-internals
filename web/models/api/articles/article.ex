@@ -62,6 +62,15 @@ defmodule PhpInternals.Api.Articles.Article do
     end
   end
 
+  def does_not_exist?(article_url) do
+    case exists?(article_url) do
+      {:ok, _article} ->
+        {:error, 400, "The article with the specified name already exists"}
+      {:error, 404, _status} ->
+        {:ok}
+    end
+  end
+
   def fetch_articles(order_by, ordering, offset, limit, nil = _category_filter) do
     query = """
       MATCH (article:Article),

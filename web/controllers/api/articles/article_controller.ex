@@ -53,6 +53,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
   def insert(conn, %{"article" => article}) do
     with {:ok} <- Article.contains_required_fields?(article),
          {:ok} <- Article.contains_only_expected_fields?(article),
+         {:ok} <- Article.does_not_exist?(Utilities.make_url_friendly_name(article["title"])),
          {:ok, _user} <- User.user_exists?(article["author"]),
          {:ok} <- Category.valid_categories?(article["categories"]) do
       article =

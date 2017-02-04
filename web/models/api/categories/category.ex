@@ -50,7 +50,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def does_not_exist?(category_url) do
     case valid_category?(category_url) do
-      {:ok, category} ->
+      {:ok, _category} ->
         {:error, 400, "The category with the specified name already exists"}
       {:error, 404, _status} ->
         {:ok}
