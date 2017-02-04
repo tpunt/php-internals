@@ -73,7 +73,7 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
   end
 
   def render("symbol_overview.json", %{symbol: %{"symbol" => symbol}}) do
-    %{name: symbol["name"], url: symbol["url"], type: symbol["type"]}
+    %{id: symbol["id"], name: symbol["name"], url: symbol["url"], type: symbol["type"]}
   end
 
   # for fetch_all_symbols_full
@@ -91,6 +91,7 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
 
   def render("symbol.json", %{symbol: %{"symbol" => symbol}}) do
     return_symbol = %{
+      id: symbol["id"],
       name: symbol["name"],
       url: symbol["url"],
       type: symbol["type"],

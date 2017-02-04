@@ -23,7 +23,7 @@ defmodule SymbolDeleteTest do
   """
   test "authorised invalid delete patch submission for a non-existent symbol" do
     conn =
-      conn(:delete, "/api/symbols/non-existent")
+      conn(:delete, "/api/symbols/0123")
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -34,21 +34,36 @@ defmodule SymbolDeleteTest do
   end
 
   @doc """
+  DELETE /api/symbols/non-existent-invalid -H authorization: at1
+  """
+  test "authorised invalid delete patch submission for an invalid, non-existent symbol ID" do
+    conn =
+      conn(:delete, "/api/symbols/non-existent-invalid")
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "at1")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status == 400
+    assert %{"error" => %{"message" => "Invalid integer ID given"}} = Poison.decode!(response.resp_body)
+  end
+
+  @doc """
   DELETE /api/symbols/existent -H authorization: at1
   """
   test "authorised valid delete patch submission for review 1" do
     cat_name = :rand.uniform(100_000_000)
     cat_rev = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {name: '#{sym_name}', description: '.', url: '#{sym_name}', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
+        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
     """)
 
     conn =
-      conn(:delete, "/api/symbols/#{sym_name}")
+      conn(:delete, "/api/symbols/#{sym_id}")
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -69,16 +84,16 @@ defmodule SymbolDeleteTest do
   test "authorised valid update delete submission for review 2" do
     cat_name = :rand.uniform(100_000_000)
     cat_rev = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {name: '#{sym_name}', description: '.', url: '#{sym_name}', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
+        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
     """)
 
     conn =
-      conn(:delete, "/api/symbols/#{sym_name}", %{"review" => "1"})
+      conn(:delete, "/api/symbols/#{sym_id}", %{"review" => "1"})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at3")
 
@@ -99,16 +114,16 @@ defmodule SymbolDeleteTest do
   test "authorised valid soft delete patch submission 1" do
     cat_name = :rand.uniform(100_000_000)
     cat_rev = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {name: '#{sym_name}', description: '.', url: '#{sym_name}', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
+        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
     """)
 
     conn =
-      conn(:delete, "/api/symbols/#{sym_name}")
+      conn(:delete, "/api/symbols/#{sym_id}")
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at2")
 
@@ -130,16 +145,16 @@ defmodule SymbolDeleteTest do
   test "authorised valid soft delete patch submission 2" do
     cat_name = :rand.uniform(100_000_000)
     cat_rev = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {name: '#{sym_name}', description: '.', url: '#{sym_name}', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
+        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
     """)
 
     conn =
-      conn(:delete, "/api/symbols/#{sym_name}")
+      conn(:delete, "/api/symbols/#{sym_id}")
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at3")
 
@@ -161,17 +176,17 @@ defmodule SymbolDeleteTest do
   test "authorised valid hard delete patch submission" do
     cat_name = :rand.uniform(100_000_000)
     cat_rev = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:SymbolDeleted {name: '#{sym_name}', description: '.', url: '#{sym_name}', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
+        (s:SymbolDeleted {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
         (s)-[:CATEGORY]->(c)
     """)
 
     conn =
-      conn(:delete, "/api/symbols/#{sym_name}", %{"mode" => "hard"})
+      conn(:delete, "/api/symbols/#{sym_id}", %{"mode" => "hard"})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at3")
 
@@ -189,17 +204,17 @@ defmodule SymbolDeleteTest do
   test "unauthenticated hard delete patch submission" do
     cat_name = :rand.uniform(100_000_000)
     cat_rev = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:SymbolDeleted {name: '#{sym_name}', description: '.', url: '#{sym_name}', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
+        (s:SymbolDeleted {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
         (s)-[:CATEGORY]->(c)
     """)
 
     conn =
-      conn(:delete, "/api/symbols/#{sym_name}", %{"mode" => "hard"})
+      conn(:delete, "/api/symbols/#{sym_id}", %{"mode" => "hard"})
       |> put_req_header("content-type", "application/json")
 
     response = Router.call(conn, @opts)
@@ -219,17 +234,17 @@ defmodule SymbolDeleteTest do
   test "unauthorised hard delete patch submission 1" do
     cat_name = :rand.uniform(100_000_000)
     cat_rev = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:SymbolDeleted {name: '#{sym_name}', description: '.', url: '#{sym_name}', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
+        (s:SymbolDeleted {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
         (s)-[:CATEGORY]->(c)
     """)
 
     conn =
-      conn(:delete, "/api/symbols/#{sym_name}", %{"mode" => "hard"})
+      conn(:delete, "/api/symbols/#{sym_id}", %{"mode" => "hard"})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -250,17 +265,17 @@ defmodule SymbolDeleteTest do
   test "unauthorised hard delete patch submission 2" do
     cat_name = :rand.uniform(100_000_000)
     cat_rev = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:SymbolDeleted {name: '#{sym_name}', description: '.', url: '#{sym_name}', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
+        (s:SymbolDeleted {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
         (s)-[:CATEGORY]->(c)
     """)
 
     conn =
-      conn(:delete, "/api/symbols/#{sym_name}", %{"mode" => "hard"})
+      conn(:delete, "/api/symbols/#{sym_id}", %{"mode" => "hard"})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at2")
 

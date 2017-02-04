@@ -19,7 +19,7 @@ defmodule SymbolPatchTest do
   end
 
   @doc """
-  PATCH /api/symbols/non-existent -H authorization: at1
+  PATCH /api/symbols/0123 -H authorization: at1
   """
   test "authorised invalid update patch submission for a non-existent symbol" do
     cat_name = :rand.uniform(100_000_000)
@@ -28,7 +28,7 @@ defmodule SymbolPatchTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}})")
 
     conn =
-      conn(:patch, "/api/symbols/non-existent", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
+      conn(:patch, "/api/symbols/0123", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -41,11 +41,11 @@ defmodule SymbolPatchTest do
   end
 
   @doc """
-  PATCH /api/symbols/non-existent -H authorization: at1
+  PATCH /api/symbols/0123 -H authorization: at1
   """
   test "authorised invalid update patch submission from required fields" do
     conn =
-      conn(:patch, "/api/symbols/non-existent", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro"}})
+      conn(:patch, "/api/symbols/0123", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro"}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -56,11 +56,11 @@ defmodule SymbolPatchTest do
   end
 
   @doc """
-  PATCH /api/symbols/non-existent -H authorization: at1
+  PATCH /api/symbols/0123 -H authorization: at1
   """
   test "authorised invalid update patch submission from an invalid category" do
     conn =
-      conn(:patch, "/api/symbols/non-existent", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["invalid"]}})
+      conn(:patch, "/api/symbols/0123", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["invalid"]}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -71,11 +71,11 @@ defmodule SymbolPatchTest do
   end
 
   @doc """
-  PATCH /api/symbols/non-existent -H authorization: at1
+  PATCH /api/symbols/0123 -H authorization: at1
   """
   test "authorised invalid update patch submission from no categories" do
     conn =
-      conn(:patch, "/api/symbols/non-existent", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => []}})
+      conn(:patch, "/api/symbols/0123", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => []}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -91,17 +91,17 @@ defmodule SymbolPatchTest do
   test "authorised valid update patch submission for review 1" do
     cat_name = :rand.uniform(100_000_000)
     cat_rev = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
     new_sym_name = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {name: '#{sym_name}', description: '.', url: '#{sym_name}', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
+        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
     """)
 
     conn =
-      conn(:patch, "/api/symbols/#{sym_name}", %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
+      conn(:patch, "/api/symbols/#{sym_id}", %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -124,17 +124,17 @@ defmodule SymbolPatchTest do
   test "authorised valid update patch submission for review 2" do
     cat_name = :rand.uniform(100_000_000)
     cat_rev = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
     new_sym_name = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {name: '#{sym_name}', description: '.', url: '#{sym_name}', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
+        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
     """)
 
     conn =
-      conn(:patch, "/api/symbols/#{sym_name}", %{"review" => "1", "symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
+      conn(:patch, "/api/symbols/#{sym_id}", %{"review" => "1", "symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at2")
 
@@ -162,17 +162,17 @@ defmodule SymbolPatchTest do
   test "authorised valid update patch submission" do
     cat_name = :rand.uniform(100_000_000)
     cat_rev = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
     new_sym_name = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {name: '#{sym_name}', description: '.', url: '#{sym_name}', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
+        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
     """)
 
     conn =
-      conn(:patch, "/api/symbols/#{sym_name}", %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
+      conn(:patch, "/api/symbols/#{sym_id}", %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at3")
 
@@ -216,29 +216,27 @@ defmodule SymbolPatchTest do
   test "authorised valid apply patch update" do
     cat_name = :rand.uniform(100_000_000)
     cat_rev = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
-    sym_name_b = :rand.uniform(100_000_000)
     sym_rev_b = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {name: '#{sym_name}', description: '.', url: '#{sym_name}', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
-        (su:UpdateSymbolPatch {name: '#{sym_name_b}', description: '..', url: '#{sym_name_b}', definition: '..', definition_location: '..', type: 'macro', revision_id: #{sym_rev_b}, against_revision: #{sym_rev}}),
+        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
+        (su:UpdateSymbolPatch {id: #{sym_id}, name: '...2', description: '..', url: '...2', definition: '..', definition_location: '..', type: 'macro', revision_id: #{sym_rev_b}, against_revision: #{sym_rev}}),
         (s)-[:CATEGORY]->(c),
         (s)-[:UPDATE]->(su),
         (su)-[:CATEGORY]->(c)
     """)
 
     conn =
-      conn(:patch, "/api/symbols/#{sym_name}", %{"apply_patch" => "update,#{sym_rev_b}"})
+      conn(:patch, "/api/symbols/#{sym_id}", %{"apply_patch" => "update,#{sym_rev_b}"})
       |> put_req_header("authorization", "at3")
 
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert %{"symbol" => %{"name" => new_sym_name}} = Poison.decode!(response.resp_body)
-    assert String.to_integer(new_sym_name) === sym_name_b
+    assert %{"symbol" => %{"name" => "...2"}} = Poison.decode!(response.resp_body)
     assert [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
         (su:UpdateSymbolPatch {revision_id: #{sym_rev_b}}),
@@ -275,22 +273,21 @@ defmodule SymbolPatchTest do
   test "authorised valid discard patch update" do
     cat_name = :rand.uniform(100_000_000)
     cat_rev = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
-    sym_name_b = :rand.uniform(100_000_000)
     sym_rev_b = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {name: '#{sym_name}', description: '.', url: '#{sym_name}', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
-        (su:UpdateSymbolPatch {name: '#{sym_name_b}', description: '..', url: '#{sym_name_b}', definition: '..', definition_location: '..', type: 'macro', revision_id: #{sym_rev_b}, against_revision: #{sym_rev}}),
+        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
+        (su:UpdateSymbolPatch {id: #{sym_id}, name: '...2', description: '..', url: '...2', definition: '..', definition_location: '..', type: 'macro', revision_id: #{sym_rev_b}, against_revision: #{sym_rev}}),
         (s)-[:CATEGORY]->(c),
         (s)-[:UPDATE]->(su),
         (su)-[:CATEGORY]->(c)
     """)
 
     conn =
-      conn(:patch, "/api/symbols/#{sym_name}", %{"discard_patch" => "update,#{sym_rev_b}"})
+      conn(:patch, "/api/symbols/#{sym_id}", %{"discard_patch" => "update,#{sym_rev_b}"})
       |> put_req_header("authorization", "at3")
 
     response = Router.call(conn, @opts)
@@ -332,24 +329,23 @@ defmodule SymbolPatchTest do
   test "authorised valid apply patch insert" do
     cat_name = :rand.uniform(100_000_000)
     cat_rev = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:InsertSymbolPatch {name: '#{sym_name}', description: '.', url: '#{sym_name}', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
+        (s:InsertSymbolPatch {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
         (s)-[:CATEGORY]->(c)
     """)
 
     conn =
-      conn(:patch, "/api/symbols/#{sym_name}", %{"apply_patch" => "insert"})
+      conn(:patch, "/api/symbols/#{sym_id}", %{"apply_patch" => "insert"})
       |> put_req_header("authorization", "at3")
 
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert %{"symbol" => %{"name" => new_sym_name}} = Poison.decode!(response.resp_body)
-    assert String.to_integer(new_sym_name) === sym_name
+    assert %{"symbol" => %{"name" => "..."}} = Poison.decode!(response.resp_body)
     assert [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:InsertSymbolPatch {revision_id: #{sym_rev}}),
         (c:Category {revision_id: #{cat_rev}}),
@@ -377,17 +373,17 @@ defmodule SymbolPatchTest do
   test "authorised valid discar patch insert" do
     cat_name = :rand.uniform(100_000_000)
     cat_rev = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:InsertSymbolPatch {name: '#{sym_name}', description: '.', url: '#{sym_name}', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
+        (s:InsertSymbolPatch {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
         (s)-[:CATEGORY]->(c)
     """)
 
     conn =
-      conn(:patch, "/api/symbols/#{sym_name}", %{"discard_patch" => "insert"})
+      conn(:patch, "/api/symbols/#{sym_id}", %{"discard_patch" => "insert"})
       |> put_req_header("authorization", "at3")
 
     response = Router.call(conn, @opts)
@@ -420,18 +416,18 @@ defmodule SymbolPatchTest do
   test "authorised valid apply patch delete" do
     cat_name = :rand.uniform(100_000_000)
     cat_rev = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {name: '#{sym_name}', description: '.', url: '#{sym_name}', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
+        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
         (s)-[:CATEGORY]->(c),
         (s)-[:DELETE]->(:DeleteSymbolPatch)
     """)
 
     conn =
-      conn(:patch, "/api/symbols/#{sym_name}", %{"apply_patch" => "delete"})
+      conn(:patch, "/api/symbols/#{sym_id}", %{"apply_patch" => "delete"})
       |> put_req_header("authorization", "at3")
 
     response = Router.call(conn, @opts)
@@ -465,18 +461,18 @@ defmodule SymbolPatchTest do
   test "authorised valid discard patch delete" do
     cat_name = :rand.uniform(100_000_000)
     cat_rev = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {name: '#{sym_name}', description: '.', url: '#{sym_name}', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
+        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
         (s)-[:CATEGORY]->(c),
         (s)-[:DELETE]->(:DeleteSymbolPatch)
     """)
 
     conn =
-      conn(:patch, "/api/symbols/#{sym_name}", %{"discard_patch" => "delete"})
+      conn(:patch, "/api/symbols/#{sym_id}", %{"discard_patch" => "delete"})
       |> put_req_header("authorization", "at3")
 
     response = Router.call(conn, @opts)

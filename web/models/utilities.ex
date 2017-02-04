@@ -43,4 +43,11 @@ defmodule PhpInternals.Utilities do
       end
     end
   end
+
+  def valid_id?(id) do
+    case Integer.parse(id) do
+      {int_id, ""} -> {:ok, int_id}
+      _ -> {:error, 400, "Invalid integer ID given"}
+    end
+  end
 end

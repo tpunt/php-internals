@@ -20,17 +20,13 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   def index(conn, %{"patches" => scope}) do
     case scope do
       "all" ->
-        all_symbols_patches = Symbol.fetch_all_symbols_patches
-        render(conn, "index_patches_all.json", symbols_patches: all_symbols_patches)
+        render(conn, "index_patches_all.json", symbols_patches: Symbol.fetch_all_symbols_patches)
       "insert" ->
-        all_symbols_patches_insert = Symbol.fetch_all_symbols_patches_insert
-        render(conn, "index_patches_insert.json", symbols_patches: all_symbols_patches_insert)
+        render(conn, "index_patches_insert.json", symbols_patches: Symbol.fetch_all_symbols_patches_insert)
       "update" ->
-        all_symbols_patches_update = Symbol.fetch_all_symbols_patches_update
-        render(conn, "index_patches_update.json", symbols_patches: all_symbols_patches_update)
+        render(conn, "index_patches_update.json", symbols_patches: Symbol.fetch_all_symbols_patches_update)
       "delete" ->
-        all_symbols_patches_delete = Symbol.fetch_all_symbols_patches_delete
-        render(conn, "index_patches_delete.json", symbols_patches: all_symbols_patches_delete)
+        render(conn, "index_patches_delete.json", symbols_patches: Symbol.fetch_all_symbols_patches_delete)
       _ ->
         conn
         |> put_status(404)
@@ -51,8 +47,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   end
 
   def index(conn, %{"status" => "deleted"}) do
-    all_deleted_symbols = Symbol.fetch_all_symbols_deleted
-    render(conn, "index_deleted.json", symbols: all_deleted_symbols)
+    render(conn, "index_deleted.json", symbols: Symbol.fetch_all_symbols_deleted)
   end
 
   def index(conn, params) do
@@ -71,8 +66,8 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     end
   end
 
-  def show(conn, %{"symbol_name" => symbol_url, "view" => "overview"}) do
-    fetch(conn, symbol_url, "overview")
+  def show(conn, %{"symbol_id" => symbol_id, "view" => "overview"}) do
+    fetch(conn, symbol_id, "overview")
   end
 
   def show(conn, %{"view" => _view}) do
@@ -93,8 +88,9 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised access attempt")
   end
 
-  def show(conn, %{"symbol_name" => symbol_url, "patches" => "insert"}) do
-    with {:ok, symbol} <- Symbol.is_insert_patch?(symbol_url) do
+  def show(conn, %{"symbol_id" => symbol_id, "patches" => "insert"}) do
+    with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
+         {:ok, symbol} <- Symbol.is_insert_patch?(symbol_id) do
       render(conn, "show_insert.json", symbol: symbol)
     else
       {:error, status_code, error} ->
@@ -104,9 +100,10 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     end
   end
 
-  def show(conn, %{"symbol_name" => symbol_url, "patches" => "delete"}) do
-    with {:ok, _symbol} <- Symbol.symbol_exists?(symbol_url),
-         {:ok, symbol} <- Symbol.is_delete_patch?(symbol_url) do
+  def show(conn, %{"symbol_id" => symbol_id, "patches" => "delete"}) do
+    with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
+         {:ok, _symbol} <- Symbol.symbol_exists?(symbol_id),
+         {:ok, symbol} <- Symbol.is_delete_patch?(symbol_id) do
       render(conn, "show_delete.json", symbol: symbol)
     else
       {:error, status_code, error} ->
@@ -116,9 +113,10 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     end
   end
 
-  def show(conn, %{"symbol_name" => symbol_url, "patches" => "update", "patch_id" => patch_id}) do
-    with {:ok, _symbol} <- Symbol.symbol_exists?(symbol_url),
-         {:ok, symbol} <- Symbol.update_patch_exists?(symbol_url, String.to_integer(patch_id)) do
+  def show(conn, %{"symbol_id" => symbol_id, "patches" => "update", "patch_id" => patch_id}) do
+    with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
+         {:ok, _symbol} <- Symbol.symbol_exists?(symbol_id),
+         {:ok, symbol} <- Symbol.update_patch_exists?(symbol_id, String.to_integer(patch_id)) do
       render(conn, "show_update.json", symbol: symbol)
     else
       {:error, status_code, error} ->
@@ -128,11 +126,10 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     end
   end
 
-  def show(conn, %{"symbol_name" => symbol_url, "patches" => "update"}) do
-    with {:ok, _symbol} <- Symbol.symbol_exists?(symbol_url) do
-      symbol_patches_update = Symbol.fetch_symbol_update_patches(symbol_url)
-
-      render(conn, "show_updates.json", symbol: symbol_patches_update)
+  def show(conn, %{"symbol_id" => symbol_id, "patches" => "update"}) do
+    with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
+         {:ok, _symbol} <- Symbol.symbol_exists?(symbol_id) do
+      render(conn, "show_updates.json", symbol: Symbol.fetch_symbol_update_patches(symbol_id))
     else
       {:error, status_code, error} ->
         conn
@@ -141,8 +138,9 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     end
   end
 
-  def show(conn, %{"symbol_name" => symbol_url, "patches" => "all"}) do
-    with {:ok, symbol} <- Symbol.has_patches?(symbol_url) do
+  def show(conn, %{"symbol_id" => symbol_id, "patches" => "all"}) do
+    with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
+         {:ok, symbol} <- Symbol.has_patches?(symbol_id) do
       render(conn, "show_patches_changes.json", symbol: symbol)
     else
       {:error, status_code, error} ->
@@ -158,19 +156,18 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Unknown patch type specified")
   end
 
-  def show(conn, %{"symbol_name" => symbol_name}) do
-    fetch(conn, symbol_name, "normal")
+  def show(conn, %{"symbol_id" => symbol_id}) do
+    fetch(conn, symbol_id, "normal")
   end
 
-  defp fetch(conn, symbol_name, view) do
-    symbol = Symbol.fetch(symbol_name, view)
-
-    case symbol do
-      {:ok, symbol} ->
-        case view do
-          "normal" -> render(conn, "show.json", symbol: symbol)
-          "overview" -> render(conn, "show_overview.json", symbol: symbol)
-        end
+  defp fetch(conn, symbol_id, view) do
+    with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
+         {:ok, symbol} <- Symbol.fetch(symbol_id, view) do
+      case view do
+        "normal" -> render(conn, "show.json", symbol: symbol)
+        "overview" -> render(conn, "show_overview.json", symbol: symbol)
+      end
+    else
       {:error, status_code, status} ->
         conn
         |> put_status(status_code)
@@ -238,19 +235,19 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised access attempt")
   end
 
-  def update(conn, %{"symbol_name" => symbol_url, "apply_patch" => action}) do
-    symbol = Symbol.accept_symbol_patch(symbol_url, action)
-
-    case symbol do
+  def update(conn, %{"symbol_id" => symbol_id, "apply_patch" => action}) do
+    with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
+         {:ok, return} <- Symbol.accept_symbol_patch(symbol_id, action) do
+      if is_integer(return) do
+        send_resp(conn, return, "")
+      else
+        render(conn, "show.json", symbol: return)
+      end
+    else
       {:error, status_code, message} ->
         conn
         |> put_status(status_code)
         |> render(PhpInternals.ErrorView, "error.json", error: message)
-      {:ok, status_code} when is_integer(status_code) ->
-        conn
-        |> send_resp(status_code, "")
-      {:ok, symbol} ->
-        render(conn, "show.json", symbol: symbol)
     end
   end
 
@@ -260,17 +257,15 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised access attempt")
   end
 
-  def update(conn, %{"symbol_name" => symbol_url, "discard_patch" => action}) do
-    return = Symbol.discard_symbol_patch(symbol_url, action)
-
-    case return do
+  def update(conn, %{"symbol_id" => symbol_id, "discard_patch" => action}) do
+    with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
+         {:ok, status_code} <- Symbol.discard_symbol_patch(symbol_id, action) do
+      send_resp(conn, status_code, "")
+    else
       {:error, status_code, message} ->
         conn
         |> put_status(status_code)
         |> render(PhpInternals.ErrorView, "error.json", error: message)
-      {:ok, status_code} ->
-        conn
-        |> send_resp(status_code, "")
     end
   end
 
@@ -291,11 +286,12 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised access attempt")
   end
 
-  defp modify(conn, %{"symbol" => %{} = symbol, "symbol_name" => old_url, "review" => review} = params) do
+  defp modify(conn, %{"symbol" => %{} = symbol, "symbol_id" => symbol_id, "review" => review} = params) do
     with {:ok} <- Symbol.contains_required_fields?(symbol),
          {:ok} <- Symbol.contains_only_expected_fields?(symbol),
          {:ok} <- Category.valid_categories?(symbol["categories"]),
-         {:ok, old_symbol} <- Symbol.symbol_exists?(old_url),
+         {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
+         {:ok, old_symbol} <- Symbol.symbol_exists?(symbol_id),
          {:ok} <- Utilities.valid_review_param?(review) do
       url_name = Utilities.make_url_friendly_name(symbol["name"])
 
@@ -344,9 +340,10 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     remove(conn, Map.put(params, "review", review))
   end
 
-  defp remove(%{user: %{privilege_level: 3}} = conn, %{"symbol_name" => symbol_url, "mode" => "hard"}) do
-    with {:ok, _symbol} <- Symbol.is_deleted?(symbol_url) do
-      Symbol.hard_delete_symbol(symbol_url)
+  defp remove(%{user: %{privilege_level: 3}} = conn, %{"symbol_id" => symbol_id, "mode" => "hard"}) do
+    with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
+         {:ok, _symbol} <- Symbol.is_deleted?(symbol_id) do
+      Symbol.hard_delete_symbol(symbol_id)
 
       conn
       |> send_resp(204, "")
@@ -364,10 +361,11 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised access attempt")
   end
 
-  defp remove(conn, %{"symbol_name" => url_name, "review" => review}) do
-    with {:ok, _symbol} <- Symbol.symbol_exists?(url_name),
+  defp remove(conn, %{"symbol_id" => symbol_id, "review" => review}) do
+    with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
+         {:ok, _symbol} <- Symbol.symbol_exists?(symbol_id),
          {:ok} <- Utilities.valid_review_param?(review) do
-      Symbol.soft_delete_symbol(url_name, review)
+      Symbol.soft_delete_symbol(symbol_id, review)
 
       status_code = if review == 0, do: 204, else: 202
 

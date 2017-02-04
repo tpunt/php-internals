@@ -10,9 +10,9 @@ defmodule PhpInternals.Router do
     pipe_through :api
 
     scope "/symbols", Symbols do
-      get "/:symbol_name", SymbolController, :show
-      patch "/:symbol_name", SymbolController, :update
-      delete "/:symbol_name", SymbolController, :delete
+      get "/:symbol_id", SymbolController, :show
+      patch "/:symbol_id", SymbolController, :update
+      delete "/:symbol_id", SymbolController, :delete
       get "/", SymbolController, :index
       post "/", SymbolController, :create
     end
