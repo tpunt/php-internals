@@ -219,7 +219,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def fetch_all_symbols(order_by, ordering, offset, limit, symbol_type) do
+  def fetch_all_symbols(order_by, ordering, offset, limit, symbol_type, nil = _category_filter) do
     query1 = "MATCH (symbol:Symbol)"
     query2 = if symbol_type === "all", do: "", else: "WHERE symbol.type = '#{symbol_type}'"
     query3 = """
@@ -232,6 +232,23 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     query = query1 <> query2 <> query3
 
     Neo4j.query!(Neo4j.conn, query)
+  end
+
+  def fetch_all_symbols(order_by, ordering, offset, limit, symbol_type, category_filter) do
+    query1 = "MATCH (symbol:Symbol)-[:CATEGORY]->(:Category {url: {category_url}})"
+    query2 = if symbol_type === "all", do: "", else: "WHERE symbol.type = '#{symbol_type}'"
+    query3 = """
+      RETURN symbol
+      ORDER BY symbol.#{order_by} #{ordering}
+      SKIP #{offset}
+      LIMIT #{limit}
+    """
+
+    query = query1 <> query2 <> query3
+
+    params = %{category_url: category_filter}
+
+    Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def fetch_all_symbols_patches do
