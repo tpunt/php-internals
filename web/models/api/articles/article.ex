@@ -62,7 +62,7 @@ defmodule PhpInternals.Api.Articles.Article do
     end
   end
 
-  def fetch_articles(order_by, ordering, offset, limit) do
+  def fetch_articles(order_by, ordering, offset, limit, nil = _category_filter) do
     query = """
       MATCH (article:Article),
         (article)-[arel:AUTHOR]->(u:User),
@@ -75,8 +75,28 @@ defmodule PhpInternals.Api.Articles.Article do
       LIMIT #{limit}
     """
 
-    results = Neo4j.query!(Neo4j.conn, query)
+    normalise_fetched_articles_results Neo4j.query!(Neo4j.conn, query)
+  end
 
+  def fetch_articles(order_by, ordering, offset, limit, category_filter) do
+    query = """
+      MATCH (article:Article)-[:CATEGORY]->(:Category {url: {category_url}})
+      MATCH (article)-[arel:AUTHOR]->(u:User),
+        (article)-[crel:CATEGORY]->(category:Category)
+      RETURN article,
+        collect(category) as categories,
+        {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
+      ORDER BY article.#{order_by} #{ordering}
+      SKIP #{offset}
+      LIMIT #{limit}
+    """
+
+    params = %{category_url: category_filter}
+
+    normalise_fetched_articles_results Neo4j.query!(Neo4j.conn, query, params)
+  end
+
+  defp normalise_fetched_articles_results(results) do
     results
     |> Enum.map(fn %{"article" => article, "user" => user} = result ->
         categories = Enum.map(result["categories"], &(%{"category" => &1}))

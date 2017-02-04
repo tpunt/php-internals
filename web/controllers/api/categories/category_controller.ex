@@ -92,7 +92,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
             render(conn, "show_insert.json", category: List.first category_patch_insert)
           end
         else
-          with {:ok, %{"category" => _category}} <- Category.category_exists?(category_url) do
+          with {:ok, %{"category" => _category}} <- Category.valid_category?(category_url) do
             case scope do
               "all" ->
                 render(conn, "index_patches_changes.json", category: List.first(Category.fetch_category_patches(category_url)))
@@ -306,7 +306,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   def update_category(conn, %{"category" => %{} = category, "category_name" => old_url_name, "review" => review} = params) do
     with {:ok} <- Category.contains_required_fields?(category),
          {:ok} <- Category.contains_only_expected_fields?(category),
-         {:ok, %{"category" => old_category}} <- Category.category_exists?(old_url_name) do
+         {:ok, %{"category" => old_category}} <- Category.valid_category?(old_url_name) do
       new_url_name = Utilities.make_url_friendly_name(category["name"])
 
       category = Map.merge(category, %{"new_url" => new_url_name, "old_url" => old_url_name})
@@ -347,7 +347,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   def delete_category(conn, %{"category_name" => url_name, "review" => review}) do
-    with {:ok, _category} <- Category.category_exists?(url_name),
+    with {:ok, _category} <- Category.valid_category?(url_name),
          {:ok} <- Category.contains_no_symbols?(url_name) do
       Category.soft_delete_category(url_name, review)
 

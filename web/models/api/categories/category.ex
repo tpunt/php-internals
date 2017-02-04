@@ -24,14 +24,6 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def valid_categories?(categories) do
-    if categories === [] do
-      {:error, 400, "At least one category must be given"}
-    else
-      categories_exist?(categories)
-    end
-  end
-
   def valid_order_by?(order_by) do
     if order_by === nil do
       {:ok, @default_order_by}
@@ -56,7 +48,9 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def category_exists?(category_url) do
+  def valid_category?(nil = _category_url), do: {:ok, nil}
+
+  def valid_category?(category_url) do
     query = """
       MATCH (category:Category {url: {category_url}})
       RETURN category
@@ -73,7 +67,11 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  defp categories_exist?(categories) do
+  def valid_categories?([] = _categories) do
+    {:error, 400, "At least one category must be given"}
+  end
+
+  def valid_categories?(categories) do
     {queries, params, _counter} =
       Enum.reduce(categories, {[], %{}, 0}, fn (cat, {qs, ps, counter}) ->
         {qs ++ ["(c#{counter}:Category {url: {c#{counter}_url}})"], Map.put(ps, "c#{counter}_url", cat), counter + 1}
