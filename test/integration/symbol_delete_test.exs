@@ -8,10 +8,10 @@ defmodule SymbolDeleteTest do
   @opts Router.init([])
 
   @doc """
-  DELETE /api/docs/non-existent
+  DELETE /api/symbols/non-existent
   """
   test "unauthorised delete patch submission" do
-    conn = conn(:delete, "/api/docs/non-existent")
+    conn = conn(:delete, "/api/symbols/non-existent")
     response = Router.call(conn, @opts)
 
     assert response.status == 401
@@ -19,11 +19,11 @@ defmodule SymbolDeleteTest do
   end
 
   @doc """
-  DELETE /api/docs/non-existent -H authorization: at1
+  DELETE /api/symbols/non-existent -H authorization: at1
   """
   test "authorised invalid delete patch submission for a non-existent symbol" do
     conn =
-      conn(:delete, "/api/docs/non-existent")
+      conn(:delete, "/api/symbols/non-existent")
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -34,7 +34,7 @@ defmodule SymbolDeleteTest do
   end
 
   @doc """
-  DELETE /api/docs/existent -H authorization: at1
+  DELETE /api/symbols/existent -H authorization: at1
   """
   test "authorised valid delete patch submission for review 1" do
     cat_name = :rand.uniform(100_000_000)
@@ -48,7 +48,7 @@ defmodule SymbolDeleteTest do
     """)
 
     conn =
-      conn(:delete, "/api/docs/#{sym_name}")
+      conn(:delete, "/api/symbols/#{sym_name}")
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -64,7 +64,7 @@ defmodule SymbolDeleteTest do
   end
 
   @doc """
-  DELETE /api/docs/existent -H authorization: at3
+  DELETE /api/symbols/existent -H authorization: at3
   """
   test "authorised valid update delete submission for review 2" do
     cat_name = :rand.uniform(100_000_000)
@@ -78,7 +78,7 @@ defmodule SymbolDeleteTest do
     """)
 
     conn =
-      conn(:delete, "/api/docs/#{sym_name}", %{"review" => "1"})
+      conn(:delete, "/api/symbols/#{sym_name}", %{"review" => "1"})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at3")
 
@@ -94,7 +94,7 @@ defmodule SymbolDeleteTest do
   end
 
   @doc """
-  DELETE /api/docs/existent -H authorization: at2
+  DELETE /api/symbols/existent -H authorization: at2
   """
   test "authorised valid soft delete patch submission 1" do
     cat_name = :rand.uniform(100_000_000)
@@ -108,7 +108,7 @@ defmodule SymbolDeleteTest do
     """)
 
     conn =
-      conn(:delete, "/api/docs/#{sym_name}")
+      conn(:delete, "/api/symbols/#{sym_name}")
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at2")
 
@@ -125,7 +125,7 @@ defmodule SymbolDeleteTest do
   end
 
   @doc """
-  DELETE /api/docs/existent -H authorization: at3
+  DELETE /api/symbols/existent -H authorization: at3
   """
   test "authorised valid soft delete patch submission 2" do
     cat_name = :rand.uniform(100_000_000)
@@ -139,7 +139,7 @@ defmodule SymbolDeleteTest do
     """)
 
     conn =
-      conn(:delete, "/api/docs/#{sym_name}")
+      conn(:delete, "/api/symbols/#{sym_name}")
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at3")
 
@@ -156,7 +156,7 @@ defmodule SymbolDeleteTest do
   end
 
   @doc """
-  DELETE /api/docs/existent -H authorization: at3
+  DELETE /api/symbols/existent -H authorization: at3
   """
   test "authorised valid hard delete patch submission" do
     cat_name = :rand.uniform(100_000_000)
@@ -171,7 +171,7 @@ defmodule SymbolDeleteTest do
     """)
 
     conn =
-      conn(:delete, "/api/docs/#{sym_name}", %{"mode" => "hard"})
+      conn(:delete, "/api/symbols/#{sym_name}", %{"mode" => "hard"})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at3")
 
@@ -184,7 +184,7 @@ defmodule SymbolDeleteTest do
   end
 
   @doc """
-  DELETE /api/docs/existent
+  DELETE /api/symbols/existent
   """
   test "unauthenticated hard delete patch submission" do
     cat_name = :rand.uniform(100_000_000)
@@ -199,7 +199,7 @@ defmodule SymbolDeleteTest do
     """)
 
     conn =
-      conn(:delete, "/api/docs/#{sym_name}", %{"mode" => "hard"})
+      conn(:delete, "/api/symbols/#{sym_name}", %{"mode" => "hard"})
       |> put_req_header("content-type", "application/json")
 
     response = Router.call(conn, @opts)
@@ -214,7 +214,7 @@ defmodule SymbolDeleteTest do
   end
 
   @doc """
-  DELETE /api/docs/existent -H authorization: at1
+  DELETE /api/symbols/existent -H authorization: at1
   """
   test "unauthorised hard delete patch submission 1" do
     cat_name = :rand.uniform(100_000_000)
@@ -229,7 +229,7 @@ defmodule SymbolDeleteTest do
     """)
 
     conn =
-      conn(:delete, "/api/docs/#{sym_name}", %{"mode" => "hard"})
+      conn(:delete, "/api/symbols/#{sym_name}", %{"mode" => "hard"})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -245,7 +245,7 @@ defmodule SymbolDeleteTest do
   end
 
   @doc """
-  DELETE /api/docs/existent -H authorization: at2
+  DELETE /api/symbols/existent -H authorization: at2
   """
   test "unauthorised hard delete patch submission 2" do
     cat_name = :rand.uniform(100_000_000)
@@ -260,7 +260,7 @@ defmodule SymbolDeleteTest do
     """)
 
     conn =
-      conn(:delete, "/api/docs/#{sym_name}", %{"mode" => "hard"})
+      conn(:delete, "/api/symbols/#{sym_name}", %{"mode" => "hard"})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at2")
 

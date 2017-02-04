@@ -1,4 +1,4 @@
-defmodule PhpInternals.Api.Docs.Symbol do
+defmodule PhpInternals.Api.Symbols.Symbol do
   use PhpInternals.Web, :model
 
   @default_order_by "name"

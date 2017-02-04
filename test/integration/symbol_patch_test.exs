@@ -8,10 +8,10 @@ defmodule SymbolPatchTest do
   @opts Router.init([])
 
   @doc """
-  PATCH /api/docs/non-existent
+  PATCH /api/symbols/non-existent
   """
   test "unauthorised update patch submission" do
-    conn = conn(:patch, "/api/docs/non-existent")
+    conn = conn(:patch, "/api/symbols/non-existent")
     response = Router.call(conn, @opts)
 
     assert response.status == 401
@@ -19,7 +19,7 @@ defmodule SymbolPatchTest do
   end
 
   @doc """
-  PATCH /api/docs/non-existent -H authorization: at1
+  PATCH /api/symbols/non-existent -H authorization: at1
   """
   test "authorised invalid update patch submission for a non-existent symbol" do
     cat_name = :rand.uniform(100_000_000)
@@ -28,7 +28,7 @@ defmodule SymbolPatchTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}})")
 
     conn =
-      conn(:patch, "/api/docs/non-existent", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
+      conn(:patch, "/api/symbols/non-existent", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -41,11 +41,11 @@ defmodule SymbolPatchTest do
   end
 
   @doc """
-  PATCH /api/docs/non-existent -H authorization: at1
+  PATCH /api/symbols/non-existent -H authorization: at1
   """
   test "authorised invalid update patch submission from required fields" do
     conn =
-      conn(:patch, "/api/docs/non-existent", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro"}})
+      conn(:patch, "/api/symbols/non-existent", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro"}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -56,11 +56,11 @@ defmodule SymbolPatchTest do
   end
 
   @doc """
-  PATCH /api/docs/non-existent -H authorization: at1
+  PATCH /api/symbols/non-existent -H authorization: at1
   """
   test "authorised invalid update patch submission from an invalid category" do
     conn =
-      conn(:patch, "/api/docs/non-existent", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["invalid"]}})
+      conn(:patch, "/api/symbols/non-existent", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["invalid"]}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -71,11 +71,11 @@ defmodule SymbolPatchTest do
   end
 
   @doc """
-  PATCH /api/docs/non-existent -H authorization: at1
+  PATCH /api/symbols/non-existent -H authorization: at1
   """
   test "authorised invalid update patch submission from no categories" do
     conn =
-      conn(:patch, "/api/docs/non-existent", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => []}})
+      conn(:patch, "/api/symbols/non-existent", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => []}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -86,7 +86,7 @@ defmodule SymbolPatchTest do
   end
 
   @doc """
-  PATCH /api/docs/existent -H authorization: at1
+  PATCH /api/symbols/existent -H authorization: at1
   """
   test "authorised valid update patch submission for review 1" do
     cat_name = :rand.uniform(100_000_000)
@@ -101,7 +101,7 @@ defmodule SymbolPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/docs/#{sym_name}", %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
+      conn(:patch, "/api/symbols/#{sym_name}", %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -119,7 +119,7 @@ defmodule SymbolPatchTest do
   end
 
   @doc """
-  PATCH /api/docs/existent -H authorization: at2
+  PATCH /api/symbols/existent -H authorization: at2
   """
   test "authorised valid update patch submission for review 2" do
     cat_name = :rand.uniform(100_000_000)
@@ -134,7 +134,7 @@ defmodule SymbolPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/docs/#{sym_name}", %{"review" => "1", "symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
+      conn(:patch, "/api/symbols/#{sym_name}", %{"review" => "1", "symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at2")
 
@@ -157,7 +157,7 @@ defmodule SymbolPatchTest do
   end
 
   @doc """
-  PATCH /api/docs/existent -H authorization: at3
+  PATCH /api/symbols/existent -H authorization: at3
   """
   test "authorised valid update patch submission" do
     cat_name = :rand.uniform(100_000_000)
@@ -172,7 +172,7 @@ defmodule SymbolPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/docs/#{sym_name}", %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
+      conn(:patch, "/api/symbols/#{sym_name}", %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at3")
 
@@ -211,7 +211,7 @@ defmodule SymbolPatchTest do
   end
 
   @doc """
-  PATCH /api/docs/existent?apply_patch=update -H authorization: at3
+  PATCH /api/symbols/existent?apply_patch=update -H authorization: at3
   """
   test "authorised valid apply patch update" do
     cat_name = :rand.uniform(100_000_000)
@@ -231,7 +231,7 @@ defmodule SymbolPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/docs/#{sym_name}", %{"apply_patch" => "update,#{sym_rev_b}"})
+      conn(:patch, "/api/symbols/#{sym_name}", %{"apply_patch" => "update,#{sym_rev_b}"})
       |> put_req_header("authorization", "at3")
 
     response = Router.call(conn, @opts)
@@ -270,7 +270,7 @@ defmodule SymbolPatchTest do
   end
 
   @doc """
-  PATCH /api/docs/existent?discard_patch=update -H authorization: at3
+  PATCH /api/symbols/existent?discard_patch=update -H authorization: at3
   """
   test "authorised valid discard patch update" do
     cat_name = :rand.uniform(100_000_000)
@@ -290,7 +290,7 @@ defmodule SymbolPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/docs/#{sym_name}", %{"discard_patch" => "update,#{sym_rev_b}"})
+      conn(:patch, "/api/symbols/#{sym_name}", %{"discard_patch" => "update,#{sym_rev_b}"})
       |> put_req_header("authorization", "at3")
 
     response = Router.call(conn, @opts)
@@ -327,7 +327,7 @@ defmodule SymbolPatchTest do
   end
 
   @doc """
-  PATCH /api/docs/existent?apply_patch=insert -H authorization: at3
+  PATCH /api/symbols/existent?apply_patch=insert -H authorization: at3
   """
   test "authorised valid apply patch insert" do
     cat_name = :rand.uniform(100_000_000)
@@ -342,7 +342,7 @@ defmodule SymbolPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/docs/#{sym_name}", %{"apply_patch" => "insert"})
+      conn(:patch, "/api/symbols/#{sym_name}", %{"apply_patch" => "insert"})
       |> put_req_header("authorization", "at3")
 
     response = Router.call(conn, @opts)
@@ -372,7 +372,7 @@ defmodule SymbolPatchTest do
   end
 
   @doc """
-  PATCH /api/docs/existent?discard_patch=insert -H authorization: at3
+  PATCH /api/symbols/existent?discard_patch=insert -H authorization: at3
   """
   test "authorised valid discar patch insert" do
     cat_name = :rand.uniform(100_000_000)
@@ -387,7 +387,7 @@ defmodule SymbolPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/docs/#{sym_name}", %{"discard_patch" => "insert"})
+      conn(:patch, "/api/symbols/#{sym_name}", %{"discard_patch" => "insert"})
       |> put_req_header("authorization", "at3")
 
     response = Router.call(conn, @opts)
@@ -415,7 +415,7 @@ defmodule SymbolPatchTest do
   end
 
   @doc """
-  PATCH /api/docs/existent?apply_patch=delete -H authorization: at3
+  PATCH /api/symbols/existent?apply_patch=delete -H authorization: at3
   """
   test "authorised valid apply patch delete" do
     cat_name = :rand.uniform(100_000_000)
@@ -431,7 +431,7 @@ defmodule SymbolPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/docs/#{sym_name}", %{"apply_patch" => "delete"})
+      conn(:patch, "/api/symbols/#{sym_name}", %{"apply_patch" => "delete"})
       |> put_req_header("authorization", "at3")
 
     response = Router.call(conn, @opts)
@@ -460,7 +460,7 @@ defmodule SymbolPatchTest do
   end
 
   @doc """
-  PATCH /api/docs/existent?discard_patch=delete -H authorization: at3
+  PATCH /api/symbols/existent?discard_patch=delete -H authorization: at3
   """
   test "authorised valid discard patch delete" do
     cat_name = :rand.uniform(100_000_000)
@@ -476,7 +476,7 @@ defmodule SymbolPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/docs/#{sym_name}", %{"discard_patch" => "delete"})
+      conn(:patch, "/api/symbols/#{sym_name}", %{"discard_patch" => "delete"})
       |> put_req_header("authorization", "at3")
 
     response = Router.call(conn, @opts)

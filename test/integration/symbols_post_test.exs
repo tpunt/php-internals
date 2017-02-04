@@ -8,11 +8,11 @@ defmodule SymbolsPostTest do
   @opts Router.init([])
 
   @doc """
-  POST /api/docs/
+  POST /api/symbols/
   """
   test "Unauthenticated attempt at inserting a new symbol" do
     conn =
-      conn(:post, "/api/docs/")
+      conn(:post, "/api/symbols/")
       |> put_req_header("content-type", "application/json")
 
     response = Router.call(conn, @opts)
@@ -21,11 +21,11 @@ defmodule SymbolsPostTest do
   end
 
   @doc """
-  POST /api/docs
+  POST /api/symbols
   """
   test "Authorised invalid attempt at inserting a new symbol" do
     conn =
-      conn(:post, "/api/docs/")
+      conn(:post, "/api/symbols/")
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -36,7 +36,7 @@ defmodule SymbolsPostTest do
   end
 
   @doc """
-  POST /api/docs -H authorization: at1
+  POST /api/symbols -H authorization: at1
   """
   test "Authenticated attempt at inserting a new symbol patch 1" do
     cat_name = :rand.uniform(100_000_000)
@@ -45,7 +45,7 @@ defmodule SymbolsPostTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}})")
 
     conn =
-      conn(:post, "/api/docs/", %{"symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".", "definition_location" => ".", "type" => "macro", "categories" => ["#{cat_name}"]}})
+      conn(:post, "/api/symbols/", %{"symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".", "definition_location" => ".", "type" => "macro", "categories" => ["#{cat_name}"]}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -58,7 +58,7 @@ defmodule SymbolsPostTest do
   end
 
   @doc """
-  POST /api/docs?review=1 -H authorization: at2
+  POST /api/symbols?review=1 -H authorization: at2
   """
   test "Authenticated attempt at inserting a new symbol patch 2" do
     cat_name = :rand.uniform(100_000_000)
@@ -67,7 +67,7 @@ defmodule SymbolsPostTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}})")
 
     conn =
-      conn(:post, "/api/docs/", %{"review" => "1", "symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".", "definition_location" => ".", "type" => "macro", "categories" => ["#{cat_name}"]}})
+      conn(:post, "/api/symbols/", %{"review" => "1", "symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".", "definition_location" => ".", "type" => "macro", "categories" => ["#{cat_name}"]}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at2")
 
@@ -80,7 +80,7 @@ defmodule SymbolsPostTest do
   end
 
   @doc """
-  POST /api/docs?review=1 -H authorization: at3
+  POST /api/symbols?review=1 -H authorization: at3
   """
   test "Authenticated attempt at inserting a new symbol patch 3" do
     cat_name = :rand.uniform(100_000_000)
@@ -89,7 +89,7 @@ defmodule SymbolsPostTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}})")
 
     conn =
-      conn(:post, "/api/docs/", %{"review" => "1", "symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".", "definition_location" => ".", "type" => "macro", "categories" => ["#{cat_name}"]}})
+      conn(:post, "/api/symbols/", %{"review" => "1", "symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".", "definition_location" => ".", "type" => "macro", "categories" => ["#{cat_name}"]}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at3")
 
@@ -102,7 +102,7 @@ defmodule SymbolsPostTest do
   end
 
   @doc """
-  POST /api/docs -H authorization: at2
+  POST /api/symbols -H authorization: at2
   """
   test "Authenticated attempt at inserting a new symbol 1" do
     cat_name = :rand.uniform(100_000_000)
@@ -111,7 +111,7 @@ defmodule SymbolsPostTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}})")
 
     conn =
-      conn(:post, "/api/docs/", %{"symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".", "definition_location" => ".", "type" => "macro", "categories" => ["#{cat_name}"]}})
+      conn(:post, "/api/symbols/", %{"symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".", "definition_location" => ".", "type" => "macro", "categories" => ["#{cat_name}"]}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at2")
 
@@ -124,7 +124,7 @@ defmodule SymbolsPostTest do
   end
 
   @doc """
-  POST /api/docs -H authorization: at3
+  POST /api/symbols -H authorization: at3
   """
   test "Authenticated attempt at inserting a new symbol 2" do
     cat_name = :rand.uniform(100_000_000)
@@ -133,7 +133,7 @@ defmodule SymbolsPostTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}})")
 
     conn =
-      conn(:post, "/api/docs/", %{"symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".", "definition_location" => ".", "type" => "macro", "categories" => ["#{cat_name}"]}})
+      conn(:post, "/api/symbols/", %{"symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".", "definition_location" => ".", "type" => "macro", "categories" => ["#{cat_name}"]}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at3")
 

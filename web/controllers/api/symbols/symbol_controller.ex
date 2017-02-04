@@ -1,8 +1,8 @@
-defmodule PhpInternals.Api.Docs.SymbolController do
+defmodule PhpInternals.Api.Symbols.SymbolController do
   use PhpInternals.Web, :controller
 
   alias PhpInternals.Api.Categories.Category
-  alias PhpInternals.Api.Docs.Symbol
+  alias PhpInternals.Api.Symbols.Symbol
   alias PhpInternals.Utilities
 
   def index(%{user: %{privilege_level: 0}} = conn, %{"patches" => _scope}) do

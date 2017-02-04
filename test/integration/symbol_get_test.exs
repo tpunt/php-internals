@@ -8,30 +8,30 @@ defmodule SymbolGetTest do
   @opts Router.init([])
 
   @doc """
-  GET /api/docs/non-existent?view=overview
+  GET /api/symbols/non-existent?view=overview
   """
   test "get a non-existent symbol's overview" do
-    conn = conn(:get, "/api/docs/non-existent", %{"view" => "overview"})
+    conn = conn(:get, "/api/symbols/non-existent", %{"view" => "overview"})
     response = Router.call(conn, @opts)
 
     assert response.status == 404
   end
 
   @doc """
-  GET /api/docs/non-existent
+  GET /api/symbols/non-existent
   """
   test "get a non-existent symbol" do
-    conn = conn(:get, "/api/docs/non-existent")
+    conn = conn(:get, "/api/symbols/non-existent")
     response = Router.call(conn, @opts)
 
     assert response.status == 404
   end
 
   @doc """
-  GET /api/docs/non-existent?view=unknown
+  GET /api/symbols/non-existent?view=unknown
   """
   test "get a non-existent symbol with an unknown view" do
-    conn = conn(:get, "/api/docs/non-existent", %{"view" => "unknown"})
+    conn = conn(:get, "/api/symbols/non-existent", %{"view" => "unknown"})
     response = Router.call(conn, @opts)
 
     assert response.status == 400
@@ -39,14 +39,14 @@ defmodule SymbolGetTest do
   end
 
   @doc """
-  GET /api/docs/existent?view=overview
+  GET /api/symbols/existent?view=overview
   """
   test "get an existing symbol's overview" do
     sym_name = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, "CREATE (s:Symbol {name: '#{sym_name}', description: '.', url: '#{sym_name}', definition: '.', definition_location: '..', type: 'macro', revision_id: #{sym_rev}})")
 
-    conn = conn(:get, "/api/docs/#{sym_name}", %{"view" => "overview"})
+    conn = conn(:get, "/api/symbols/#{sym_name}", %{"view" => "overview"})
     response = Router.call(conn, @opts)
 
     assert response.status == 200
@@ -58,7 +58,7 @@ defmodule SymbolGetTest do
   end
 
   @doc """
-  GET /api/docs/existent
+  GET /api/symbols/existent
   """
   test "get an existing symbol" do
     cat_name = :rand.uniform(100_000_000)
@@ -71,7 +71,7 @@ defmodule SymbolGetTest do
         (s)-[:CATEGORY]->(c)
     """)
 
-    conn = conn(:get, "/api/docs/#{sym_name}")
+    conn = conn(:get, "/api/symbols/#{sym_name}")
     response = Router.call(conn, @opts)
 
     assert response.status == 200
@@ -87,11 +87,11 @@ defmodule SymbolGetTest do
   end
 
   @doc """
-  GET /api/docs/non-existent?patches=delete -H authorization:at3
+  GET /api/symbols/non-existent?patches=delete -H authorization:at3
   """
   test "get an non-existent symbol's delete patch" do
     conn =
-      conn(:get, "/api/docs/non-existent", %{"patches" => "delete"})
+      conn(:get, "/api/symbols/non-existent", %{"patches" => "delete"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -100,7 +100,7 @@ defmodule SymbolGetTest do
   end
 
   @doc """
-  GET /api/docs/existent?patches=delete -H authorization:at3
+  GET /api/symbols/existent?patches=delete -H authorization:at3
   """
   test "get an existing symbol's invalid delete patch" do
     cat_name = :rand.uniform(100_000_000)
@@ -114,7 +114,7 @@ defmodule SymbolGetTest do
     """)
 
     conn =
-      conn(:get, "/api/docs/#{sym_name}", %{"patches" => "delete"})
+      conn(:get, "/api/symbols/#{sym_name}", %{"patches" => "delete"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -125,7 +125,7 @@ defmodule SymbolGetTest do
   end
 
   @doc """
-  GET /api/docs/existent?patches=delete -H authorization:at3
+  GET /api/symbols/existent?patches=delete -H authorization:at3
   """
   test "get an existing symbol's delete patch" do
     cat_name = :rand.uniform(100_000_000)
@@ -140,7 +140,7 @@ defmodule SymbolGetTest do
     """)
 
     conn =
-      conn(:get, "/api/docs/#{sym_name}", %{"patches" => "delete"})
+      conn(:get, "/api/symbols/#{sym_name}", %{"patches" => "delete"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -166,11 +166,11 @@ defmodule SymbolGetTest do
   end
 
   @doc """
-  GET /api/docs/existent?patches=insert -H authorization:at3
+  GET /api/symbols/existent?patches=insert -H authorization:at3
   """
   test "get an non-existent symbol's insert patch" do
     conn =
-      conn(:get, "/api/docs/non-existent", %{"patches" => "insert"})
+      conn(:get, "/api/symbols/non-existent", %{"patches" => "insert"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -179,7 +179,7 @@ defmodule SymbolGetTest do
   end
 
   @doc """
-  GET /api/docs/existent?patches=insert -H authorization:at3
+  GET /api/symbols/existent?patches=insert -H authorization:at3
   """
   test "get an existing symbol's insert patch" do
     cat_name = :rand.uniform(100_000_000)
@@ -193,7 +193,7 @@ defmodule SymbolGetTest do
     """)
 
     conn =
-      conn(:get, "/api/docs/#{sym_name}", %{"patches" => "insert"})
+      conn(:get, "/api/symbols/#{sym_name}", %{"patches" => "insert"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -213,7 +213,7 @@ defmodule SymbolGetTest do
   end
 
   @doc """
-  GET /api/docs/existent?patches=update -H authorization:at3
+  GET /api/symbols/existent?patches=update -H authorization:at3
   """
   test "get an existing symbol's update patches 1" do
     cat_name = :rand.uniform(100_000_000)
@@ -227,7 +227,7 @@ defmodule SymbolGetTest do
     """)
 
     conn =
-      conn(:get, "/api/docs/#{sym_name}", %{"patches" => "update"})
+      conn(:get, "/api/symbols/#{sym_name}", %{"patches" => "update"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -247,7 +247,7 @@ defmodule SymbolGetTest do
   end
 
   @doc """
-  GET /api/docs/existent?patches=update -H authorization:at3
+  GET /api/symbols/existent?patches=update -H authorization:at3
   """
   test "get an existing symbol's update patches 2" do
     cat_name = :rand.uniform(100_000_000)
@@ -266,7 +266,7 @@ defmodule SymbolGetTest do
     """)
 
     conn =
-      conn(:get, "/api/docs/#{sym_name}", %{"patches" => "update"})
+      conn(:get, "/api/symbols/#{sym_name}", %{"patches" => "update"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -302,7 +302,7 @@ defmodule SymbolGetTest do
   end
 
   @doc """
-  GET /api/docs/existent?patches=update&patch_id=invalid -H authorization:at3
+  GET /api/symbols/existent?patches=update&patch_id=invalid -H authorization:at3
   """
   test "get an existing symbol's invalid update patch" do
     cat_name = :rand.uniform(100_000_000)
@@ -316,7 +316,7 @@ defmodule SymbolGetTest do
     """)
 
     conn =
-      conn(:get, "/api/docs/#{sym_name}", %{"patches" => "update", "patch_id" => "1"})
+      conn(:get, "/api/symbols/#{sym_name}", %{"patches" => "update", "patch_id" => "1"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -332,7 +332,7 @@ defmodule SymbolGetTest do
   end
 
   @doc """
-  GET /api/docs/existent?patches=update&patch_id=... -H authorization:at3
+  GET /api/symbols/existent?patches=update&patch_id=... -H authorization:at3
   """
   test "get an existing symbol's update patch" do
     cat_name = :rand.uniform(100_000_000)
@@ -351,7 +351,7 @@ defmodule SymbolGetTest do
     """)
 
     conn =
-      conn(:get, "/api/docs/#{sym_name}", %{"patches" => "update", "patch_id" => "#{sym_rev_b}"})
+      conn(:get, "/api/symbols/#{sym_name}", %{"patches" => "update", "patch_id" => "#{sym_rev_b}"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -386,7 +386,7 @@ defmodule SymbolGetTest do
   end
 
   @doc """
-  GET /api/docs/existent?patches=all -H authorization:at3
+  GET /api/symbols/existent?patches=all -H authorization:at3
   """
   test "get an existing symbol's patches 1" do
     cat_name = :rand.uniform(100_000_000)
@@ -400,7 +400,7 @@ defmodule SymbolGetTest do
     """)
 
     conn =
-      conn(:get, "/api/docs/#{sym_name}", %{"patches" => "all"})
+      conn(:get, "/api/symbols/#{sym_name}", %{"patches" => "all"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -425,7 +425,7 @@ defmodule SymbolGetTest do
   end
 
   @doc """
-  GET /api/docs/existent?patches=all -H authorization:at3
+  GET /api/symbols/existent?patches=all -H authorization:at3
   """
   test "get an existing symbol's patches 2" do
     cat_name = :rand.uniform(100_000_000)
@@ -444,7 +444,7 @@ defmodule SymbolGetTest do
     """)
 
     conn =
-      conn(:get, "/api/docs/#{sym_name}", %{"patches" => "all"})
+      conn(:get, "/api/symbols/#{sym_name}", %{"patches" => "all"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -480,7 +480,7 @@ defmodule SymbolGetTest do
   end
 
   @doc """
-  GET /api/docs/existent?patches=all -H authorization:at3
+  GET /api/symbols/existent?patches=all -H authorization:at3
   """
   test "get an existing symbol's patches 3" do
     cat_name = :rand.uniform(100_000_000)
@@ -495,7 +495,7 @@ defmodule SymbolGetTest do
     """)
 
     conn =
-      conn(:get, "/api/docs/#{sym_name}", %{"patches" => "all"})
+      conn(:get, "/api/symbols/#{sym_name}", %{"patches" => "all"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -521,7 +521,7 @@ defmodule SymbolGetTest do
   end
 
   @doc """
-  GET /api/docs/existent?patches=all -H authorization:at3
+  GET /api/symbols/existent?patches=all -H authorization:at3
   """
   test "get an existing symbol's patches 4" do
     cat_name = :rand.uniform(100_000_000)
@@ -541,7 +541,7 @@ defmodule SymbolGetTest do
     """)
 
     conn =
-      conn(:get, "/api/docs/#{sym_name}", %{"patches" => "all"})
+      conn(:get, "/api/symbols/#{sym_name}", %{"patches" => "all"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 

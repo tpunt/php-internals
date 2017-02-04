@@ -7,10 +7,10 @@ defmodule SymbolsGetTest do
   @opts Router.init([])
 
   @doc """
-  GET /api/docs
+  GET /api/symbols
   """
   test "list all symbols" do
-    conn = conn(:get, "/api/docs")
+    conn = conn(:get, "/api/symbols")
     response = Router.call(conn, @opts)
 
     assert response.status == 200
@@ -18,21 +18,21 @@ defmodule SymbolsGetTest do
   end
 
   @doc """
-  GET /api/docs?patches=all
+  GET /api/symbols?patches=all
   """
   test "Unauthenticated attempt at listing all patches for symbols" do
-    conn = conn(:get, "/api/docs", %{"patches" => "all"})
+    conn = conn(:get, "/api/symbols", %{"patches" => "all"})
     response = Router.call(conn, @opts)
 
     assert response.status == 401
   end
 
   @doc """
-  GET /api/docs?patches=all -H 'authorization: at1'
+  GET /api/symbols?patches=all -H 'authorization: at1'
   """
   test "Unauthorised attempt at listing all patches for symbols" do
     conn =
-      conn(:get, "/api/docs", %{"patches" => "all"})
+      conn(:get, "/api/symbols", %{"patches" => "all"})
       |> put_req_header("authorization", "at1")
 
     response = Router.call(conn, @opts)
@@ -41,11 +41,11 @@ defmodule SymbolsGetTest do
   end
 
   @doc """
-  GET /api/docs?patches=all -H 'authorization: at2'
+  GET /api/symbols?patches=all -H 'authorization: at2'
   """
   test "Authorised attempt 1 at listing all patches for symbols" do
     conn =
-      conn(:get, "/api/docs", %{"patches" => "all"})
+      conn(:get, "/api/symbols", %{"patches" => "all"})
       |> put_req_header("authorization", "at2")
 
     response = Router.call(conn, @opts)
@@ -55,11 +55,11 @@ defmodule SymbolsGetTest do
   end
 
   @doc """
-  GET /api/docs?patches=all -H 'authorization: at3'
+  GET /api/symbols?patches=all -H 'authorization: at3'
   """
   test "Authorised attempt 2 at listing all patches for symbols" do
     conn =
-      conn(:get, "/api/docs", %{"patches" => "all"})
+      conn(:get, "/api/symbols", %{"patches" => "all"})
       |> put_req_header("authorization", "at3")
 
     response = Router.call(conn, @opts)
@@ -69,11 +69,11 @@ defmodule SymbolsGetTest do
   end
 
   @doc """
-  GET /api/docs?patches=insert -H 'authorization: at2'
+  GET /api/symbols?patches=insert -H 'authorization: at2'
   """
   test "Authorised attempt at listing all insert patches for symbols" do
     conn =
-      conn(:get, "/api/docs", %{"patches" => "insert"})
+      conn(:get, "/api/symbols", %{"patches" => "insert"})
       |> put_req_header("authorization", "at2")
 
     response = Router.call(conn, @opts)
@@ -83,11 +83,11 @@ defmodule SymbolsGetTest do
   end
 
   @doc """
-  GET /api/docs?patches=update -H 'authorization: at2'
+  GET /api/symbols?patches=update -H 'authorization: at2'
   """
   test "Authorised attempt at listing all update patches for symbols" do
     conn =
-      conn(:get, "/api/docs", %{"patches" => "update"})
+      conn(:get, "/api/symbols", %{"patches" => "update"})
       |> put_req_header("authorization", "at3")
 
     response = Router.call(conn, @opts)
@@ -97,11 +97,11 @@ defmodule SymbolsGetTest do
   end
 
   @doc """
-  GET /api/docs?patches=delete -H 'authorization: at2'
+  GET /api/symbols?patches=delete -H 'authorization: at2'
   """
   test "Authorised attempt at listing all delete patches for symbols" do
     conn =
-      conn(:get, "/api/docs", %{"patches" => "delete"})
+      conn(:get, "/api/symbols", %{"patches" => "delete"})
       |> put_req_header("authorization", "at2")
 
     response = Router.call(conn, @opts)

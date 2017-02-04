@@ -9,7 +9,7 @@ defmodule PhpInternals.Router do
   scope "/api", PhpInternals.Api, as: :api do
     pipe_through :api
 
-    scope "/docs", Docs do
+    scope "/symbols", Symbols do
       get "/:symbol_name", SymbolController, :show
       patch "/:symbol_name", SymbolController, :update
       delete "/:symbol_name", SymbolController, :delete

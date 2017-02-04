@@ -1,7 +1,7 @@
-defmodule PhpInternals.Api.Docs.SymbolView do
+defmodule PhpInternals.Api.Symbols.SymbolView do
   use PhpInternals.Web, :view
 
-  alias PhpInternals.Api.Docs.SymbolView
+  alias PhpInternals.Api.Symbols.SymbolView
   alias PhpInternals.Api.Categories.CategoryView
 
   def render("index.json", %{symbols: symbols}) do
