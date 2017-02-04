@@ -1,7 +1,7 @@
-defmodule PhpInternals.Api.Docs.CategoryView do
+defmodule PhpInternals.Api.Categories.CategoryView do
   use PhpInternals.Web, :view
 
-  alias PhpInternals.Api.Docs.CategoryView
+  alias PhpInternals.Api.Categories.CategoryView
   alias PhpInternals.Api.Docs.SymbolView
 
   def render("index_normal.json", %{categories: categories}) do

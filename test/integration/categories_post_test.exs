@@ -8,12 +8,12 @@ defmodule CategoriesPostTest do
   @opts Router.init([])
 
   @doc """
-  POST /api/docs/categories
+  POST /api/categories
   """
   test "Unauthenticated attempt at inserting a new category" do
     name = :rand.uniform(100_000_000)
     conn =
-      conn(:post, "/api/docs/categories", %{"category" => %{"name": "#{name}", "introduction": "..."}})
+      conn(:post, "/api/categories", %{"category" => %{"name": "#{name}", "introduction": "..."}})
       |> put_req_header("content-type", "application/json")
 
     response = Router.call(conn, @opts)
@@ -23,12 +23,12 @@ defmodule CategoriesPostTest do
   end
 
   @doc """
-  POST /api/docs/categories -H 'authorization: at1'
+  POST /api/categories -H 'authorization: at1'
   """
   test "Authorised attempt 1 at inserting a new category patch" do
     name = :rand.uniform(100_000_000)
     conn =
-      conn(:post, "/api/docs/categories", %{"category" => %{"name": "#{name}", "introduction": "..."}})
+      conn(:post, "/api/categories", %{"category" => %{"name": "#{name}", "introduction": "..."}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -42,12 +42,12 @@ defmodule CategoriesPostTest do
   end
 
   @doc """
-  POST /api/docs/categories?review=1 -H 'authorization: at2'
+  POST /api/categories?review=1 -H 'authorization: at2'
   """
   test "Authorised attempt 2 at inserting a new category patch" do
     name = :rand.uniform(100_000_000)
     conn =
-      conn(:post, "/api/docs/categories", %{"category" => %{"name": "#{name}", "introduction": "..."}, "review" => "1"})
+      conn(:post, "/api/categories", %{"category" => %{"name": "#{name}", "introduction": "..."}, "review" => "1"})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at2")
 
@@ -61,12 +61,12 @@ defmodule CategoriesPostTest do
   end
 
   @doc """
-  POST /api/docs/categories?review=1 -H 'authorization: at3'
+  POST /api/categories?review=1 -H 'authorization: at3'
   """
   test "Authorised attempt 3 at inserting a new category patch" do
     name = :rand.uniform(100_000_000)
     conn =
-      conn(:post, "/api/docs/categories", %{"category" => %{"name": "#{name}", "introduction": "..."}, "review" => "1"})
+      conn(:post, "/api/categories", %{"category" => %{"name": "#{name}", "introduction": "..."}, "review" => "1"})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at3")
 
@@ -80,12 +80,12 @@ defmodule CategoriesPostTest do
   end
 
   @doc """
-  POST /api/docs/categories?review=1 -H 'authorization: at3'
+  POST /api/categories?review=1 -H 'authorization: at3'
   """
   test "Authorised invalid attempt at inserting a new category patch" do
     name = :rand.uniform(100_000_000)
     conn =
-      conn(:post, "/api/docs/categories", %{"category" => %{"introduction": "..."}, "review" => "1"})
+      conn(:post, "/api/categories", %{"category" => %{"introduction": "..."}, "review" => "1"})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at3")
 
@@ -97,12 +97,12 @@ defmodule CategoriesPostTest do
   end
 
   @doc """
-  POST /api/docs/categories -H 'authorization: at2'
+  POST /api/categories -H 'authorization: at2'
   """
   test "Authorised attempt 1 at inserting a new category" do
     name = :rand.uniform(100_000_000)
     conn =
-      conn(:post, "/api/docs/categories", %{"category" => %{"name": "#{name}", "introduction": "..."}})
+      conn(:post, "/api/categories", %{"category" => %{"name": "#{name}", "introduction": "..."}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at2")
 
@@ -115,12 +115,12 @@ defmodule CategoriesPostTest do
   end
 
   @doc """
-  POST /api/docs/categories -H 'authorization: at3'
+  POST /api/categories -H 'authorization: at3'
   """
   test "Authorised attempt 2 at inserting a new category" do
     name = :rand.uniform(100_000_000)
     conn =
-      conn(:post, "/api/docs/categories", %{"category" => %{"name": "#{name}", "introduction": "..."}})
+      conn(:post, "/api/categories", %{"category" => %{"name": "#{name}", "introduction": "..."}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at3")
 
@@ -133,12 +133,12 @@ defmodule CategoriesPostTest do
   end
 
   @doc """
-  POST /api/docs/categories -H 'authorization: at3'
+  POST /api/categories -H 'authorization: at3'
   """
   test "Authorised invalid attempt at inserting a new category" do
     name = :rand.uniform(100_000_000)
     conn =
-      conn(:post, "/api/docs/categories", %{"category" => %{"name": "#{name}"}})
+      conn(:post, "/api/categories", %{"category" => %{"name": "#{name}"}})
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at3")
 

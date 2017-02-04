@@ -10,16 +10,19 @@ defmodule PhpInternals.Router do
     pipe_through :api
 
     scope "/docs", Docs do
-      get "/categories", CategoryController, :index
-      post "/categories", CategoryController, :insert
-      get "/categories/:category_name", CategoryController, :show
-      patch "/categories/:category_name", CategoryController, :update
-      delete "/categories/:category_name", CategoryController, :delete
       get "/:symbol_name", SymbolController, :show
       patch "/:symbol_name", SymbolController, :update
       delete "/:symbol_name", SymbolController, :delete
       get "/", SymbolController, :index
       post "/", SymbolController, :create
+    end
+
+    scope "/categories", Categories do
+      get "/:category_name", CategoryController, :show
+      patch "/:category_name", CategoryController, :update
+      delete "/:category_name", CategoryController, :delete
+      get "/", CategoryController, :index
+      post "/", CategoryController, :insert
     end
 
     scope "/articles", Articles do

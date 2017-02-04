@@ -1,7 +1,7 @@
 defmodule PhpInternals.Api.Docs.SymbolController do
   use PhpInternals.Web, :controller
 
-  alias PhpInternals.Api.Docs.Category
+  alias PhpInternals.Api.Categories.Category
   alias PhpInternals.Api.Docs.Symbol
   alias PhpInternals.Utilities
 

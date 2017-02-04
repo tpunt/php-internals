@@ -1,7 +1,7 @@
 defmodule PhpInternals.Api.Articles.ArticleView do
   use PhpInternals.Web, :view
 
-  alias PhpInternals.Api.Docs.CategoryView
+  alias PhpInternals.Api.Categories.CategoryView
   alias PhpInternals.Api.Articles.ArticleView
   alias PhpInternals.Api.Users.UserView
 

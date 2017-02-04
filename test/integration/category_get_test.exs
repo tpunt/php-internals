@@ -8,24 +8,24 @@ defmodule CategoryGetTest do
   @opts Router.init([])
 
   @doc """
-  GET /api/docs/categories/non-existent
+  GET /api/categories/non-existent
   """
   test "list a non-existent category" do
-    conn = conn(:get, "/api/docs/categories/non-existent")
+    conn = conn(:get, "/api/categories/non-existent")
     response = Router.call(conn, @opts)
 
     assert response.status == 404
   end
 
   @doc """
-  GET /api/docs/categories/existent
+  GET /api/categories/existent
   """
   test "list an existing category" do
     name = :rand.uniform(100_000_000)
     rev_id = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
 
-    conn = conn(:get, "/api/docs/categories/#{name}")
+    conn = conn(:get, "/api/categories/#{name}")
     response = Router.call(conn, @opts)
 
     assert response.status == 200
@@ -35,23 +35,23 @@ defmodule CategoryGetTest do
   end
 
   @doc """
-  GET /api/docs/categories/non-existent?view=overview
+  GET /api/categories/non-existent?view=overview
   """
   test "list a non-existent category overview" do
-    conn = conn(:get, "/api/docs/categories/non-existent", %{"view" => "overview"})
+    conn = conn(:get, "/api/categories/non-existent", %{"view" => "overview"})
     response = Router.call(conn, @opts)
 
     assert response.status == 404
   end
 
   @doc """
-  GET /api/docs/categories/existent?view=overview
+  GET /api/categories/existent?view=overview
   """
   test "list an existing category overview" do
     name = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}'})")
 
-    conn = conn(:get, "/api/docs/categories/#{name}", %{"view" => "overview"})
+    conn = conn(:get, "/api/categories/#{name}", %{"view" => "overview"})
     response = Router.call(conn, @opts)
 
     assert response.status == 200
@@ -61,17 +61,17 @@ defmodule CategoryGetTest do
   end
 
   @doc """
-  GET /api/docs/categories/non-existent?view=full
+  GET /api/categories/non-existent?view=full
   """
   test "list a non-existent category in full" do
-    conn = conn(:get, "/api/docs/categories/non-existent", %{"view" => "full"})
+    conn = conn(:get, "/api/categories/non-existent", %{"view" => "full"})
     response = Router.call(conn, @opts)
 
     assert response.status == 404
   end
 
   @doc """
-  GET /api/docs/categories/existent?view=full
+  GET /api/categories/existent?view=full
   """
   test "list an existing category in full" do
     cat_name = :rand.uniform(100_000_000)
@@ -84,7 +84,7 @@ defmodule CategoryGetTest do
         (s)-[:CATEGORY]->(c)
     """)
 
-    conn = conn(:get, "/api/docs/categories/#{cat_name}", %{"view" => "full"})
+    conn = conn(:get, "/api/categories/#{cat_name}", %{"view" => "full"})
     response = Router.call(conn, @opts)
 
     assert response.status == 200
@@ -100,7 +100,7 @@ defmodule CategoryGetTest do
   end
 
   @doc """
-  GET /api/docs/categories/existent?patches=insert -H 'authorization: at2'
+  GET /api/categories/existent?patches=insert -H 'authorization: at2'
   """
   test "Authorised invalid attempt at listing an existing category insert patch" do
     name = :rand.uniform(100_000_000)
@@ -108,7 +108,7 @@ defmodule CategoryGetTest do
     Neo4j.query!(Neo4j.conn, "CREATE (:InsertCategoryPatch {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
 
     conn =
-      conn(:get, "/api/docs/categories/#{name}", %{"patches" => "insert"})
+      conn(:get, "/api/categories/#{name}", %{"patches" => "insert"})
       |> put_req_header("authorization", "at2")
 
     response = Router.call(conn, @opts)
@@ -120,7 +120,7 @@ defmodule CategoryGetTest do
   end
 
   @doc """
-  GET /api/docs/categories/existent?patches=update -H 'authorization: at2'
+  GET /api/categories/existent?patches=update -H 'authorization: at2'
   """
   test "Authorised attempt at listing an existing category's update patches" do
     name = :rand.uniform(100_000_000)
@@ -135,7 +135,7 @@ defmodule CategoryGetTest do
     """)
 
     conn =
-      conn(:get, "/api/docs/categories/#{name}", %{"patches" => "update"})
+      conn(:get, "/api/categories/#{name}", %{"patches" => "update"})
       |> put_req_header("authorization", "at2")
 
     response = Router.call(conn, @opts)
@@ -147,7 +147,7 @@ defmodule CategoryGetTest do
   end
 
   @doc """
-  GET /api/docs/categories/non-existent?patches=update -H 'authorization: at2'
+  GET /api/categories/non-existent?patches=update -H 'authorization: at2'
   """
   test "Authorised attempt at listing a non-existent category's update patches" do
     name = :rand.uniform(100_000_000)
@@ -155,7 +155,7 @@ defmodule CategoryGetTest do
     Neo4j.query!(Neo4j.conn, "CREATE (:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
 
     conn =
-      conn(:get, "/api/docs/categories/#{name}", %{"patches" => "update"})
+      conn(:get, "/api/categories/#{name}", %{"patches" => "update"})
       |> put_req_header("authorization", "at2")
 
     response = Router.call(conn, @opts)
@@ -167,7 +167,7 @@ defmodule CategoryGetTest do
   end
 
   @doc """
-  GET /api/docs/categories/existent?patches=update&patch_id=1 -H 'authorization: at2'
+  GET /api/categories/existent?patches=update&patch_id=1 -H 'authorization: at2'
   """
   test "Authorised attempt at listing an existing category's update patch" do
     name = :rand.uniform(100_000_000)
@@ -182,7 +182,7 @@ defmodule CategoryGetTest do
     """)
 
     conn =
-      conn(:get, "/api/docs/categories/#{name}", %{"patches" => "update", "patch_id" => "#{rev_id2}"})
+      conn(:get, "/api/categories/#{name}", %{"patches" => "update", "patch_id" => "#{rev_id2}"})
       |> put_req_header("authorization", "at2")
 
     response = Router.call(conn, @opts)
@@ -194,7 +194,7 @@ defmodule CategoryGetTest do
   end
 
   @doc """
-  GET /api/docs/categories/existent?patches=update&patch_id=1 -H 'authorization: at3'
+  GET /api/categories/existent?patches=update&patch_id=1 -H 'authorization: at3'
   """
   test "Authorised attempt at listing an existing category's non-existent update patch" do
     name = :rand.uniform(100_000_000)
@@ -209,7 +209,7 @@ defmodule CategoryGetTest do
     """)
 
     conn =
-      conn(:get, "/api/docs/categories/#{name}", %{"patches" => "update", "patch_id" => "1"})
+      conn(:get, "/api/categories/#{name}", %{"patches" => "update", "patch_id" => "1"})
       |> put_req_header("authorization", "at3")
 
     response = Router.call(conn, @opts)
@@ -221,7 +221,7 @@ defmodule CategoryGetTest do
   end
 
   @doc """
-  GET /api/docs/categories/existent?patches=delete -H 'authorization: at2'
+  GET /api/categories/existent?patches=delete -H 'authorization: at2'
   """
   test "Authorised attempt at listing an existing category delete patch" do
     name = :rand.uniform(100_000_000)
@@ -231,7 +231,7 @@ defmodule CategoryGetTest do
     """)
 
     conn =
-      conn(:get, "/api/docs/categories/#{name}", %{"patches" => "delete"})
+      conn(:get, "/api/categories/#{name}", %{"patches" => "delete"})
       |> put_req_header("authorization", "at2")
 
     response = Router.call(conn, @opts)
@@ -243,11 +243,11 @@ defmodule CategoryGetTest do
   end
 
   @doc """
-  GET /api/docs/categories/non-existent?patches=delete -H 'authorization: at2'
+  GET /api/categories/non-existent?patches=delete -H 'authorization: at2'
   """
   test "Authorised attempt at listing a non-existent category delete patch" do
     conn =
-      conn(:get, "/api/docs/categories/non-existent", %{"patches" => "delete"})
+      conn(:get, "/api/categories/non-existent", %{"patches" => "delete"})
       |> put_req_header("authorization", "at2")
 
     response = Router.call(conn, @opts)

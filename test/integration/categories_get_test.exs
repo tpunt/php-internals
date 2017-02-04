@@ -7,10 +7,10 @@ defmodule CategoriesGetTest do
   @opts Router.init([])
 
   @doc """
-  GET /api/docs/categories
+  GET /api/categories
   """
   test "list all categories" do
-    conn = conn(:get, "/api/docs/categories")
+    conn = conn(:get, "/api/categories")
     response = Router.call(conn, @opts)
 
     assert response.status == 200
@@ -18,10 +18,10 @@ defmodule CategoriesGetTest do
   end
 
   @doc """
-  GET /api/docs/categories?view=overview
+  GET /api/categories?view=overview
   """
   test "list all categories overview" do
-    conn = conn(:get, "/api/docs/categories", %{"view" => "overview"})
+    conn = conn(:get, "/api/categories", %{"view" => "overview"})
     response = Router.call(conn, @opts)
 
     assert response.status == 200
@@ -29,10 +29,10 @@ defmodule CategoriesGetTest do
   end
 
   @doc """
-  GET /api/docs/categories?view=full
+  GET /api/categories?view=full
   """
   test "list all categories in full" do
-    conn = conn(:get, "/api/docs/categories", %{"view" => "full"})
+    conn = conn(:get, "/api/categories", %{"view" => "full"})
     response = Router.call(conn, @opts)
 
     assert response.status == 200
@@ -40,21 +40,21 @@ defmodule CategoriesGetTest do
   end
 
   @doc """
-  GET /api/docs/categories?patches=all
+  GET /api/categories?patches=all
   """
   test "Unauthenticated attempt at listing all patches for categories" do
-    conn = conn(:get, "/api/docs/categories", %{"patches" => "all"})
+    conn = conn(:get, "/api/categories", %{"patches" => "all"})
     response = Router.call(conn, @opts)
 
     assert response.status == 401
   end
 
   @doc """
-  GET /api/docs/categories?patches=all -H 'authorization: at1'
+  GET /api/categories?patches=all -H 'authorization: at1'
   """
   test "Unauthorised attempt at listing all patches for categories" do
     conn =
-      conn(:get, "/api/docs/categories", %{"patches" => "all"})
+      conn(:get, "/api/categories", %{"patches" => "all"})
       |> put_req_header("authorization", "at1")
 
     response = Router.call(conn, @opts)
@@ -63,11 +63,11 @@ defmodule CategoriesGetTest do
   end
 
   @doc """
-  GET /api/docs/categories?patches=all -H 'authorization: at2'
+  GET /api/categories?patches=all -H 'authorization: at2'
   """
   test "Authorised attempt 1 at listing all patches for categories" do
     conn =
-      conn(:get, "/api/docs/categories", %{"patches" => "all"})
+      conn(:get, "/api/categories", %{"patches" => "all"})
       |> put_req_header("authorization", "at2")
 
     response = Router.call(conn, @opts)
@@ -77,11 +77,11 @@ defmodule CategoriesGetTest do
   end
 
   @doc """
-  GET /api/docs/categories?patches=all -H 'authorization: at3'
+  GET /api/categories?patches=all -H 'authorization: at3'
   """
   test "Authorised attempt 2 at listing all patches for categories" do
     conn =
-      conn(:get, "/api/docs/categories", %{"patches" => "all"})
+      conn(:get, "/api/categories", %{"patches" => "all"})
       |> put_req_header("authorization", "at3")
 
     response = Router.call(conn, @opts)
@@ -91,11 +91,11 @@ defmodule CategoriesGetTest do
   end
 
   @doc """
-  GET /api/docs/categories?patches=insert -H 'authorization: at2'
+  GET /api/categories?patches=insert -H 'authorization: at2'
   """
   test "Authorised attempt at listing all insert patches for categories" do
     conn =
-      conn(:get, "/api/docs/categories", %{"patches" => "insert"})
+      conn(:get, "/api/categories", %{"patches" => "insert"})
       |> put_req_header("authorization", "at2")
 
     response = Router.call(conn, @opts)
@@ -105,11 +105,11 @@ defmodule CategoriesGetTest do
   end
 
   @doc """
-  GET /api/docs/categories?patches=update -H 'authorization: at2'
+  GET /api/categories?patches=update -H 'authorization: at2'
   """
   test "Authorised attempt at listing all update patches for categories" do
     conn =
-      conn(:get, "/api/docs/categories", %{"patches" => "update"})
+      conn(:get, "/api/categories", %{"patches" => "update"})
       |> put_req_header("authorization", "at3")
 
     response = Router.call(conn, @opts)
@@ -119,11 +119,11 @@ defmodule CategoriesGetTest do
   end
 
   @doc """
-  GET /api/docs/categories?patches=delete -H 'authorization: at2'
+  GET /api/categories?patches=delete -H 'authorization: at2'
   """
   test "Authorised attempt at listing all delete patches for categories" do
     conn =
-      conn(:get, "/api/docs/categories", %{"patches" => "delete"})
+      conn(:get, "/api/categories", %{"patches" => "delete"})
       |> put_req_header("authorization", "at2")
 
     response = Router.call(conn, @opts)
@@ -133,11 +133,11 @@ defmodule CategoriesGetTest do
   end
 
   @doc """
-  GET /api/docs/categories?status=deleted -H 'authorization: at2'
+  GET /api/categories?status=deleted -H 'authorization: at2'
   """
   test "Unauthorised attempt at viewing deleted categories" do
     conn =
-      conn(:get, "/api/docs/categories", %{"status" => "deleted"})
+      conn(:get, "/api/categories", %{"status" => "deleted"})
       |> put_req_header("authorization", "at2")
 
     response = Router.call(conn, @opts)
@@ -146,11 +146,11 @@ defmodule CategoriesGetTest do
   end
 
   @doc """
-  GET /api/docs/categories?status=deleted -H 'authorization: at3'
+  GET /api/categories?status=deleted -H 'authorization: at3'
   """
   test "Authorised attempt at viewing deleted categories" do
     conn =
-      conn(:get, "/api/docs/categories", %{"status" => "deleted"})
+      conn(:get, "/api/categories", %{"status" => "deleted"})
       |> put_req_header("authorization", "at3")
 
     response = Router.call(conn, @opts)

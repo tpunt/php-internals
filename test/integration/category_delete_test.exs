@@ -8,10 +8,10 @@ defmodule CategoryDeleteTest do
   @opts Router.init([])
 
   @doc """
-  DELETE /api/docs/categories/non-existent
+  DELETE /api/categories/non-existent
   """
   test "Unauthenticated soft delete request for a non-existent category" do
-    conn = conn(:delete, "/api/docs/categories/non-existent")
+    conn = conn(:delete, "/api/categories/non-existent")
 
     response = Router.call(conn, @opts)
 
@@ -19,13 +19,13 @@ defmodule CategoryDeleteTest do
   end
 
   @doc """
-  DELETE /api/docs/categories/existent
+  DELETE /api/categories/existent
   """
   test "Unauthenticated soft delete request for an existing category" do
     name = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}'})")
 
-    conn = conn(:delete, "/api/docs/categories/#{name}")
+    conn = conn(:delete, "/api/categories/#{name}")
 
     response = Router.call(conn, @opts)
 
@@ -33,11 +33,11 @@ defmodule CategoryDeleteTest do
   end
 
   @doc """
-  DELETE /api/docs/categories/non-existent -H 'authorization: at1'
+  DELETE /api/categories/non-existent -H 'authorization: at1'
   """
   test "Authorised soft delete request for a non-existent category" do
     conn =
-      conn(:delete, "/api/docs/categories/non-existent")
+      conn(:delete, "/api/categories/non-existent")
       |> put_req_header("authorization", "at1")
 
     response = Router.call(conn, @opts)
@@ -46,14 +46,14 @@ defmodule CategoryDeleteTest do
   end
 
   @doc """
-  DELETE /api/docs/categories/existent -H 'authorization: at1'
+  DELETE /api/categories/existent -H 'authorization: at1'
   """
   test "Authorised soft delete request for an existing category" do
     name = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}'})")
 
     conn =
-      conn(:delete, "/api/docs/categories/#{name}")
+      conn(:delete, "/api/categories/#{name}")
       |> put_req_header("authorization", "at1")
 
     response = Router.call(conn, @opts)
@@ -65,11 +65,11 @@ defmodule CategoryDeleteTest do
   end
 
   @doc """
-  DELETE /api/docs/categories/non-existent -H 'authorization: at2'
+  DELETE /api/categories/non-existent -H 'authorization: at2'
   """
   test "Authorised soft delete for a non-existent category" do
     conn =
-      conn(:delete, "/api/docs/categories/non-existent")
+      conn(:delete, "/api/categories/non-existent")
       |> put_req_header("authorization", "at2")
 
     response = Router.call(conn, @opts)
@@ -78,21 +78,21 @@ defmodule CategoryDeleteTest do
   end
 
   @doc """
-  DELETE /api/docs/categories/existent -H 'authorization: at2'
+  DELETE /api/categories/existent -H 'authorization: at2'
   """
   test "Authorised soft delete for a category" do
     name = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}'})")
 
     conn =
-      conn(:delete, "/api/docs/categories/#{name}")
+      conn(:delete, "/api/categories/#{name}")
       |> put_req_header("authorization", "at2")
 
     response = Router.call(conn, @opts)
 
     assert response.status == 204
 
-    conn = conn(:get, "/api/docs/categories/#{name}")
+    conn = conn(:get, "/api/categories/#{name}")
 
     response = Router.call(conn, @opts)
 
@@ -100,21 +100,21 @@ defmodule CategoryDeleteTest do
   end
 
   @doc """
-  DELETE /api/docs/categories/non-existent -H 'authorization: at2'
+  DELETE /api/categories/non-existent -H 'authorization: at2'
   """
   test "Unauthenticated hard delete for a non-existent category" do
     name = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}'})")
 
     conn =
-      conn(:delete, "/api/docs/categories/#{name}")
+      conn(:delete, "/api/categories/#{name}")
       |> put_req_header("authorization", "at2")
 
     response = Router.call(conn, @opts)
 
     assert response.status == 204
 
-    conn = conn(:get, "/api/docs/categories/#{name}")
+    conn = conn(:get, "/api/categories/#{name}")
 
     response = Router.call(conn, @opts)
 

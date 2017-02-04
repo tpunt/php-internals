@@ -8,7 +8,7 @@ defmodule CategoryPatchTest do
   @opts Router.init([])
 
   test "Unauthenticated non-existent category patch" do
-    conn = conn(:patch, "/api/docs/categories/non-existent")
+    conn = conn(:patch, "/api/categories/non-existent")
     response = Router.call(conn, @opts)
 
     assert response.status == 401
@@ -17,7 +17,7 @@ defmodule CategoryPatchTest do
 
   test "Authorised non-existent category patch" do
     conn =
-      conn(:patch, "/api/docs/categories/non-existent", %{"category" => %{"name" => ".", "introduction" => "."}})
+      conn(:patch, "/api/categories/non-existent", %{"category" => %{"name" => ".", "introduction" => "."}})
       |> put_req_header("authorization", "at1")
     response = Router.call(conn, @opts)
 
@@ -31,7 +31,7 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"category" => %{"name" => "#{name}", "introduction" => "."}})
+      conn(:patch, "/api/categories/#{name}", %{"category" => %{"name" => "#{name}", "introduction" => "."}})
       |> put_req_header("authorization", "at1")
     response = Router.call(conn, @opts)
 
@@ -48,7 +48,7 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"review" => "1", "category" => %{"name" => "#{name}", "introduction" => "."}})
+      conn(:patch, "/api/categories/#{name}", %{"review" => "1", "category" => %{"name" => "#{name}", "introduction" => "."}})
       |> put_req_header("authorization", "at2")
     response = Router.call(conn, @opts)
 
@@ -65,7 +65,7 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"review" => "1", "category" => %{"name" => "#{name}", "introduction" => "."}})
+      conn(:patch, "/api/categories/#{name}", %{"review" => "1", "category" => %{"name" => "#{name}", "introduction" => "."}})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -87,7 +87,7 @@ defmodule CategoryPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"review" => "1", "references_patch" => "#{rev_id2}", "category" => %{"name" => "#{name}.", "introduction" => "....."}})
+      conn(:patch, "/api/categories/#{name}", %{"review" => "1", "references_patch" => "#{rev_id2}", "category" => %{"name" => "#{name}.", "introduction" => "....."}})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -105,7 +105,7 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"review" => "1", "references_patch" => "1", "category" => %{"name" => "#{name}.", "introduction" => "....."}})
+      conn(:patch, "/api/categories/#{name}", %{"review" => "1", "references_patch" => "1", "category" => %{"name" => "#{name}.", "introduction" => "....."}})
       |> put_req_header("authorization", "at1")
     response = Router.call(conn, @opts)
 
@@ -121,7 +121,7 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"category" => %{"name" => "#{name}", "introduction" => "."}})
+      conn(:patch, "/api/categories/#{name}", %{"category" => %{"name" => "#{name}", "introduction" => "."}})
       |> put_req_header("authorization", "at2")
     response = Router.call(conn, @opts)
 
@@ -139,7 +139,7 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"category" => %{"name" => "#{name}", "introduction" => "."}})
+      conn(:patch, "/api/categories/#{name}", %{"category" => %{"name" => "#{name}", "introduction" => "."}})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -162,7 +162,7 @@ defmodule CategoryPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"references_patch" => "#{rev_id2}", "category" => %{"name" => "#{name}.", "introduction" => "....."}})
+      conn(:patch, "/api/categories/#{name}", %{"references_patch" => "#{rev_id2}", "category" => %{"name" => "#{name}.", "introduction" => "....."}})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -180,7 +180,7 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"references_patch" => "1", "category" => %{"name" => "#{name}.", "introduction" => "....."}})
+      conn(:patch, "/api/categories/#{name}", %{"references_patch" => "1", "category" => %{"name" => "#{name}.", "introduction" => "....."}})
       |> put_req_header("authorization", "at1")
     response = Router.call(conn, @opts)
 
@@ -196,7 +196,7 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:InsertCategoryPatch {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"apply_patch" => "insert"})
+      conn(:patch, "/api/categories/#{name}", %{"apply_patch" => "insert"})
       |> put_req_header("authorization", "at2")
     response = Router.call(conn, @opts)
 
@@ -214,7 +214,7 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:InsertCategoryPatch {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"apply_patch" => "insert"})
+      conn(:patch, "/api/categories/#{name}", %{"apply_patch" => "insert"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -232,7 +232,7 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, "CREATE (:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"apply_patch" => "insert"})
+      conn(:patch, "/api/categories/#{name}", %{"apply_patch" => "insert"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -252,7 +252,7 @@ defmodule CategoryPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"apply_patch" => "insert"})
+      conn(:patch, "/api/categories/#{name}", %{"apply_patch" => "insert"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -277,7 +277,7 @@ defmodule CategoryPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"apply_patch" => "update,#{rev_id2}"})
+      conn(:patch, "/api/categories/#{name}", %{"apply_patch" => "update,#{rev_id2}"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -291,7 +291,7 @@ defmodule CategoryPatchTest do
 
   test "Authorised invalid update existing category patch apply 1" do
     conn =
-      conn(:patch, "/api/docs/categories/non-existent", %{"apply_patch" => "update,1"})
+      conn(:patch, "/api/categories/non-existent", %{"apply_patch" => "update,1"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -308,7 +308,7 @@ defmodule CategoryPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"apply_patch" => "update,#{rev_id2}"})
+      conn(:patch, "/api/categories/#{name}", %{"apply_patch" => "update,#{rev_id2}"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -330,7 +330,7 @@ defmodule CategoryPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"apply_patch" => "update,#{rev_id2}"})
+      conn(:patch, "/api/categories/#{name}", %{"apply_patch" => "update,#{rev_id2}"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -348,7 +348,7 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"apply_patch" => "invalid_action"})
+      conn(:patch, "/api/categories/#{name}", %{"apply_patch" => "invalid_action"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -364,7 +364,7 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"apply_patch" => "update,1,1"})
+      conn(:patch, "/api/categories/#{name}", %{"apply_patch" => "update,1,1"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -382,7 +382,7 @@ defmodule CategoryPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"apply_patch" => "delete"})
+      conn(:patch, "/api/categories/#{name}", %{"apply_patch" => "delete"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -395,7 +395,7 @@ defmodule CategoryPatchTest do
 
   test "Authorised invalid delete existing category patch apply 1" do
     conn =
-      conn(:patch, "/api/docs/categories/non-existent", %{"apply_patch" => "delete"})
+      conn(:patch, "/api/categories/non-existent", %{"apply_patch" => "delete"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -409,7 +409,7 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"apply_patch" => "delete"})
+      conn(:patch, "/api/categories/#{name}", %{"apply_patch" => "delete"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -425,7 +425,7 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, "CREATE (c:InsertCategoryPatch {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"discard_patch" => "insert"})
+      conn(:patch, "/api/categories/#{name}", %{"discard_patch" => "insert"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -451,7 +451,7 @@ defmodule CategoryPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"discard_patch" => "update,#{rev_id2}"})
+      conn(:patch, "/api/categories/#{name}", %{"discard_patch" => "update,#{rev_id2}"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -471,7 +471,7 @@ defmodule CategoryPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/docs/categories/#{name}", %{"discard_patch" => "delete"})
+      conn(:patch, "/api/categories/#{name}", %{"discard_patch" => "delete"})
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 

@@ -1,4 +1,4 @@
-defmodule PhpInternals.Api.Docs.Category do
+defmodule PhpInternals.Api.Categories.Category do
   use PhpInternals.Web, :model
 
   @required_fields ["name", "introduction"]

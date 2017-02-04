@@ -1,7 +1,7 @@
 defmodule PhpInternals.Api.Articles.ArticleController do
   use PhpInternals.Web, :controller
 
-  alias PhpInternals.Api.Docs.Category
+  alias PhpInternals.Api.Categories.Category
   alias PhpInternals.Api.Users.User
   alias PhpInternals.Api.Articles.Article
   alias PhpInternals.Utilities

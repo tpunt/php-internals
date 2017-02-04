@@ -1,7 +1,7 @@
-defmodule PhpInternals.Api.Docs.CategoryController do
+defmodule PhpInternals.Api.Categories.CategoryController do
   use PhpInternals.Web, :controller
 
-  alias PhpInternals.Api.Docs.Category
+  alias PhpInternals.Api.Categories.Category
   alias PhpInternals.Utilities
 
   @default_limit 20
