@@ -11,7 +11,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
          {:ok, ordering} <- Utilities.valid_ordering?(params["ordering"]),
          {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]),
-         {:ok, _category} <-Category.valid_category?(params["category"]) do
+         {:ok, _category} <- Category.valid_category?(params["category"]) do
       render(conn, "index.json", articles: Article.fetch_articles(order_by, ordering, offset, limit, params["category"]))
     else
       {:error, status_code, error} ->
