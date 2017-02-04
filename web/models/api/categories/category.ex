@@ -48,6 +48,15 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
+  def does_not_exist?(category_url) do
+    case valid_category?(category_url) do
+      {:ok, category} ->
+        {:error, 400, "The category with the specified name already exists"}
+      {:error, 404, _status} ->
+        {:ok}
+    end
+  end
+
   def valid_category?(nil = _category_url), do: {:ok, nil}
 
   def valid_category?(category_url) do
@@ -58,12 +67,12 @@ defmodule PhpInternals.Api.Categories.Category do
 
     params = %{category_url: category_url}
 
-    category = Neo4j.query!(Neo4j.conn, query, params)
+    category = List.first Neo4j.query!(Neo4j.conn, query, params)
 
-    if category === [] do
+    if category === nil do
       {:error, 404, "Category not found"}
     else
-      {:ok, List.first category}
+      {:ok, category}
     end
   end
 

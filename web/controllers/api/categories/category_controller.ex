@@ -175,8 +175,14 @@ defmodule PhpInternals.Api.Categories.CategoryController do
     end
   end
 
-  def insert(conn, params) do
-    if conn.user.privilege_level > 0 do
+  def insert(%{user: %{privilege_level: 0}} = conn, _params) do
+    conn
+    |> put_status(401)
+    |> render(PhpInternals.ErrorView, "error.json", error: "Unauthenticated access attempt")
+  end
+
+  def insert(conn, %{"category" => %{"name" => name, "introduction" => introduction}} = params) do
+    with {:ok} <- Category.does_not_exist?(Utilities.make_url_friendly_name(name)) do
       review =
         cond do
           conn.user.privilege_level === 1 -> 1
@@ -187,10 +193,17 @@ defmodule PhpInternals.Api.Categories.CategoryController do
 
       insert_category(conn, params)
     else
-      conn
-      |> put_status(401)
-      |> render(PhpInternals.ErrorView, "error.json", error: "Unauthenticated access attempt")
+      {:error, status_code, message} ->
+        conn
+        |> put_status(status_code)
+        |> render(PhpInternals.ErrorView, "error.json", error: message)
     end
+  end
+
+  def insert(conn, _params) do
+    conn
+    |> put_status(400)
+    |> render(PhpInternals.ErrorView, "error.json", error: "Malformed input data")
   end
 
   def update(conn, %{"apply_patch" => action, "category_name" => category_name}) do
