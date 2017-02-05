@@ -219,34 +219,31 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def fetch_all_symbols(order_by, ordering, offset, limit, symbol_type, nil = _category_filter) do
+  def fetch_all_symbols(order_by, ordering, offset, limit, symbol_type, category_filter, search_term) do
     query1 = "MATCH (symbol:Symbol)"
-    query2 = if symbol_type === "all", do: "", else: "WHERE symbol.type = '#{symbol_type}'"
-    query3 = """
+    query2 = if category_filter === nil, do: "", else: "-[:CATEGORY]->(:Category {url: {category_url}})"
+    {query3, search_term} =
+      if search_term === nil do
+        {"", search_term}
+      else
+        if String.first(search_term) === "=" do
+          {"WHERE symbol.name = {search_term}", search_term = String.slice(search_term, 1..-1)}
+        else
+          {"WHERE symbol.name =~ {search_term}", search_term = ".*#{search_term}.*"}
+        end
+      end
+
+    query4 = if symbol_type === "all", do: "", else: "WHERE symbol.type = '#{symbol_type}'"
+    query5 = """
       RETURN symbol
       ORDER BY symbol.#{order_by} #{ordering}
       SKIP #{offset}
       LIMIT #{limit}
     """
 
-    query = query1 <> query2 <> query3
+    query = query1 <> query2 <> query3 <> query4 <> query5
 
-    Neo4j.query!(Neo4j.conn, query)
-  end
-
-  def fetch_all_symbols(order_by, ordering, offset, limit, symbol_type, category_filter) do
-    query1 = "MATCH (symbol:Symbol)-[:CATEGORY]->(:Category {url: {category_url}})"
-    query2 = if symbol_type === "all", do: "", else: "WHERE symbol.type = '#{symbol_type}'"
-    query3 = """
-      RETURN symbol
-      ORDER BY symbol.#{order_by} #{ordering}
-      SKIP #{offset}
-      LIMIT #{limit}
-    """
-
-    query = query1 <> query2 <> query3
-
-    params = %{category_url: category_filter}
+    params = %{category_url: category_filter, search_term: search_term}
 
     Neo4j.query!(Neo4j.conn, query, params)
   end
