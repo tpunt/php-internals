@@ -546,7 +546,7 @@ defmodule PhpInternals.Api.Categories.Category do
           {:error, 400, "Cannot apply patch due to revision ID mismatch"}
         else
           query = """
-            MATCH (c1:Category {name: {category_url}}),
+            MATCH (c1:Category {url: {category_url}}),
               (c1)-[r1:UPDATE]->(c2:UpdateCategoryPatch {revision_id: {patch_revision_id}})
             OPTIONAL MATCH (c1)-[r2:REVISION]->(old_revision:CategoryRevision)
             CREATE (old_category:CategoryRevision {name: c1.name, introduction: c1.introduction, url: c1.url, revision_id: c1.revision_id})
