@@ -279,12 +279,25 @@ defmodule PhpInternals.Api.Categories.Category do
     query = """
       MATCH (c:Category {url: {category_url}})
       OPTIONAL MATCH (s:Symbol)-[:CATEGORY]->(c)
+      OPTIONAL MATCH (a:Article)-[:CATEGORY]->(c), (a)-[:AUTHOR]->(u:User)
+      WITH c, a, u, collect(
+        CASE s WHEN NULL THEN NULL ELSE {name: s.name, url: s.url, type: s.type}
+      END) AS symbols
+      OPTIONAL MATCH (a)-[:CATEGORY]->(ac)
+      WITH c, a, u, symbols, collect(ac) AS acs
       RETURN {
         name: c.name,
         url: c.url,
         introduction: c.introduction,
         revision_id: c.revision_id,
-        symbols: collect(CASE s WHEN NULL THEN NULL ELSE {name: s.name, url: s.url, type: s.type} END)
+        symbols: symbols,
+        articles: collect(CASE a WHEN NULL THEN NULL ELSE {
+          article: {
+            user: {username: u.username, name: u.name, privilege_level: u.privilege_level},
+            categories: acs,
+            title: a.title, url: a.url, date: a.date, excerpt: a.excerpt
+          }
+        } END)
       } as category
     """
 

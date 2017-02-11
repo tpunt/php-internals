@@ -3,6 +3,7 @@ defmodule PhpInternals.Api.Categories.CategoryView do
 
   alias PhpInternals.Api.Categories.CategoryView
   alias PhpInternals.Api.Symbols.SymbolView
+  alias PhpInternals.Api.Articles.ArticleView
 
   def render("index_normal.json", %{categories: categories}) do
     %{categories: render_many(categories, CategoryView, "show.json")}
@@ -123,6 +124,7 @@ defmodule PhpInternals.Api.Categories.CategoryView do
       introduction: category["introduction"],
       url: category["url"],
       revision_id: category["revision_id"],
-      symbols: render_many(category["symbols"], SymbolView, "show_overview.json")}
+      symbols: render_many(category["symbols"], SymbolView, "show_overview.json"),
+      articles: render_many(category["articles"], ArticleView, "show_overview.json")}
   end
 end
