@@ -10,7 +10,7 @@ defmodule CategoriesGetTest do
   GET /api/categories
   """
   test "list all categories" do
-    conn = conn(:get, "/api/categories")
+    conn = conn(:get, "/api/categories", %{})
     response = Router.call(conn, @opts)
 
     assert response.status == 200

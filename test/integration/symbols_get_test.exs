@@ -11,7 +11,7 @@ defmodule SymbolsGetTest do
   GET /api/symbols
   """
   test "list all symbols" do
-    conn = conn(:get, "/api/symbols")
+    conn = conn(:get, "/api/symbols", %{})
     response = Router.call(conn, @opts)
 
     assert response.status == 200
