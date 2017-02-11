@@ -2,7 +2,9 @@ defmodule PhpInternals.Api.Categories.Category do
   use PhpInternals.Web, :model
 
   @required_fields ["name", "introduction"]
-  @valid_fields ["name", "introduction"]
+  @optional_fields []
+
+  @valid_ordering_fields ["name"]
   @default_order_by "name"
 
   @view_types ["normal", "overview", "full"]
@@ -12,15 +14,16 @@ defmodule PhpInternals.Api.Categories.Category do
     if @required_fields -- Map.keys(category) == [] do
       {:ok}
     else
-      {:error, 400, "Missing required fields"}
+      {:error, 400, "Required fields are missing (expecting: #{Enum.join(@required_fields, ", ")})"}
     end
   end
 
   def contains_only_expected_fields?(category) do
-    if Map.keys(category) -- @valid_fields == [] do
+    all_fields = @required_fields ++ @optional_fields
+    if Map.keys(category) -- all_fields == [] do
       {:ok}
     else
-      {:error, 400, "Unknown fields given"}
+      {:error, 400, "Unknown fields given (expecting: #{Enum.join(all_fields, ", ")})"}
     end
   end
 
@@ -28,10 +31,10 @@ defmodule PhpInternals.Api.Categories.Category do
     if order_by === nil do
       {:ok, @default_order_by}
     else
-      if Enum.member?(@valid_fields, order_by) do
+      if Enum.member?(@valid_ordering_fields, order_by) do
         {:ok, order_by}
       else
-        {:error, 400, "Invalid order by field given"}
+        {:error, 400, "Invalid order by field given (expecting: #{Enum.join(@valid_ordering_fields, ", ")})"}
       end
     end
   end
@@ -43,7 +46,7 @@ defmodule PhpInternals.Api.Categories.Category do
       if Enum.member?(@view_types, view_type) do
         {:ok, view_type}
       else
-        {:error, 400, "Invalid view type given"}
+        {:error, 400, "Invalid view type given (expecting: #{Enum.join(@view_types, ", ")})"}
       end
     end
   end

@@ -27,7 +27,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     if @required_fields -- Map.keys(symbol) === [] and special_required_fields?(symbol) do
       {:ok}
     else
-      {:error, 400, "Required fields are missing"}
+      {:error, 400, "Required fields are missing (expecting: #{Enum.join(@required_fields, ", ")}"
+        <> "(as well as parameters and declaration for functions))"}
     end
   end
 
@@ -38,10 +39,11 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   defp special_required_fields?(_symbol), do: true
 
   def contains_only_expected_fields?(symbol) do
-    if Map.keys(symbol) -- (@required_fields ++ @optional_fields) === [] do
+    all_fields = @required_fields ++ @optional_fields
+    if Map.keys(symbol) -- all_fields === [] do
       {:ok}
     else
-      {:error, 400, "Contains unknown fields"}
+      {:error, 400, "Unknown fields given (expecting: #{Enum.join(all_fields, ", ")})"}
     end
   end
 
@@ -52,7 +54,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       if Enum.member?(@valid_order_bys, order_by) do
         {:ok, order_by}
       else
-        {:error, 400, "Invalid order by field given"}
+        {:error, 400, "Invalid order by field given (expecting: #{Enum.join(@valid_order_bys, ", ")})"}
       end
     end
   end
@@ -64,7 +66,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       if Enum.member?(@valid_symbol_types, symbol_type) do
         {:ok, symbol_type}
       else
-        {:error, 400, "Invalid symbol type field given"}
+        {:error, 400, "Invalid symbol type field given (expecting: #{Enum.join(@valid_symbol_types, ", ")})"}
       end
     end
   end

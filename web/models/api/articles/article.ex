@@ -11,7 +11,7 @@ defmodule PhpInternals.Api.Articles.Article do
     if @required_fields -- Map.keys(article) === [] do
       {:ok}
     else
-      {:error, 400, "Required fields are missing"}
+      {:error, 400, "Required fields are missing (expecting: #{Enum.join(@required_fields, ", ")})"}
     end
   end
 

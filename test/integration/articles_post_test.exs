@@ -94,7 +94,8 @@ defmodule ArticlesPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "Required fields are missing"}} = Poison.decode!(response.resp_body)
+    assert %{"error" => %{"message" => "Required fields are missing (expecting: author, title, body, categories, excerpt)"}}
+      = Poison.decode!(response.resp_body)
   end
 
   @doc """

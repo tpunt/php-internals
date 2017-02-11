@@ -52,7 +52,7 @@ defmodule SymbolPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status == 400
-    assert %{"error" => %{"message" => "Required fields are missing"}} = Poison.decode!(response.resp_body)
+    assert %{"error" => %{"message" => "Required fields are missing (expecting: name, description, definition, definition_location, type, categories(as well as parameters and declaration for functions))"}} = Poison.decode!(response.resp_body)
   end
 
   @doc """
