@@ -2,8 +2,8 @@ defmodule PhpInternals.Api.Articles.Article do
   use PhpInternals.Web, :model
 
   @default_order_by "date"
-  @required_fields ["author", "title", "body", "categories"]
-  @optional_fields ["tags"]
+  @required_fields ["author", "title", "body", "categories", "excerpt"]
+  @optional_fields [] # "tags"
 
   # Implement tags?
 
@@ -16,10 +16,11 @@ defmodule PhpInternals.Api.Articles.Article do
   end
 
   def contains_only_expected_fields?(article) do
-    if Map.keys(article) -- (@required_fields ++ @optional_fields) === [] do
+    all_fields = @required_fields ++ @optional_fields
+    if Map.keys(article) -- all_fields === [] do
       {:ok}
     else
-      {:error, 400, "Unknown fields given"}
+      {:error, 400, "Unknown fields given (expecting: #{Enum.join(all_fields, ", ")})"}
     end
   end
 
@@ -34,6 +35,10 @@ defmodule PhpInternals.Api.Articles.Article do
       end
     end
   end
+
+  def valid_view?(nil = _view), do: {:ok, "full"}
+  def valid_view?("overview" = view), do: {:ok, view}
+  def valid_view?(_view), do: {:error, 400, "Invalid view field given"}
 
   def exists?(article_url) do
     query = """
@@ -71,24 +76,32 @@ defmodule PhpInternals.Api.Articles.Article do
     end
   end
 
-  def fetch_articles(order_by, ordering, offset, limit, category_filter) do
+  def fetch_articles(order_by, ordering, offset, limit, category_filter, view) do
     query1 =
       if category_filter === nil do
-        "MATCH (article:Article)"
+        "MATCH (a:Article)"
       else
-        "MATCH (article:Article)-[:CATEGORY]->(:Category {url: {category_url}})"
+        "MATCH (a:Article)-[:CATEGORY]->(:Category {url: {category_url}})"
       end
 
-    query = query1 <> """
-      MATCH (article)-[arel:AUTHOR]->(u:User),
-        (article)-[crel:CATEGORY]->(category:Category)
-      RETURN article,
+    query2 = "MATCH (a)-[arel:AUTHOR]->(u:User), (a)-[crel:CATEGORY]->(category:Category)"
+
+    query3 =
+      if view === "overview" do
+        "RETURN {title: a.title, url: a.url, date: a.date, excerpt: a.excerpt} AS article,"
+      else
+        "RETURN a AS article,"
+      end
+
+    query4 = """
         collect(category) as categories,
         {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
       ORDER BY article.#{order_by} #{ordering}
       SKIP #{offset}
       LIMIT #{limit}
     """
+
+    query = query1 <> query2 <> query3 <> query4
 
     params = %{category_url: category_filter}
 
@@ -106,7 +119,7 @@ defmodule PhpInternals.Api.Articles.Article do
 
   def insert(article) do
     query1 = """
-      CREATE (article:Article {title: {title}, url: {url}, body: {body}, date: timestamp()})
+      CREATE (article:Article {title: {title}, url: {url}, excerpt: {excerpt}, body: {body}, date: timestamp()})
     """
 
     {query2, params1, _counter} =
@@ -134,6 +147,7 @@ defmodule PhpInternals.Api.Articles.Article do
     params2 = %{
       title: article["title"],
       url: article["url"],
+      excerpt: article["excerpt"],
       body: article["body"],
       username: article["author"]
     }
@@ -156,6 +170,7 @@ defmodule PhpInternals.Api.Articles.Article do
       MATCH (article:Article {url: {old_url}})-[r:CATEGORY]->(:Category)
       SET article.url = {new_url},
           article.title = {new_title},
+          article.excerpt = {new_excerpt},
           article.body = {new_body}
       DELETE r
     """
@@ -183,6 +198,7 @@ defmodule PhpInternals.Api.Articles.Article do
       old_url: article_url,
       new_title: article["title"],
       new_url: article["url"],
+      new_excerpt: article["excerpt"],
       new_body: article["body"]
     }
 

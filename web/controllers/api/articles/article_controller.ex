@@ -11,8 +11,9 @@ defmodule PhpInternals.Api.Articles.ArticleController do
          {:ok, ordering} <- Utilities.valid_ordering?(params["ordering"]),
          {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]),
-         {:ok, _category} <- Category.valid_category?(params["category"]) do
-      render(conn, "index.json", articles: Article.fetch_articles(order_by, ordering, offset, limit, params["category"]))
+         {:ok, _category} <- Category.valid_category?(params["category"]),
+         {:ok, view} <- Article.valid_view?(params["view"]) do
+      render(conn, "index_#{view}.json", articles: Article.fetch_articles(order_by, ordering, offset, limit, params["category"], view))
     else
       {:error, status_code, error} ->
         conn
@@ -25,7 +26,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
     with {:ok, article} <- Article.exists?(article_url) do
       conn
       |> put_status(200)
-      |> render("show.json", article: article)
+      |> render("show_full.json", article: article)
     else
       {:error, status_code, error} ->
         conn
@@ -63,7 +64,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
 
       conn
       |> put_status(201)
-      |> render("show.json", article: article)
+      |> render("show_full.json", article: article)
     else
       {:error, status_code, error} ->
         conn
@@ -72,23 +73,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
     end
   end
 
-  def update(%{user: %{privilege_level: 0}} = conn, _params) do
-    conn
-    |> put_status(401)
-    |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised access attempt")
-  end
-
-  def update(%{user: %{privilege_level: 3}} = conn, params) do
-    modify(conn, params)
-  end
-
-  def update(%{user: %{privilege_level: _pl}} = conn, _params) do
-    conn
-    |> put_status(403)
-    |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised access attempt")
-  end
-
-  def modify(conn, %{"article_name" => article_url, "article" => article}) do
+  def update(%{user: %{privilege_level: 3}} = conn, %{"article_name" => article_url, "article" => article}) do
     with {:ok, _article} <- Article.exists?(article_url),
          {:ok} <- Article.contains_required_fields?(article),
          {:ok} <- Article.contains_only_expected_fields?(article),
@@ -100,13 +85,25 @@ defmodule PhpInternals.Api.Articles.ArticleController do
 
       conn
       |> put_status(200)
-      |> render("show.json", article: article)
+      |> render("show_full.json", article: article)
     else
       {:error, status_code, error} ->
         conn
         |> put_status(status_code)
         |> render(PhpInternals.ErrorView, "error.json", error: error)
     end
+  end
+
+  def update(%{user: %{privilege_level: 0}} = conn, _params) do
+    conn
+    |> put_status(401)
+    |> render(PhpInternals.ErrorView, "error.json", error: "Unauthenticated access attempt")
+  end
+
+  def update(%{user: %{privilege_level: _pl}} = conn, _params) do
+    conn
+    |> put_status(403)
+    |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised access attempt")
   end
 
   def delete(%{user: %{privilege_level: 3}} = conn, %{"article_name" => article_url}) do
