@@ -88,8 +88,7 @@ defmodule PhpInternals.Api.Users.UserController do
     end
   end
 
-  def update(conn, params) do
-    IO.inspect params
+  def update(conn, _params) do
     conn
     |> put_status(400)
     |> render(PhpInternals.ErrorView, "error.json", error: "Malformed request data")
