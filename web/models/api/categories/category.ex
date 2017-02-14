@@ -7,7 +7,7 @@ defmodule PhpInternals.Api.Categories.Category do
   @valid_ordering_fields ["name"]
   @default_order_by "name"
 
-  @view_types ["normal", "overview", "full"]
+  @view_types ["normal", "overview"]
   @default_view_type "normal"
 
   def contains_required_fields?(category) do
@@ -132,25 +132,6 @@ defmodule PhpInternals.Api.Categories.Category do
       MATCH (c:Category)
       RETURN {name: c.name, url: c.url} AS category
       ORDER BY c.#{order_by} #{ordering}
-      SKIP #{offset}
-      LIMIT #{limit}
-    """
-
-    Neo4j.query!(Neo4j.conn, query)
-  end
-
-  def fetch_all_categories("full", order_by, ordering, offset, limit) do
-    query = """
-      MATCH (c:Category)
-      OPTIONAL MATCH (s:Symbol)-[:CATEGORY]->(c)
-      RETURN {
-        name: c.name,
-        url: c.url,
-        introduction: c.introduction,
-        revision_id: c.revision_id,
-        symbols: collect(CASE s WHEN NULL THEN NULL ELSE {name: s.name, url: s.url, type: s.type} END)
-      } AS category
-      ORDER BY category.#{order_by} #{ordering}
       SKIP #{offset}
       LIMIT #{limit}
     """

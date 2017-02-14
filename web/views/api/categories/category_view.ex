@@ -13,10 +13,6 @@ defmodule PhpInternals.Api.Categories.CategoryView do
     %{categories: render_many(categories, CategoryView, "show_overview.json")}
   end
 
-  def render("index_full.json", %{categories: categories}) do
-    %{categories: render_many(categories, CategoryView, "show_full.json")}
-  end
-
   def render("index_patches_all.json", %{categories_patches: %{inserts: inserts, patches: patches}}) do
     %{categories_inserts: render_many(inserts, CategoryView, "show_insert.json"),
       categories_patches: render_many(patches, CategoryView, "index_patches_changes.json")}

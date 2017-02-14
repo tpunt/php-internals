@@ -29,17 +29,6 @@ defmodule CategoriesGetTest do
   end
 
   @doc """
-  GET /api/categories?view=full
-  """
-  test "list all categories in full" do
-    conn = conn(:get, "/api/categories", %{"view" => "full"})
-    response = Router.call(conn, @opts)
-
-    assert response.status == 200
-    assert %{"categories" => _categories} = Poison.decode!(response.resp_body)
-  end
-
-  @doc """
   GET /api/categories?patches=all
   """
   test "Unauthenticated attempt at listing all patches for categories" do
