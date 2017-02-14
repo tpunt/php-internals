@@ -222,28 +222,35 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   end
 
   def fetch_all_symbols(order_by, ordering, offset, limit, symbol_type, category_filter, search_term) do
-    query1 = "MATCH (symbol:Symbol)"
+    query1 = "MATCH (s:Symbol)"
     query2 = if category_filter === nil, do: "", else: "-[:CATEGORY]->(:Category {url: {category_url}})"
-    {query3, search_term} =
+    query3 = ", (s)-[:CATEGORY]->(c:Category)"
+    {query4, search_term} =
       if search_term === nil do
         {"", search_term}
       else
         if String.first(search_term) === "=" do
-          {"WHERE symbol.name = {search_term}", search_term = String.slice(search_term, 1..-1)}
+          {"WHERE s.name = {search_term}", search_term = String.slice(search_term, 1..-1)}
         else
-          {"WHERE symbol.name =~ {search_term}", search_term = ".*#{search_term}.*"}
+          {"WHERE s.name =~ {search_term}", search_term = ".*#{search_term}.*"}
         end
       end
 
-    query4 = if symbol_type === "all", do: "", else: "WHERE symbol.type = '#{symbol_type}'"
-    query5 = """
-      RETURN symbol
+    query5 = if symbol_type === "all", do: "", else: "WHERE s.type = '#{symbol_type}'"
+    query6 = """
+      RETURN {
+        id: s.id,
+        name: s.name,
+        url: s.url,
+        type: s.type,
+        categories: collect({name: c.name, url: c.url})
+      } AS symbol
       ORDER BY symbol.#{order_by} #{ordering}
       SKIP #{offset}
       LIMIT #{limit}
     """
 
-    query = query1 <> query2 <> query3 <> query4 <> query5
+    query = query1 <> query2 <> query3 <> query4 <> query5 <> query6
 
     params = %{category_url: category_filter, search_term: search_term}
 

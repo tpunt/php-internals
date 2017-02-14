@@ -5,7 +5,7 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
   alias PhpInternals.Api.Categories.CategoryView
 
   def render("index.json", %{symbols: symbols}) do
-    %{symbols: render_many(symbols, SymbolView, "show_overview.json")}
+    %{symbols: render_many(symbols, SymbolView, "show_overview_index.json")}
   end
 
   def render("index_deleted.json", %{symbols: symbols}) do
@@ -43,6 +43,10 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
     %{symbol: render_one(symbol, SymbolView, "symbol_overview.json")}
   end
 
+  def render("show_overview_index.json", %{symbol: symbol}) do
+    %{symbol: render_one(symbol, SymbolView, "symbol_overview_index.json")}
+  end
+
   def render("show.json", %{symbol: symbol}) do
     %{symbol: render_one(symbol, SymbolView, "symbol.json")}
   end
@@ -70,6 +74,11 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
   def render("show_patches.json", %{symbol_patches: symbol_patches}) do
     render_one(symbol_patches, SymbolView, "show_updates.json")
     |> Map.merge(render_one(symbol_patches, SymbolView, "show_delete.json"))
+  end
+
+  def render("symbol_overview_index.json", %{symbol: %{"symbol" => symbol}}) do
+    %{id: symbol["id"], name: symbol["name"], url: symbol["url"], type: symbol["type"]}
+    |> Map.merge(CategoryView.render("index_overview.json", %{categories: symbol["categories"]}))
   end
 
   def render("symbol_overview.json", %{symbol: %{"symbol" => symbol}}) do
