@@ -22,8 +22,8 @@ defmodule PhpInternals.Api.Articles.ArticleController do
     end
   end
 
-  def show(conn, %{"article_name" => article_url}) do
-    with {:ok, article} <- Article.exists?(article_url) do
+  def show(conn, %{"series_name" => series_url, "article_name" => article_url} = params) do
+    with {:ok, article} <- Article.exists_from_series?(series_url, article_url) do
       conn
       |> put_status(200)
       |> render("show_full.json", article: article)
@@ -32,6 +32,26 @@ defmodule PhpInternals.Api.Articles.ArticleController do
         conn
         |> put_status(status_code)
         |> render(PhpInternals.ErrorView, "error.json", error: error)
+    end
+  end
+
+  def show(conn, %{"article_name" => article_url} = params) do
+    case Article.series_exists?(article_url) do
+      {:ok, articles} ->
+        conn
+        |> put_status(200)
+        |> render("index_overview.json", articles: articles)
+      _ ->
+        case Article.exists?(article_url) do
+          {:ok, article} ->
+            conn
+            |> put_status(200)
+            |> render("show_full.json", article: article)
+          {:error, status_code, error} ->
+            conn
+            |> put_status(status_code)
+            |> render(PhpInternals.ErrorView, "error.json", error: error)
+        end
     end
   end
 
@@ -60,6 +80,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
       article =
         article
         |> Map.put("url", Utilities.make_url_friendly_name(article["title"]))
+        |> Map.put("series_url", Utilities.make_url_friendly_name(article["series_name"]))
         |> Article.insert
 
       conn

@@ -12,7 +12,7 @@ defmodule ArticlesPostTest do
   """
   test "authorised article creation" do
     art_name = :rand.uniform(100_000_000)
-    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".",
+    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".", "series_name" => "a",
       "body" => "...", "categories" => ["existent"], "author" => "user3"}}
     conn =
       conn(:post, "/api/articles", data)
@@ -22,8 +22,9 @@ defmodule ArticlesPostTest do
 
     assert response.status === 201
     assert %{"article" =>
-      %{"title" => art_name2a, "url" => art_name2b, "excerpt" => ".", "body" => "...", "date" => _date}}
-        = Poison.decode!(response.resp_body)
+      %{"title" => art_name2a, "url" => art_name2b, "excerpt" => ".", "body" => "...",
+        "date" => _date, "series_name" => "a"}}
+          = Poison.decode!(response.resp_body)
     assert String.to_integer(art_name2a) === art_name
     assert String.to_integer(art_name2b) === art_name
 
@@ -35,7 +36,7 @@ defmodule ArticlesPostTest do
   """
   test "unauthorised article creation (at2)" do
     art_name = :rand.uniform(100_000_000)
-    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".",
+    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".", "series_name" => "",
       "body" => "...", "categories" => ["existent"], "author" => "user3"}}
     conn =
       conn(:post, "/api/articles", data)
@@ -52,7 +53,7 @@ defmodule ArticlesPostTest do
   """
   test "unauthorised article creation (at1)" do
     art_name = :rand.uniform(100_000_000)
-    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".",
+    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".", "series_name" => "",
       "body" => "...", "categories" => ["existent"], "author" => "user3"}}
     conn =
       conn(:post, "/api/articles", data)
@@ -69,7 +70,7 @@ defmodule ArticlesPostTest do
   """
   test "unauthenticated article creation" do
     art_name = :rand.uniform(100_000_000)
-    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".",
+    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".", "series_name" => "",
       "body" => "...", "categories" => ["existent"], "author" => "user3"}}
     conn =
       conn(:post, "/api/articles", data)
@@ -85,7 +86,7 @@ defmodule ArticlesPostTest do
   """
   test "authorised invalid article creation (missing author field)" do
     art_name = :rand.uniform(100_000_000)
-    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".",
+    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".", "series_name" => "",
       "body" => "...", "categories" => ["existent"]}}
     conn =
       conn(:post, "/api/articles", data)
@@ -94,7 +95,7 @@ defmodule ArticlesPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "Required fields are missing (expecting: author, title, body, categories, excerpt)"}}
+    assert %{"error" => %{"message" => "Required fields are missing (expecting: author, title, body, categories, excerpt, series_name)"}}
       = Poison.decode!(response.resp_body)
   end
 
@@ -103,7 +104,7 @@ defmodule ArticlesPostTest do
   """
   test "authorised invalid article creation (unknown author given)" do
     art_name = :rand.uniform(100_000_000)
-    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".",
+    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".", "series_name" => "",
       "body" => "...", "categories" => ["existent"], "author" => "user"}}
     conn =
       conn(:post, "/api/articles", data)
@@ -120,7 +121,7 @@ defmodule ArticlesPostTest do
   """
   test "authorised invalid article creation (unknown field given)" do
     art_name = :rand.uniform(100_000_000)
-    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".",
+    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".", "series_name" => "",
       "body" => "...", "categories" => ["existent"], "author" => "user3", "a" => "b"}}
     conn =
       conn(:post, "/api/articles", data)
@@ -129,7 +130,7 @@ defmodule ArticlesPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "Unknown fields given (expecting: author, title, body, categories, excerpt)"}}
+    assert %{"error" => %{"message" => "Unknown fields given (expecting: author, title, body, categories, excerpt, series_name)"}}
       = Poison.decode!(response.resp_body)
   end
 end

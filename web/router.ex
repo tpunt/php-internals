@@ -26,6 +26,9 @@ defmodule PhpInternals.Router do
     end
 
     scope "/articles", Articles do
+      get "/:series_name/:article_name", ArticleController, :show
+      patch "/:series_name/:article_name", ArticleController, :update
+      delete "/:series_name/:article_name", ArticleController, :delete
       get "/:article_name", ArticleController, :show
       patch "/:article_name", ArticleController, :update
       delete "/:article_name", ArticleController, :delete

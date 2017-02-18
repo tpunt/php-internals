@@ -2,7 +2,7 @@ defmodule PhpInternals.Api.Articles.Article do
   use PhpInternals.Web, :model
 
   @default_order_by "date"
-  @required_fields ["author", "title", "body", "categories", "excerpt"]
+  @required_fields ["author", "title", "body", "categories", "excerpt", "series_name"]
   @optional_fields [] # "tags"
 
   # Implement tags?
@@ -67,6 +67,74 @@ defmodule PhpInternals.Api.Articles.Article do
     end
   end
 
+  def series_exists?(series_url) do
+    query = """
+      MATCH (a:Article {series_url: {series_url}}),
+        (a)-[arel:AUTHOR]->(u:User),
+        (a)-[crel:CATEGORY]->(category:Category)
+      RETURN {
+          title: a.title,
+          url: a.url,
+          date: a.date,
+          excerpt: a.excerpt,
+          series_name: a.series_name,
+          series_url: a.series_url
+        } AS article,
+        collect(category) as categories,
+        {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
+      ORDER BY article.date ASC
+    """
+
+    params = %{series_url: series_url}
+
+    result = Neo4j.query!(Neo4j.conn, query, params)
+
+    if result === [] do
+      {:error, 404, "Article series not found"}
+    else
+      result =
+        result
+        |> Enum.map(fn %{"article" => article, "user" => user} = result ->
+            categories = Enum.map(result["categories"], &(%{"category" => &1}))
+            article =
+              article
+              |> Map.merge(%{"user" => user})
+              |> Map.merge(%{"categories" => categories})
+
+            %{"article" => article}
+          end)
+
+      {:ok, result}
+    end
+  end
+
+  def exists_from_series?(series_url, article_url) do
+    query = """
+      MATCH (article:Article {series_url: {series_url}, url: {url}}),
+        (article)-[arel:AUTHOR]->(u:User),
+        (article)-[crel:CATEGORY]->(category:Category)
+      RETURN article,
+        collect(category) AS categories,
+        {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
+    """
+
+    params = %{series_url: series_url, url: article_url}
+
+    result = List.first Neo4j.query!(Neo4j.conn, query, params)
+
+    if result === nil do
+      {:error, 404, "Article not found for given article series"}
+    else
+      categories = Enum.map(result["categories"], &(%{"category" => &1}))
+      article =
+        result["article"]
+        |> Map.merge(%{"user" => result["user"]})
+        |> Map.merge(%{"categories" => categories})
+
+      {:ok, %{"article" => article}}
+    end
+  end
+
   def does_not_exist?(article_url) do
     case exists?(article_url) do
       {:ok, _article} ->
@@ -88,7 +156,14 @@ defmodule PhpInternals.Api.Articles.Article do
 
     query3 =
       if view === "overview" do
-        "RETURN {title: a.title, url: a.url, date: a.date, excerpt: a.excerpt} AS article,"
+        "RETURN {
+          title: a.title,
+          url: a.url,
+          date: a.date,
+          excerpt: a.excerpt,
+          series_name: a.series_name,
+          series_url: a.series_url
+        } AS article,"
       else
         "RETURN a AS article,"
       end
@@ -119,7 +194,15 @@ defmodule PhpInternals.Api.Articles.Article do
 
   def insert(article) do
     query1 = """
-      CREATE (article:Article {title: {title}, url: {url}, excerpt: {excerpt}, body: {body}, date: timestamp()})
+      CREATE (article:Article {
+        title: {title},
+        url: {url},
+        series_name: {series_name},
+        series_url: {series_url},
+        excerpt: {excerpt},
+        body: {body},
+        date: timestamp()
+      })
     """
 
     {query2, params1, _counter} =
@@ -149,7 +232,9 @@ defmodule PhpInternals.Api.Articles.Article do
       url: article["url"],
       excerpt: article["excerpt"],
       body: article["body"],
-      username: article["author"]
+      username: article["author"],
+      series_name: article["series_name"],
+      series_url: article["series_url"]
     }
 
     params = Map.merge(params1, params2)
