@@ -13,17 +13,27 @@ defmodule ArticlePatchTest do
   test "authorised article update" do
     art_name = :rand.uniform(100_000_000)
     art_name2 = :rand.uniform(100_000_000)
+    ser_name = :rand.uniform(100_000_000)
     cat_name = :rand.uniform(100_000_000)
     cat_rev_id = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
       MATCH (u:User {id: 3}), (c:Category {url: 'existent'})
-      CREATE (a:Article {title: '#{art_name}', url: '#{art_name}', excerpt: '.', body: '...', date: timestamp()}),
+      CREATE (a:Article {
+          title: '#{art_name}',
+          url: '#{art_name}',
+          series_name: '',
+          series_url: '',
+          excerpt: '.',
+          body: '...',
+          date: timestamp()
+        }),
         (a)-[:AUTHOR]->(u),
         (a)-[:CATEGORY]->(c),
         (:Category {name: '#{cat_name}', introduction: '..', url: '#{cat_name}', revision_id: #{cat_rev_id}})
     """)
     data = %{"article" => %{"title" => "#{art_name2}", "excerpt" => "...",
-      "body" => ".", "categories" => ["#{cat_name}"], "author" => "user3", "series_name" => ""}}
+      "body" => ".", "categories" => ["#{cat_name}"], "author" => "user3",
+      "series_name" => "#{ser_name}"}}
     conn =
       conn(:patch, "/api/articles/#{art_name}", data)
       |> put_req_header("content-type", "application/json")
@@ -33,13 +43,15 @@ defmodule ArticlePatchTest do
     assert response.status === 200
     assert %{"article" =>
       %{"title" => art_name2a, "url" => art_name2b, "excerpt" => "...", "body" => ".",
-        "date" => _date, "categories" => categories, "author" => %{"username" => "user3"}}}
+        "date" => _date, "categories" => categories, "author" => %{"username" => "user3"},
+        "series_name" => ser_name2}}
           = Poison.decode!(response.resp_body)
     assert [%{"category" => %{"name" => cat_name2a, "url" => cat_name2b}}] = categories
     assert String.to_integer(art_name2a) === art_name2
     assert String.to_integer(art_name2b) === art_name2
     assert String.to_integer(cat_name2a) === cat_name
     assert String.to_integer(cat_name2b) === cat_name
+    assert String.to_integer(ser_name2) === ser_name
 
     Neo4j.query!(Neo4j.conn, "MATCH (a:Article {title: '#{art_name2}'})-[r]-() DELETE r, a")
   end

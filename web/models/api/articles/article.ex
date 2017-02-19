@@ -255,6 +255,8 @@ defmodule PhpInternals.Api.Articles.Article do
       MATCH (article:Article {url: {old_url}})-[r:CATEGORY]->(:Category)
       SET article.url = {new_url},
           article.title = {new_title},
+          article.series_name = {new_series_name},
+          article.series_url = {new_series_url},
           article.excerpt = {new_excerpt},
           article.body = {new_body}
       DELETE r
@@ -283,6 +285,8 @@ defmodule PhpInternals.Api.Articles.Article do
       old_url: article_url,
       new_title: article["title"],
       new_url: article["url"],
+      new_series_name: article["series_name"],
+      new_series_url: article["series_url"],
       new_excerpt: article["excerpt"],
       new_body: article["body"]
     }

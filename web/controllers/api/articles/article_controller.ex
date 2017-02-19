@@ -102,6 +102,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
       article =
         article
         |> Map.put("url", Utilities.make_url_friendly_name(article["title"]))
+        |> Map.put("series_url", Utilities.make_url_friendly_name(article["series_name"]))
         |> Article.update(article_url)
 
       conn
