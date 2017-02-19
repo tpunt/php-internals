@@ -268,7 +268,7 @@ defmodule PhpInternals.Api.Articles.Article do
           query = """
             WITH article
             MATCH (c#{c}:Category {url: {cat_#{c}}})
-            CREATE (article)-[:CATEGORY]->(c#{c})
+            CREATE UNIQUE (article)-[:CATEGORY]->(c#{c})
           """
           {q <> query, Map.put(p, "cat_#{c}", cat), c + 1}
         end)
