@@ -205,7 +205,7 @@ defmodule CategoryPatchTest do
     refute [] == Neo4j.query!(Neo4j.conn, "MATCH (c:Category {revision_id: #{rev_id}}) RETURN c")
     assert [] == Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatch {revision_id: '#{rev_id}'}) RETURN c")
 
-    Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'}) DELETE c")
+    Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'})-[r:INSERT_APPLIED_BY]-() DELETE r, c")
   end
 
   test "Authorised insert category patch apply 2" do
@@ -223,7 +223,7 @@ defmodule CategoryPatchTest do
     refute [] == Neo4j.query!(Neo4j.conn, "MATCH (c:Category {revision_id: #{rev_id}}) RETURN c")
     assert [] == Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatch {revision_id: '#{rev_id}'}) RETURN c")
 
-    Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'}) DELETE c")
+    Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'})-[r:INSERT_APPLIED_BY]-() DELETE r, c")
   end
 
   test "Authorised invalid insert category patch apply 1" do
@@ -286,7 +286,12 @@ defmodule CategoryPatchTest do
     assert [] == Neo4j.query!(Neo4j.conn, "MATCH (c:UpdateCategoryPatch {revision_id: #{rev_id2}}) RETURN c")
     refute [] == Neo4j.query!(Neo4j.conn, "MATCH (c1:Category {revision_id: #{rev_id2}})-[:REVISION]->(c2:CategoryRevision {revision_id: #{rev_id}}) RETURN c2")
 
-    Neo4j.query!(Neo4j.conn, "MATCH (c1:Category {revision_id: #{rev_id2}})-[r:REVISION]->(c2:CategoryRevision {revision_id: #{rev_id}}) DELETE r, c1, c2")
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c1:Category {revision_id: #{rev_id2}}),
+        (c1)-[r1:INSERT_APPLIED_BY]->(),
+        (c1)-[r2:REVISION]->(c2:CategoryRevision {revision_id: #{rev_id}})
+        DELETE r1, r2, c1, c2
+    """)
   end
 
   test "Authorised invalid update existing category patch apply 1" do
@@ -378,7 +383,12 @@ defmodule CategoryPatchTest do
     name = :rand.uniform(100_000_000)
     rev_id = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
-      CREATE (:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})-[:DELETE]->(:DeleteCategoryPatch)
+      CREATE (:Category {
+        name: '#{name}',
+        introduction: '...',
+        url: '#{name}',
+        revision_id: #{rev_id}
+      })-[:DELETE]->(:DeleteCategoryPatch)
     """)
 
     conn =
@@ -390,7 +400,7 @@ defmodule CategoryPatchTest do
     assert [] == Neo4j.query!(Neo4j.conn, "MATCH (c:Category {revision_id: #{rev_id}})-[:DELETE]->(:DeleteCategoryPatch) RETURN c")
     refute [] == Neo4j.query!(Neo4j.conn, "MATCH (c:CategoryDeleted {revision_id: #{rev_id}}) RETURN c")
 
-    Neo4j.query!(Neo4j.conn, "MATCH (c:CategoryDeleted {revision_id: #{rev_id}}) DELETE c")
+    Neo4j.query!(Neo4j.conn, "MATCH (c:CategoryDeleted {revision_id: #{rev_id}})-[r:DELETE_APPLIED_BY]-() DELETE r, c")
   end
 
   test "Authorised invalid delete existing category patch apply 1" do
@@ -422,7 +432,9 @@ defmodule CategoryPatchTest do
   test "Authorised insert existing category patch discard" do
     name = :rand.uniform(100_000_000)
     rev_id = :rand.uniform(100_000_000)
-    Neo4j.query!(Neo4j.conn, "CREATE (c:InsertCategoryPatch {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
+    Neo4j.query!(Neo4j.conn, """
+      CREATE (c:InsertCategoryPatch {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})
+    """)
 
     conn =
       conn(:patch, "/api/categories/#{name}", %{"discard_patch" => "insert"})
@@ -433,7 +445,10 @@ defmodule CategoryPatchTest do
     assert [] == Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatch {revision_id: #{rev_id}}) RETURN c")
     refute [] == Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatchDeleted {revision_id: #{rev_id}}) RETURN c")
 
-    Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatchDeleted {revision_id: #{rev_id}}) DELETE c")
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:InsertCategoryPatchDeleted {revision_id: #{rev_id}})-[r:INSERT_DISCARDED_BY]-()
+      DELETE r, c
+    """)
   end
 
   test "Authorised update existing category patch discard" do
@@ -479,6 +494,6 @@ defmodule CategoryPatchTest do
     assert [] == Neo4j.query!(Neo4j.conn, "MATCH (c:Category {revision_id: #{rev_id}})-[:DELETE]->(:DeleteCategoryPatch) RETURN c")
     refute [] == Neo4j.query!(Neo4j.conn, "MATCH (c:Category {revision_id: #{rev_id}}) RETURN c")
 
-    Neo4j.query!(Neo4j.conn, "MATCH (c:Category {revision_id: #{rev_id}}) DELETE c")
+    Neo4j.query!(Neo4j.conn, "MATCH (c:Category {revision_id: #{rev_id}})-[r:DELETE_DISCARDED_BY]-() DELETE r, c")
   end
 end

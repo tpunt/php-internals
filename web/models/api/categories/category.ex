@@ -287,30 +287,36 @@ defmodule PhpInternals.Api.Categories.Category do
     Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def insert_category(category, 0) do
+  def insert_category(category, 0, username) do
     query = """
-      CREATE (category:Category {name: {name}, introduction: {introduction}, url: {url}, revision_id: {rev_id}})
+      MATCH (user:User {username: {username}})
+      CREATE (category:Category {name: {name}, introduction: {introduction}, url: {url}, revision_id: {rev_id}}),
+        (category)-[:CREATED_BY]->(user)
       RETURN category
     """
 
     params = %{name: category["name"],
       introduction: category["introduction"],
       url: category["url_name"],
-      rev_id: :rand.uniform(100_000_000)}
+      rev_id: :rand.uniform(100_000_000),
+      username: username}
 
     List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def insert_category(category, _review) do # review = 1 ?
+  def insert_category(category, _review = 1, username) do
     query = """
-      CREATE (category:InsertCategoryPatch {name: {name}, introduction: {introduction}, url: {url}, revision_id: {rev_id}})
+      MATCH (user:User {username: {username}})
+      CREATE (category:InsertCategoryPatch {name: {name}, introduction: {introduction}, url: {url}, revision_id: {rev_id}}),
+        (category)-[:CREATED_BY]->(user)
       RETURN category
     """
 
     params = %{name: category["name"],
       introduction: category["introduction"],
       url: category["url_name"],
-      rev_id: :rand.uniform(100_000_000)}
+      rev_id: :rand.uniform(100_000_000),
+      username: username}
 
     List.first Neo4j.query!(Neo4j.conn, query, params)
   end
@@ -451,9 +457,9 @@ defmodule PhpInternals.Api.Categories.Category do
     {:error, 400, "Unknown review parameter value"}
   end
 
-  def accept_category_patch(category_url, "insert") do
+  def accept_category_patch(category_url, "insert", username) do
     query = "MATCH (category:InsertCategoryPatch {url: {category_url}}) RETURN category"
-    params = %{category_url: category_url}
+    params = %{category_url: category_url, username: username}
 
     if Neo4j.query!(Neo4j.conn, query, params) == [] do
       {:error, 404, "Insert patch not found"}
@@ -464,9 +470,12 @@ defmodule PhpInternals.Api.Categories.Category do
         {:error, 400, "A category with the same name already exists"}
       else
         query = """
-          MATCH (cp:InsertCategoryPatch {url: {category_url}})
+          MATCH (cp:InsertCategoryPatch {url: {category_url}}),
+            (user:User {username: {username}})
           REMOVE cp:InsertCategoryPatch
           SET cp:Category
+          CREATE (cp)-[:INSERT_APPLIED_BY]->(user)
+          WITH cp
           RETURN cp as category
         """
 
@@ -475,13 +484,13 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def accept_category_patch(category_url, "delete") do
+  def accept_category_patch(category_url, "delete", username) do
     query = """
       OPTIONAL MATCH (c:Category {url: {category_url}})
       OPTIONAL MATCH (cp)-[:DELETE]->(:DeleteCategoryPatch)
       RETURN c, cp
     """
-    params = %{category_url: category_url}
+    params = %{category_url: category_url, username: username}
 
     category = Neo4j.query!(Neo4j.conn, query, params) |> List.first
 
@@ -492,9 +501,11 @@ defmodule PhpInternals.Api.Categories.Category do
         {:error, 404, "Delete patch not found for the specified category"}
       else
         query = """
-          MATCH (c:Category {url: {category_url}})-[r:DELETE]->(cd:DeleteCategoryPatch)
+          MATCH (c:Category {url: {category_url}})-[r:DELETE]->(cd:DeleteCategoryPatch),
+            (user:User {username: {username}})
           REMOVE c:Category
           SET c:CategoryDeleted
+          CREATE (c)-[:DELETE_APPLIED_BY]->(user)
           DELETE r, cd
         """
 
@@ -505,7 +516,7 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def accept_category_patch(category_url, update_or_error) do
+  def accept_category_patch(category_url, update_or_error, username) do
     output = String.split(update_or_error, ",")
 
     if length(output) !== 2 do
@@ -516,18 +527,18 @@ defmodule PhpInternals.Api.Categories.Category do
       if update !== "update" do
         {:error, 400, "Unknown patch type"}
       else
-        accept_category_patch(category_url, update, String.to_integer(for_revision))
+        accept_category_patch(category_url, update, String.to_integer(for_revision), username)
       end
     end
   end
 
-  def accept_category_patch(category_url, "update", patch_revision_id) do
+  def accept_category_patch(category_url, "update", patch_revision_id, username) do
     query = """
       OPTIONAL MATCH (c:Category {url: {category_url}})
       OPTIONAL MATCH (c)-[:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
       RETURN c, cp
     """
-    params = %{patch_revision_id: patch_revision_id, category_url: category_url}
+    params = %{patch_revision_id: patch_revision_id, category_url: category_url, username: username}
 
     category = Neo4j.query!(Neo4j.conn, query, params) |> List.first
 
@@ -544,11 +555,12 @@ defmodule PhpInternals.Api.Categories.Category do
         else
           query = """
             MATCH (c1:Category {url: {category_url}}),
-              (c1)-[r1:UPDATE]->(c2:UpdateCategoryPatch {revision_id: {patch_revision_id}})
+              (c1)-[r1:UPDATE]->(c2:UpdateCategoryPatch {revision_id: {patch_revision_id}}),
+              (user:User {username: {username}})
             OPTIONAL MATCH (c1)-[r2:REVISION]->(old_revision:CategoryRevision)
             CREATE (old_category:CategoryRevision {name: c1.name, introduction: c1.introduction, url: c1.url, revision_id: c1.revision_id})
             SET c1.name = c2.name, c1.introduction = c2.introduction, c1.url = c2.url, c1.revision_id = c2.revision_id
-            WITH c1, c2, old_category, r1, r2, old_revision
+            WITH user, c1, c2, old_category, r1, r2, old_revision
             FOREACH (ignored IN CASE old_revision WHEN NULL THEN [1] ELSE [] END |
               CREATE (c1)-[:REVISION]->(old_category)
             )
@@ -557,10 +569,9 @@ defmodule PhpInternals.Api.Categories.Category do
               CREATE (c1)-[:REVISION]->(old_category)-[:REVISION]->(old_revision)
             )
             DELETE r1, c2
+            CREATE (c1)-[:UPDATE_APPLIED_BY]->(user)
             RETURN c1 as category
           """
-
-          params = %{category_url: category_url, patch_revision_id: patch_revision_id}
 
           {:ok, List.first Neo4j.query!(Neo4j.conn, query, params)}
         end
@@ -568,17 +579,23 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def discard_category_patch(category_url, "insert") do
-    query = "MATCH (category:InsertCategoryPatch {url: {url}}) RETURN category"
-    params = %{url: category_url}
+  def discard_category_patch(category_url, "insert", username) do
+    query = """
+      MATCH (category:InsertCategoryPatch {url: {url}})
+      RETURN category
+    """
+
+    params = %{url: category_url, username: username}
 
     if Neo4j.query!(Neo4j.conn, query, params) === [] do
       {:error, 404, "Insert patch not found"}
     else
       query = """
-        MATCH (c:InsertCategoryPatch {url: {url}})
-        REMOVE c:InsertCategoryPatch
-        SET c:InsertCategoryPatchDeleted
+        MATCH (cp:InsertCategoryPatch {url: {url}}),
+          (user:User {username: {username}})
+        REMOVE cp:InsertCategoryPatch
+        SET cp:InsertCategoryPatchDeleted
+        CREATE (cp)-[:INSERT_DISCARDED_BY]->(user)
       """
 
       Neo4j.query!(Neo4j.conn, query, params)
@@ -587,13 +604,13 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def discard_category_patch(category_url, "delete") do
+  def discard_category_patch(category_url, "delete", username) do
     query = """
       OPTIONAL MATCH (c:Category {url: {category_url}})
       OPTIONAL MATCH (cp)-[:DELETE]->(:DeleteCategoryPatch)
       RETURN c, cp
     """
-    params = %{category_url: category_url}
+    params = %{category_url: category_url, username: username}
 
     category = Neo4j.query!(Neo4j.conn, query, params) |> List.first
 
@@ -604,17 +621,21 @@ defmodule PhpInternals.Api.Categories.Category do
         {:error, 404, "Delete patch not found for the specified category"}
       else
         query = """
-          MATCH (:Category {url: {category_url}})-[r:DELETE]->(cp:DeleteCategoryPatch)
+          MATCH (c:Category {url: {category_url}}),
+            (user:User {username: {username}}),
+            (c)-[r:DELETE]->(cp:DeleteCategoryPatch)
           DELETE r, cp
+          CREATE UNIQUE (c)-[:DELETE_DISCARDED_BY]-(user)
         """
-        params = %{category_url: category_url}
+
         Neo4j.query!(Neo4j.conn, query, params)
+
         {:ok, 200}
       end
     end
   end
 
-  def discard_category_patch(category_url, update_or_error) do
+  def discard_category_patch(category_url, update_or_error, username) do
     output = String.split(update_or_error, ",")
 
     if length(output) != 2 do
@@ -625,12 +646,12 @@ defmodule PhpInternals.Api.Categories.Category do
       if update != "update" do
         {:error, 400, "Unknown patch type"}
       else
-        discard_category_patch(category_url, update, for_revision)
+        discard_category_patch(category_url, update, for_revision, username)
       end
     end
   end
 
-  def discard_category_patch(category_url, "update", patch_revision_id) do
+  def discard_category_patch(category_url, "update", patch_revision_id, username) do
     patch_revision_id = String.to_integer(patch_revision_id)
 
     query = """
@@ -638,7 +659,7 @@ defmodule PhpInternals.Api.Categories.Category do
       OPTIONAL MATCH (c)-[:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
       RETURN c, cp
     """
-    params = %{patch_revision_id: patch_revision_id, category_url: category_url}
+    params = %{patch_revision_id: patch_revision_id, category_url: category_url, username: username}
 
     category = Neo4j.query!(Neo4j.conn, query, params) |> List.first
 
@@ -649,51 +670,61 @@ defmodule PhpInternals.Api.Categories.Category do
         {:error, 404, "Update patch not found for the specified category"}
       else
         query = """
-          MATCH (:Category {url: {category_url}})-[:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
+          MATCH (c:Category {url: {category_url}}),
+            (user:User {username: {username}}),
+            (c)-[:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
           REMOVE cp:UpdateCategoryPatch
           SET cp:UpdateCategoryPatchDeleted
+          CREATE (cp)-[:UPDATE_DISCARDED_BY]->(user)
         """
         Neo4j.query!(Neo4j.conn, query, params)
+
         {:ok, 200}
       end
     end
   end
 
-  def soft_delete_category(category_url, 0) do
+  def soft_delete_category(category_url, 0, username) do
     query = """
-      MATCH (category:Category {url: {url}})
-      OPTIONAL MATCH (category)-[r:DELETE]-(catdel:DeleteCategoryPatch)
-      REMOVE category:Category
-      SET category:CategoryDeleted
+      MATCH (c:Category {url: {url}}),
+        (user:User {username: {username}})
+      OPTIONAL MATCH (c)-[r:DELETE]-(catdel:DeleteCategoryPatch)
+      REMOVE c:Category
+      SET c:CategoryDeleted
       FOREACH (ignored IN CASE catdel WHEN NULL THEN [] ELSE [1] END |
         DELETE r, catdel
       )
+      CREATE (c)-[:DELETED_BY]->(user)
     """
 
-    params = %{url: category_url}
+    params = %{url: category_url, username: username}
 
     Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def soft_delete_category(category_url, _review) do # review = 1 ?
+  def soft_delete_category(category_url, _review = 1, username) do
     query = """
-      MATCH (category:Category {url: {url}})
+      MATCH (category:Category {url: {url}}),
+        (user:User {username: {username}})
       MERGE (category)-[:DELETE]->(catdel:DeleteCategoryPatch)
+      CREATE (c)-[:DELETED_BY]->(user)
     """
 
-    params = %{url: category_url}
+    params = %{url: category_url, username: username}
 
     Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def soft_delete_category_undo(category_url, 0) do
+  def soft_delete_category_undo(category_url, 0, username) do
     query = """
-      MATCH (category:CategoryDeleted {url: {url}})
-      REMOVE category:CategoryDeleted
-      SET category:Category
+      MATCH (c:CategoryDeleted {url: {url}}),
+        (user:User {username: {username}})
+      REMOVE c:CategoryDeleted
+      SET c:Category
+      CREATE (c)-[:UNDO_DELETE_BY]->(user)
     """
 
-    params = %{url: category_url}
+    params = %{url: category_url, username: username}
 
     Neo4j.query!(Neo4j.conn, query, params)
   end

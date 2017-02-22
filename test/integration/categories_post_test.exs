@@ -38,7 +38,7 @@ defmodule CategoriesPostTest do
     assert [] == Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'}) RETURN c")
     refute [] == Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatch {name: '#{name}'}) RETURN c")
 
-    Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatch {name: '#{name}'}) DELETE c")
+    Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatch {name: '#{name}'})-[r:CREATED_BY]-() DELETE r, c")
   end
 
   @doc """
@@ -57,7 +57,7 @@ defmodule CategoriesPostTest do
     assert [] == Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'}) RETURN c")
     refute [] == Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatch {name: '#{name}'}) RETURN c")
 
-    Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatch {name: '#{name}'}) DELETE c")
+    Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatch {name: '#{name}'})-[r:CREATED_BY]-() DELETE r, c")
   end
 
   @doc """
@@ -76,7 +76,7 @@ defmodule CategoriesPostTest do
     assert [] == Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'}) RETURN c")
     refute [] == Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatch {name: '#{name}'}) RETURN c")
 
-    Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatch {name: '#{name}'}) DELETE c")
+    Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatch {name: '#{name}'})-[r:CREATED_BY]-() DELETE r, c")
   end
 
   @doc """
@@ -111,7 +111,7 @@ defmodule CategoriesPostTest do
     assert response.status == 201
     refute [] == Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'}) RETURN c")
 
-    Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'}) DELETE c")
+    Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'})-[r:CREATED_BY]-() DELETE r, c")
   end
 
   @doc """
@@ -129,7 +129,7 @@ defmodule CategoriesPostTest do
     assert response.status == 201
     refute [] == Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'}) RETURN c")
 
-    Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'}) DELETE c")
+    Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'})-[r:CREATED_BY]-() DELETE r, c")
   end
 
   @doc """

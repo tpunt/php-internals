@@ -217,7 +217,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
         |> put_status(403)
         |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised access attempt")
       conn.user.privilege_level in [2, 3] ->
-        category = Category.accept_category_patch(category_name, action)
+        category = Category.accept_category_patch(category_name, action, conn.user.username)
 
         case category do
           {:error, status_code, message} ->
@@ -244,7 +244,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
         |> put_status(403)
         |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised access attempt")
       conn.user.privilege_level in [2, 3] ->
-        return = Category.discard_category_patch(category_name, action)
+        return = Category.discard_category_patch(category_name, action, conn.user.username)
 
         case return do
           {:error, status_code, message} ->
@@ -301,7 +301,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
       category =
         category
         |> Map.put("url_name", url_name)
-        |> Category.insert_category(review)
+        |> Category.insert_category(review, conn.user.username)
 
       status_code = if review == 0, do: 201, else: 202
 
@@ -362,7 +362,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   def delete_category(conn, %{"category_name" => url_name, "review" => review}) do
     with {:ok, _category} <- Category.valid_category?(url_name),
          {:ok} <- Category.contains_no_symbols?(url_name) do
-      Category.soft_delete_category(url_name, review)
+      Category.soft_delete_category(url_name, review, conn.user.username)
 
       status_code = if review == 0, do: 204, else: 202
 
