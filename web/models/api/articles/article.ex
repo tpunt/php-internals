@@ -2,7 +2,7 @@ defmodule PhpInternals.Api.Articles.Article do
   use PhpInternals.Web, :model
 
   @default_order_by "date"
-  @required_fields ["author", "title", "body", "categories", "excerpt", "series_name"]
+  @required_fields ["title", "body", "categories", "excerpt", "series_name"]
   @optional_fields [] # "tags"
 
   # Implement tags?
@@ -192,7 +192,7 @@ defmodule PhpInternals.Api.Articles.Article do
       end)
   end
 
-  def insert(article) do
+  def insert(article, username) do
     query1 = """
       CREATE (article:Article {
         title: {title},
@@ -218,10 +218,9 @@ defmodule PhpInternals.Api.Articles.Article do
 
     query3 = """
       WITH article
-      MATCH (user:User {username: {username}})
+      MATCH (article)-[:CATEGORY]->(c:Category),
+        (user:User {username: {username}})
       CREATE (article)-[:AUTHOR]->(user)
-      WITH article, user
-      MATCH (article)-[:CATEGORY]->(c:Category)
       RETURN article, user, collect({name: c.name, url:c.url}) as categories
     """
 
@@ -232,7 +231,7 @@ defmodule PhpInternals.Api.Articles.Article do
       url: article["url"],
       excerpt: article["excerpt"],
       body: article["body"],
-      username: article["author"],
+      username: username,
       series_name: article["series_name"],
       series_url: article["series_url"]
     }

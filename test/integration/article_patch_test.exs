@@ -32,8 +32,8 @@ defmodule ArticlePatchTest do
         (:Category {name: '#{cat_name}', introduction: '..', url: '#{cat_name}', revision_id: #{cat_rev_id}})
     """)
     data = %{"article" => %{"title" => "#{art_name2}", "excerpt" => "...",
-      "body" => ".", "categories" => ["#{cat_name}"], "author" => "user3",
-      "series_name" => "#{ser_name}"}}
+      "body" => ".", "categories" => ["#{cat_name}"], "series_name" => "#{ser_name}"}}
+
     conn =
       conn(:patch, "/api/articles/#{art_name}", data)
       |> put_req_header("content-type", "application/json")

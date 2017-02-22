@@ -75,13 +75,12 @@ defmodule PhpInternals.Api.Articles.ArticleController do
     with {:ok} <- Article.contains_required_fields?(article),
          {:ok} <- Article.contains_only_expected_fields?(article),
          {:ok} <- Article.does_not_exist?(Utilities.make_url_friendly_name(article["title"])),
-         {:ok, _user} <- User.user_exists?(article["author"]),
          {:ok} <- Category.valid_categories?(article["categories"]) do
       article =
         article
         |> Map.put("url", Utilities.make_url_friendly_name(article["title"]))
         |> Map.put("series_url", Utilities.make_url_friendly_name(article["series_name"]))
-        |> Article.insert
+        |> Article.insert(conn.user.username)
 
       conn
       |> put_status(201)

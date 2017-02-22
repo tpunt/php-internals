@@ -13,7 +13,8 @@ defmodule ArticlesPostTest do
   test "authorised article creation" do
     art_name = :rand.uniform(100_000_000)
     data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".", "series_name" => "a",
-      "body" => "...", "categories" => ["existent"], "author" => "user3"}}
+      "body" => "...", "categories" => ["existent"]}}
+
     conn =
       conn(:post, "/api/articles", data)
       |> put_req_header("content-type", "application/json")
@@ -37,7 +38,8 @@ defmodule ArticlesPostTest do
   test "unauthorised article creation (at2)" do
     art_name = :rand.uniform(100_000_000)
     data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".", "series_name" => "",
-      "body" => "...", "categories" => ["existent"], "author" => "user3"}}
+      "body" => "...", "categories" => ["existent"]}}
+
     conn =
       conn(:post, "/api/articles", data)
       |> put_req_header("content-type", "application/json")
@@ -54,7 +56,8 @@ defmodule ArticlesPostTest do
   test "unauthorised article creation (at1)" do
     art_name = :rand.uniform(100_000_000)
     data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".", "series_name" => "",
-      "body" => "...", "categories" => ["existent"], "author" => "user3"}}
+      "body" => "...", "categories" => ["existent"]}}
+
     conn =
       conn(:post, "/api/articles", data)
       |> put_req_header("content-type", "application/json")
@@ -71,7 +74,8 @@ defmodule ArticlesPostTest do
   test "unauthenticated article creation" do
     art_name = :rand.uniform(100_000_000)
     data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".", "series_name" => "",
-      "body" => "...", "categories" => ["existent"], "author" => "user3"}}
+      "body" => "...", "categories" => ["existent"]}}
+
     conn =
       conn(:post, "/api/articles", data)
       |> put_req_header("content-type", "application/json")
@@ -84,10 +88,11 @@ defmodule ArticlesPostTest do
   @doc """
   POST /api/articles -H 'authorization:at3'
   """
-  test "authorised invalid article creation (missing author field)" do
+  test "authorised invalid article creation (missing excerpt field)" do
     art_name = :rand.uniform(100_000_000)
-    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".", "series_name" => "",
+    data = %{"article" => %{"title" => "#{art_name}", "series_name" => "",
       "body" => "...", "categories" => ["existent"]}}
+
     conn =
       conn(:post, "/api/articles", data)
       |> put_req_header("content-type", "application/json")
@@ -95,25 +100,8 @@ defmodule ArticlesPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "Required fields are missing (expecting: author, title, body, categories, excerpt, series_name)"}}
+    assert %{"error" => %{"message" => "Required fields are missing (expecting: title, body, categories, excerpt, series_name)"}}
       = Poison.decode!(response.resp_body)
-  end
-
-  @doc """
-  POST /api/articles -H 'authorization:at3'
-  """
-  test "authorised invalid article creation (unknown author given)" do
-    art_name = :rand.uniform(100_000_000)
-    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".", "series_name" => "",
-      "body" => "...", "categories" => ["existent"], "author" => "user"}}
-    conn =
-      conn(:post, "/api/articles", data)
-      |> put_req_header("content-type", "application/json")
-      |> put_req_header("authorization", "at3")
-    response = Router.call(conn, @opts)
-
-    assert response.status === 404 # 400 instead?
-    assert %{"error" => %{"message" => "The specified user does not exist"}} = Poison.decode!(response.resp_body)
   end
 
   @doc """
@@ -122,7 +110,8 @@ defmodule ArticlesPostTest do
   test "authorised invalid article creation (unknown field given)" do
     art_name = :rand.uniform(100_000_000)
     data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".", "series_name" => "",
-      "body" => "...", "categories" => ["existent"], "author" => "user3", "a" => "b"}}
+      "body" => "...", "categories" => ["existent"], "a" => "b"}}
+
     conn =
       conn(:post, "/api/articles", data)
       |> put_req_header("content-type", "application/json")
@@ -130,7 +119,7 @@ defmodule ArticlesPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "Unknown fields given (expecting: author, title, body, categories, excerpt, series_name)"}}
+    assert %{"error" => %{"message" => "Unknown fields given (expecting: title, body, categories, excerpt, series_name)"}}
       = Poison.decode!(response.resp_body)
   end
 end
