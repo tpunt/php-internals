@@ -15,93 +15,112 @@ defmodule SymbolPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status == 401
-    assert %{"error" => %{"message" => "Unauthenticated access attempt"}} = Poison.decode!(response.resp_body)
+    assert %{"error" => %{"message" => "Unauthenticated access attempt"}}
+      = Poison.decode!(response.resp_body)
   end
 
   @doc """
   PATCH /api/symbols/0123 -H authorization: at1
   """
   test "authorised invalid update patch submission for a non-existent symbol" do
-    cat_name = :rand.uniform(100_000_000)
-    cat_rev = :rand.uniform(100_000_000)
-
-    Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}})")
+    data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
+      "definition_location" => "..","type" => "macro","categories" => ["existent"]}}
 
     conn =
-      conn(:patch, "/api/symbols/0123", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
+      conn(:patch, "/api/symbols/0123", data)
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
     response = Router.call(conn, @opts)
 
     assert response.status == 404
-    assert %{"error" => %{"message" => "The specified symbol could not be found"}} = Poison.decode!(response.resp_body)
-
-    Neo4j.query!(Neo4j.conn, "MATCH (c:Category {revision_id: #{cat_rev}}) DELETE c")
+    assert %{"error" => %{"message" => "The specified symbol could not be found"}}
+      = Poison.decode!(response.resp_body)
   end
 
   @doc """
   PATCH /api/symbols/0123 -H authorization: at1
   """
   test "authorised invalid update patch submission from required fields" do
+    data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
+      "definition_location" => "..","type" => "macro"}}
+
     conn =
-      conn(:patch, "/api/symbols/0123", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro"}})
+      conn(:patch, "/api/symbols/0123", data)
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
     response = Router.call(conn, @opts)
 
     assert response.status == 400
-    assert %{"error" => %{"message" => "Required fields are missing (expecting: name, description, definition, definition_location, type, categories(as well as parameters and declaration for functions))"}} = Poison.decode!(response.resp_body)
+    assert %{"error" => %{"message" => "Required fields are missing (expecting: name, description, definition, definition_location, type, categories(as well as parameters and declaration for functions))"}}
+      = Poison.decode!(response.resp_body)
   end
 
   @doc """
   PATCH /api/symbols/0123 -H authorization: at1
   """
   test "authorised invalid update patch submission from an invalid category" do
+    data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
+      "definition_location" => "..","type" => "macro","categories" => ["invalid"]}}
+
     conn =
-      conn(:patch, "/api/symbols/0123", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["invalid"]}})
+      conn(:patch, "/api/symbols/0123", data)
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
     response = Router.call(conn, @opts)
 
     assert response.status == 400
-    assert %{"error" => %{"message" => "An invalid category has been entered"}} = Poison.decode!(response.resp_body)
+    assert %{"error" => %{"message" => "An invalid category has been entered"}}
+      = Poison.decode!(response.resp_body)
   end
 
   @doc """
   PATCH /api/symbols/0123 -H authorization: at1
   """
   test "authorised invalid update patch submission from no categories" do
+    data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
+      "definition_location" => "..","type" => "macro","categories" => []}}
+
     conn =
-      conn(:patch, "/api/symbols/0123", %{"symbol" => %{"name" => "...","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => []}})
+      conn(:patch, "/api/symbols/0123", data)
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
     response = Router.call(conn, @opts)
 
     assert response.status == 400
-    assert %{"error" => %{"message" => "At least one category must be given"}} = Poison.decode!(response.resp_body)
+    assert %{"error" => %{"message" => "At least one category must be given"}}
+      = Poison.decode!(response.resp_body)
   end
 
   @doc """
   PATCH /api/symbols/existent -H authorization: at1
   """
   test "authorised valid update patch submission for review 1" do
-    cat_name = :rand.uniform(100_000_000)
-    cat_rev = :rand.uniform(100_000_000)
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
     new_sym_name = :rand.uniform(100_000_000)
-
     Neo4j.query!(Neo4j.conn, """
-      CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
+      MATCH (c:Category {url: 'existent'})
+      CREATE (s:Symbol {
+          id: #{sym_id},
+          name: '...',
+          description: '.',
+          url: '...',
+          definition: '.',
+          definition_location: '.',
+          type: 'macro',
+          revision_id: #{sym_rev}
+        }),
+        (s)-[:CATEGORY]->(c)
     """)
+    data = %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..",
+      "definition" => "..","definition_location" => "..","type" => "macro","categories" => ["existent"]}}
 
     conn =
-      conn(:patch, "/api/symbols/#{sym_id}", %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
+      conn(:patch, "/api/symbols/#{sym_id}", data)
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at1")
 
@@ -110,11 +129,21 @@ defmodule SymbolPatchTest do
     assert response.status == 202
     assert %{"symbol" => %{"name" => new_sym_name2}} = Poison.decode!(response.resp_body)
     assert String.to_integer(new_sym_name2) == new_sym_name
-    refute [] == Neo4j.query!(Neo4j.conn, "MATCH (s:Symbol {revision_id: #{sym_rev}})-[:UPDATE]->(su:UpdateSymbolPatch {name: '#{new_sym_name}'})-[:CATEGORY]->(c:Category {revision_id: #{cat_rev}}) RETURN su")
+    refute [] == Neo4j.query!(Neo4j.conn, """
+      MATCH (s:Symbol {revision_id: #{sym_rev}}),
+        (s)-[:UPDATE]->(su:UpdateSymbolPatch {name: '#{new_sym_name}'}),
+        (su)-[:CATEGORY]->(c:Category {url: 'existent'}),
+        (su)-[:CONTRIBUTOR {type: 'update'}]->()
+      RETURN su
+    """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {revision_id: #{cat_rev}})<-[r1:CATEGORY]-(s:Symbol {revision_id: #{sym_rev}})-[r2:UPDATE]->(su:UpdateSymbolPatch {name: '#{new_sym_name}'})-[r3:CATEGORY]->(c:Category {revision_id: #{cat_rev}})
-      DELETE r1, r2, r3, s, su, c
+      MATCH (c:Category {url: 'existent'}),
+        (s:Symbol {revision_id: #{sym_rev}})-[r1:CATEGORY]->(c),
+        (s)-[r2:UPDATE]->(su:UpdateSymbolPatch {name: '#{new_sym_name}'}),
+        (su)-[r3:CATEGORY]->(c),
+        (su)-[r4:CONTRIBUTOR {type: 'update'}]->()
+      DELETE r1, r2, r3, r4, s, su
     """)
   end
 
@@ -122,19 +151,29 @@ defmodule SymbolPatchTest do
   PATCH /api/symbols/existent -H authorization: at2
   """
   test "authorised valid update patch submission for review 2" do
-    cat_name = :rand.uniform(100_000_000)
-    cat_rev = :rand.uniform(100_000_000)
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
     new_sym_name = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
-      CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
+      MATCH (c:Category {url: 'existent'})
+      CREATE (s:Symbol {
+          id: #{sym_id},
+          name: '...',
+          description: '.',
+          url: '...',
+          definition: '.',
+          definition_location: '.',
+          type: 'macro',
+          revision_id: #{sym_rev}
+        }),
+        (s)-[:CATEGORY]->(c)
     """)
+    data = %{"review" => "1", "symbol" => %{"name" => "#{new_sym_name}","description" => "..",
+      "definition" => "..","definition_location" => "..","type" => "macro","categories" => ["existent"]}}
 
     conn =
-      conn(:patch, "/api/symbols/#{sym_id}", %{"review" => "1", "symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
+      conn(:patch, "/api/symbols/#{sym_id}", data)
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at2")
 
@@ -143,16 +182,23 @@ defmodule SymbolPatchTest do
     assert response.status == 202
     assert %{"symbol" => %{"name" => new_sym_name2}} = Poison.decode!(response.resp_body)
     assert String.to_integer(new_sym_name2) == new_sym_name
-    refute [] == Neo4j.query!(Neo4j.conn, "MATCH (s:Symbol {revision_id: #{sym_rev}})-[:UPDATE]->(su:UpdateSymbolPatch {name: '#{new_sym_name}'})-[:CATEGORY]->(c:Category {revision_id: #{cat_rev}}) RETURN su")
+    refute [] == Neo4j.query!(Neo4j.conn, """
+      MATCH (s:Symbol {revision_id: #{sym_rev}}),
+        (s)-[:UPDATE]->(su:UpdateSymbolPatch {name: '#{new_sym_name}'}),
+        (su)-[:CATEGORY]->(c:Category {url: 'existent'}),
+        (su)-[:CONTRIBUTOR {type: 'update'}]->()
+      RETURN su
+    """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {revision_id: #{cat_rev}}),
+      MATCH (c:Category {url: 'existent'}),
         (s:Symbol {revision_id: #{sym_rev}}),
         (su:UpdateSymbolPatch {name: '#{new_sym_name}'}),
         (c)<-[r1:CATEGORY]-(s),
         (s)-[r2:UPDATE]->(su),
-        (su)-[r3:CATEGORY]->(c)
-      DELETE r1, r2, r3, s, su, c
+        (su)-[r3:CATEGORY]->(c),
+        (su)-[r4:CONTRIBUTOR {type: 'update'}]->()
+      DELETE r1, r2, r3, r4, s, su
     """)
   end
 
@@ -160,19 +206,29 @@ defmodule SymbolPatchTest do
   PATCH /api/symbols/existent -H authorization: at3
   """
   test "authorised valid update patch submission" do
-    cat_name = :rand.uniform(100_000_000)
-    cat_rev = :rand.uniform(100_000_000)
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
     new_sym_name = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
-      CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
+      MATCH (c:Category {url: 'existent'})
+      CREATE (s:Symbol {
+          id: #{sym_id},
+          name: '...',
+          description: '.',
+          url: '...',
+          definition: '.',
+          definition_location: '.',
+          type: 'macro',
+          revision_id: #{sym_rev}
+        }),
+        (s)-[:CATEGORY]->(c)
     """)
+    data = %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..",
+      "definition" => "..","definition_location" => "..","type" => "macro","categories" => ["existent"]}}
 
     conn =
-      conn(:patch, "/api/symbols/#{sym_id}", %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..","definition_location" => "..","type" => "macro","categories" => ["#{cat_name}"]}})
+      conn(:patch, "/api/symbols/#{sym_id}", data)
       |> put_req_header("content-type", "application/json")
       |> put_req_header("authorization", "at3")
 
@@ -180,33 +236,35 @@ defmodule SymbolPatchTest do
 
     assert response.status === 200
     assert %{"symbol" => %{"name" => new_sym_name2}} = Poison.decode!(response.resp_body)
-    assert String.to_integer(new_sym_name2) == new_sym_name
+    assert String.to_integer(new_sym_name2) === new_sym_name
     assert [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
         (su:UpdateSymbolPatch {name: '#{new_sym_name}'}),
-        (c:Category {revision_id: #{cat_rev}}),
+        (c:Category {url: 'existent'}),
         (s)-[:UPDATE]->(su),
         (su)-[:CATEGORY]->(c)
       RETURN su
     """)
     refute [] === Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {revision_id: #{cat_rev}}),
+      MATCH (c:Category {url: 'existent'}),
         (s:Symbol {name: '#{new_sym_name}'}),
         (sr:SymbolRevision {revision_id: #{sym_rev}}),
         (s)-[:CATEGORY]->(c),
         (s)-[:REVISION]->(sr),
-        (sr)-[:CATEGORY]->(c)
+        (sr)-[:CATEGORY]->(c),
+        (s)-[:CONTRIBUTOR {type: 'update'}]->()
       RETURN sr
     """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {revision_id: #{cat_rev}}),
+      MATCH (c:Category {url: 'existent'}),
         (s:Symbol {revision_id: '#{new_sym_name}'}),
         (sr:SymbolRevision {revision_id: #{sym_rev}}),
         (c)<-[r1:CATEGORY]-(s),
         (s)-[r2:REVISION]->(sr),
-        (sr)-[r3:CATEGORY]->(c)
-        DELETE r1, r2, r3, s, sr
+        (sr)-[r3:CATEGORY]->(c),
+        (s)-[r4:CONTRIBUTOR {type: 'update'}]->()
+        DELETE r1, r2, r3, r4, s, sr
     """)
   end
 
@@ -214,16 +272,32 @@ defmodule SymbolPatchTest do
   PATCH /api/symbols/existent?apply_patch=update -H authorization: at3
   """
   test "authorised valid apply patch update" do
-    cat_name = :rand.uniform(100_000_000)
-    cat_rev = :rand.uniform(100_000_000)
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
     sym_rev_b = :rand.uniform(100_000_000)
-
     Neo4j.query!(Neo4j.conn, """
-      CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
-        (su:UpdateSymbolPatch {id: #{sym_id}, name: '...2', description: '..', url: '...2', definition: '..', definition_location: '..', type: 'macro', revision_id: #{sym_rev_b}, against_revision: #{sym_rev}}),
+      MATCH (c:Category {url: 'existent'})
+      CREATE (s:Symbol {
+          id: #{sym_id},
+          name: '...',
+          description: '.',
+          url: '...',
+          definition: '.',
+          definition_location: '.',
+          type: 'macro',
+          revision_id: #{sym_rev}
+        }),
+        (su:UpdateSymbolPatch {
+          id: #{sym_id},
+          name: '...2',
+          description: '..',
+          url: '...2',
+          definition: '..',
+          definition_location: '..',
+          type: 'macro',
+          revision_id: #{sym_rev_b},
+          against_revision: #{sym_rev}
+        }),
         (s)-[:CATEGORY]->(c),
         (s)-[:UPDATE]->(su),
         (su)-[:CATEGORY]->(c)
@@ -240,7 +314,7 @@ defmodule SymbolPatchTest do
     assert [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
         (su:UpdateSymbolPatch {revision_id: #{sym_rev_b}}),
-        (c:Category {revision_id: #{cat_rev}}),
+        (c:Category {url: 'existent'}),
         (s)-[:UPDATE]->(su),
         (s)-[:CATEGORY]->(c),
         (su)-[:CATEGORY]->(c)
@@ -249,21 +323,23 @@ defmodule SymbolPatchTest do
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (sr:SymbolRevision {revision_id: #{sym_rev}}),
         (s:Symbol {revision_id: #{sym_rev_b}}),
-        (c:Category {revision_id: #{cat_rev}}),
+        (c:Category {url: 'existent'}),
         (s)-[:REVISION]->(sr),
         (s)-[:CATEGORY]->(c),
-        (sr)-[:CATEGORY]->(c)
+        (sr)-[:CATEGORY]->(c),
+        (s)-[:CONTRIBUTOR {type: 'apply_update'}]->()
       RETURN sr
     """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {revision_id: #{cat_rev}}),
+      MATCH (c:Category {url: 'existent'}),
         (s:Symbol {revision_id: #{sym_rev_b}}),
         (sr:SymbolRevision {revision_id: #{sym_rev}}),
         (c)<-[r1:CATEGORY]-(s),
         (s)-[r2:REVISION]->(sr),
-        (sr)-[r3:CATEGORY]->(c)
-        DELETE r1, r2, r3, s, sr, c
+        (sr)-[r3:CATEGORY]->(c),
+        (s)-[r4:CONTRIBUTOR {type: 'apply_update'}]->()
+        DELETE r1, r2, r3, r4, s, sr
     """)
   end
 
@@ -271,16 +347,32 @@ defmodule SymbolPatchTest do
   PATCH /api/symbols/existent?discard_patch=update -H authorization: at3
   """
   test "authorised valid discard patch update" do
-    cat_name = :rand.uniform(100_000_000)
-    cat_rev = :rand.uniform(100_000_000)
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
     sym_rev_b = :rand.uniform(100_000_000)
-
     Neo4j.query!(Neo4j.conn, """
-      CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
-        (su:UpdateSymbolPatch {id: #{sym_id}, name: '...2', description: '..', url: '...2', definition: '..', definition_location: '..', type: 'macro', revision_id: #{sym_rev_b}, against_revision: #{sym_rev}}),
+      MATCH (c:Category {url: 'existent'})
+      CREATE (s:Symbol {
+          id: #{sym_id},
+          name: '...',
+          description: '.',
+          url: '...',
+          definition: '.',
+          definition_location: '.',
+          type: 'macro',
+          revision_id: #{sym_rev}
+        }),
+        (su:UpdateSymbolPatch {
+          id: #{sym_id},
+          name: '...2',
+          description: '..',
+          url: '...2',
+          definition: '..',
+          definition_location: '..',
+          type: 'macro',
+          revision_id: #{sym_rev_b},
+          against_revision: #{sym_rev}
+        }),
         (s)-[:CATEGORY]->(c),
         (s)-[:UPDATE]->(su),
         (su)-[:CATEGORY]->(c)
@@ -296,7 +388,7 @@ defmodule SymbolPatchTest do
     assert [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
         (su:UpdateSymbolPatch {revision_id: #{sym_rev_b}}),
-        (c:Category {revision_id: #{cat_rev}}),
+        (c:Category {url: 'existent'}),
         (s)-[:UPDATE]->(su),
         (s)-[:CATEGORY]->(c),
         (su)-[:CATEGORY]->(c)
@@ -305,21 +397,23 @@ defmodule SymbolPatchTest do
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
         (su:UpdateSymbolPatchDeleted {revision_id: #{sym_rev_b}}),
-        (c:Category {revision_id: #{cat_rev}}),
+        (c:Category {url: 'existent'}),
         (s)-[:UPDATE]->(su),
         (s)-[:CATEGORY]->(c),
-        (su)-[:CATEGORY]->(c)
+        (su)-[:CATEGORY]->(c),
+        (su)-[:CONTRIBUTOR {type: 'discard_update'}]->()
       RETURN su
     """)
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
         (su:UpdateSymbolPatch {revision_id: #{sym_rev_b}}),
-        (c:Category {revision_id: #{cat_rev}}),
+        (c:Category {url: 'existent'}),
         (s)-[r1:UPDATE]->(su),
         (s)-[r2:CATEGORY]->(c),
-        (su)-[r3:CATEGORY]->(c)
-        DELETE r1, r2, r3, s, su, c
+        (su)-[r3:CATEGORY]->(c),
+        (su)-[r4:CONTRIBUTOR {type: 'discard_update'}]->()
+        DELETE r1, r2, r3, r4, s, su
     """)
   end
 
@@ -327,14 +421,20 @@ defmodule SymbolPatchTest do
   PATCH /api/symbols/existent?apply_patch=insert -H authorization: at3
   """
   test "authorised valid apply patch insert" do
-    cat_name = :rand.uniform(100_000_000)
-    cat_rev = :rand.uniform(100_000_000)
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
-
     Neo4j.query!(Neo4j.conn, """
-      CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:InsertSymbolPatch {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
+      MATCH (c:Category {url: 'existent'})
+      CREATE (s:InsertSymbolPatch {
+          id: #{sym_id},
+          name: '...',
+          description: '.',
+          url: '...',
+          definition: '.',
+          definition_location: '.',
+          type: 'macro',
+          revision_id: #{sym_rev}
+        }),
         (s)-[:CATEGORY]->(c)
     """)
 
@@ -348,37 +448,45 @@ defmodule SymbolPatchTest do
     assert %{"symbol" => %{"name" => "..."}} = Poison.decode!(response.resp_body)
     assert [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:InsertSymbolPatch {revision_id: #{sym_rev}}),
-        (c:Category {revision_id: #{cat_rev}}),
+        (c:Category {url: 'existent'}),
         (s)-[:CATEGORY]->(c)
       RETURN s
     """)
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
-        (c:Category {revision_id: #{cat_rev}}),
-        (s)-[:CATEGORY]->(c)
+        (c:Category {url: 'existent'}),
+        (s)-[:CATEGORY]->(c),
+        (s)-[:CONTRIBUTOR {type: 'apply_insert'}]->()
       RETURN s
     """)
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
-        (c:Category {revision_id: #{cat_rev}}),
-        (s)-[r:CATEGORY]->(c)
-      DELETE r, s, c
+        (c:Category {url: 'existent'}),
+        (s)-[r1:CATEGORY]->(c),
+        (s)-[r2:CONTRIBUTOR {type: 'apply_insert'}]->()
+      DELETE r1, r2, s
     """)
   end
 
   @doc """
   PATCH /api/symbols/existent?discard_patch=insert -H authorization: at3
   """
-  test "authorised valid discar patch insert" do
-    cat_name = :rand.uniform(100_000_000)
-    cat_rev = :rand.uniform(100_000_000)
+  test "authorised valid discard patch insert" do
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
-
     Neo4j.query!(Neo4j.conn, """
-      CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:InsertSymbolPatch {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
+      MATCH (c:Category {url: 'existent'})
+      CREATE (s:InsertSymbolPatch {
+          id: #{sym_id},
+          name: '...',
+          description: '.',
+          url: '...',
+          definition: '.',
+          definition_location: '.',
+          type: 'macro',
+          revision_id: #{sym_rev}
+        }),
         (s)-[:CATEGORY]->(c)
     """)
 
@@ -391,22 +499,24 @@ defmodule SymbolPatchTest do
     assert response.status === 200
     assert [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:InsertSymbolPatch {revision_id: #{sym_rev}}),
-        (c:Category {revision_id: #{cat_rev}}),
+        (c:Category {url: 'existent'}),
         (s)-[:CATEGORY]->(c)
       RETURN s
     """)
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:InsertSymbolPatchDeleted {revision_id: #{sym_rev}}),
-        (c:Category {revision_id: #{cat_rev}}),
-        (s)-[:CATEGORY]->(c)
+        (c:Category {url: 'existent'}),
+        (s)-[:CATEGORY]->(c),
+        (s)-[:CONTRIBUTOR {type: 'discard_insert'}]->()
       RETURN s
     """)
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:InsertSymbolPatchDeleted {revision_id: #{sym_rev}}),
-        (c:Category {revision_id: #{cat_rev}}),
-        (s)-[r:CATEGORY]->(c)
-      DELETE r, s, c
+        (c:Category {url: 'existent'}),
+        (s)-[r1:CATEGORY]->(c),
+        (s)-[r2:CONTRIBUTOR {type: 'discard_insert'}]->()
+      DELETE r1, r2, s
     """)
   end
 
@@ -414,14 +524,20 @@ defmodule SymbolPatchTest do
   PATCH /api/symbols/existent?apply_patch=delete -H authorization: at3
   """
   test "authorised valid apply patch delete" do
-    cat_name = :rand.uniform(100_000_000)
-    cat_rev = :rand.uniform(100_000_000)
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
-
     Neo4j.query!(Neo4j.conn, """
-      CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
+      MATCH (c:Category {url: 'existent'})
+      CREATE (s:Symbol {
+          id: #{sym_id},
+          name: '...',
+          description: '.',
+          url: '...',
+          definition: '.',
+          definition_location: '.',
+          type: 'macro',
+          revision_id: #{sym_rev}
+        }),
         (s)-[:CATEGORY]->(c),
         (s)-[:DELETE]->(:DeleteSymbolPatch)
     """)
@@ -435,23 +551,25 @@ defmodule SymbolPatchTest do
     assert response.status === 204
     assert [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
-        (c:Category {revision_id: #{cat_rev}}),
+        (c:Category {url: 'existent'}),
         (s)-[:CATEGORY]->(c),
         (s)-[:DELETE]->(:DeleteSymbolPatch)
       RETURN s
     """)
     refute [] === Neo4j.query!(Neo4j.conn, """
-      MATCH (s:SymbolDeleted {revision_id: #{sym_rev}}),
-        (c:Category {revision_id: #{cat_rev}}),
-        (s)-[:CATEGORY]->(c)
-      RETURN s
+      MATCH (sd:SymbolDeleted {revision_id: #{sym_rev}}),
+        (c:Category {url: 'existent'}),
+        (sd)-[:CATEGORY]->(c),
+        (sd)-[:CONTRIBUTOR {type: 'apply_delete'}]->()
+      RETURN sd
     """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (s:SymbolDeleted {revision_id: #{sym_rev}}),
-        (c:Category {revision_id: #{cat_rev}}),
-        (s)-[r:CATEGORY]->(c)
-      DELETE r, s, c
+      MATCH (sd:SymbolDeleted {revision_id: #{sym_rev}}),
+        (c:Category {url: 'existent'}),
+        (sd)-[r1:CATEGORY]->(c),
+        (sd)-[r2:CONTRIBUTOR {type: 'apply_delete'}]->()
+      DELETE r1, r2, sd
     """)
   end
 
@@ -459,14 +577,21 @@ defmodule SymbolPatchTest do
   PATCH /api/symbols/existent?discard_patch=delete -H authorization: at3
   """
   test "authorised valid discard patch delete" do
-    cat_name = :rand.uniform(100_000_000)
-    cat_rev = :rand.uniform(100_000_000)
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
-      CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}}),
+      MATCH (c:Category {url: 'existent'})
+      CREATE (s:Symbol {
+          id: #{sym_id},
+          name: '...',
+          description: '.',
+          url: '...',
+          definition: '.',
+          definition_location: '.',
+          type: 'macro',
+          revision_id: #{sym_rev}
+        }),
         (s)-[:CATEGORY]->(c),
         (s)-[:DELETE]->(:DeleteSymbolPatch)
     """)
@@ -480,23 +605,25 @@ defmodule SymbolPatchTest do
     assert response.status === 200
     assert [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
-        (c:Category {revision_id: #{cat_rev}}),
+        (c:Category {url: 'existent'}),
         (s)-[:CATEGORY]->(c),
         (s)-[:DELETE]->(:DeleteSymbolPatch)
       RETURN s
     """)
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
-        (c:Category {revision_id: #{cat_rev}}),
-        (s)-[:CATEGORY]->(c)
+        (c:Category {url: 'existent'}),
+        (s)-[:CATEGORY]->(c),
+        (s)-[:CONTRIBUTOR {type: 'discard_delete'}]->()
       RETURN s
     """)
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
-        (c:Category {revision_id: #{cat_rev}}),
-        (s)-[r:CATEGORY]->(c)
-      DELETE r, s, c
+        (c:Category {url: 'existent'}),
+        (s)-[r1:CATEGORY]->(c),
+        (s)-[r2:CONTRIBUTOR {type: 'discard_delete'}]->()
+      DELETE r1, r2, s
     """)
   end
 end

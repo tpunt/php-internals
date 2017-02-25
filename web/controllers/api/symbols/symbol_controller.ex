@@ -58,7 +58,8 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
          {:ok, symbol_type} <- Symbol.valid_symbol_type?(params["type"]),
          {:ok, _category} <- Category.valid_category?(params["category"]) do
         #  {:ok, search_term} <- Symbol.valid_search?(params["search"]) do
-      render(conn, "index.json", symbols: Symbol.fetch_all_symbols(order_by, ordering, offset, limit, symbol_type, params["category"], params["search"]))
+      symbols = Symbol.fetch_all_symbols(order_by, ordering, offset, limit, symbol_type, params["category"], params["search"])
+      render(conn, "index.json", symbols: symbols)
     else
       {:error, status_code, error} ->
         conn
@@ -203,7 +204,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
       symbol =
         symbol
         |> Map.merge(%{"url" => url_name})
-        |> Symbol.insert(review)
+        |> Symbol.insert(review, conn.user.username)
 
       status_code = if review === 0, do: 201, else: 202
 
@@ -238,7 +239,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
   def update(conn, %{"symbol_id" => symbol_id, "apply_patch" => action}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, return} <- Symbol.accept_symbol_patch(symbol_id, action) do
+         {:ok, return} <- Symbol.accept_symbol_patch(symbol_id, action, conn.user.username) do
       if is_integer(return) do
         send_resp(conn, return, "")
       else
@@ -260,7 +261,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
   def update(conn, %{"symbol_id" => symbol_id, "discard_patch" => action}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, status_code} <- Symbol.discard_symbol_patch(symbol_id, action) do
+         {:ok, status_code} <- Symbol.discard_symbol_patch(symbol_id, action, conn.user.username) do
       send_resp(conn, status_code, "")
     else
       {:error, status_code, message} ->
@@ -300,9 +301,9 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
       symbol =
         if Map.has_key?(params, "references_patch") do
-          Symbol.update(symbol, old_symbol["symbol"], review, params["references_patch"])
+          Symbol.update(symbol, old_symbol["symbol"], review, params["references_patch"], conn.user.username)
         else
-          Symbol.update(symbol, old_symbol["symbol"], review)
+          Symbol.update(symbol, old_symbol["symbol"], review, conn.user.username)
         end
 
       status_code = if review === 0, do: 200, else: 202

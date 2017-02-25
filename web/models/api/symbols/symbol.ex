@@ -145,8 +145,16 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def update_patch_exists?(symbol_id, patch_id) do
     query = """
-      MATCH (c1:Category)<-[:CATEGORY]-(s1:Symbol {id: {symbol_id}})-[:UPDATE]->(s2:UpdateSymbolPatch {revision_id: {patch_id}})-[:CATEGORY]->(c2:Category)
-      RETURN {symbol: s1, categories: collect(c1), update: {symbol: s2, categories: collect(c2)}} AS symbol_update
+      MATCH (s:Symbol {id: {symbol_id}}),
+        (usp:UpdateSymbolPatch {revision_id: {patch_id}}),
+        (s)-[:UPDATE]->(usp),
+        (s)-[:CATEGORY]->(c1:Category),
+        (usp)-[:CATEGORY]->(c2:Category)
+      RETURN {
+        symbol: s,
+        categories: collect(c1),
+        update: {symbol: usp, categories: collect(c2)}
+      } AS symbol_update
     """
 
     params = %{symbol_id: symbol_id, patch_id: patch_id}
@@ -311,7 +319,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def fetch_all_symbols_patches_insert do
     query = """
-      MATCH (symbol:InsertSymbolPatch)-[:CATEGORY]-(c:Category)
+      MATCH (symbol:InsertSymbolPatch)-[:CATEGORY]->(c:Category)
       RETURN {symbol: symbol, categories: collect({name: c.name, url: c.url})} as symbol_insert
     """
 
@@ -384,7 +392,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def fetch(symbol_id, "normal") do
     query = """
-      MATCH (symbol:Symbol {id: {symbol_id}})-[r:CATEGORY]-(category:Category)
+      MATCH (symbol:Symbol {id: {symbol_id}})-[r:CATEGORY]->(category:Category)
       RETURN symbol, collect({name: category.name, url: category.url}) AS categories
     """
 
@@ -424,7 +432,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def fetch(symbol_id, "full") do
     query = """
-      MATCH (symbol:Symbol {id: {symbol_id}})-[r:CATEGORY]-(category:Category)
+      MATCH (symbol:Symbol {id: {symbol_id}})-[r:CATEGORY]->(category:Category)
       RETURN symbol, collect(category) AS categories
     """
 
@@ -474,24 +482,22 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     %{"symbol_updates" => %{"symbol" => symbol, "updates" => updates}}
   end
 
-  def insert(symbol, review) do
+  def insert(symbol, review, username) do
     query1 =
       case review do
         0 -> "CREATE (symbol:Symbol "
         1 -> "CREATE (symbol:InsertSymbolPatch "
       end
 
-    query2 = "{id: {id}, revision_id: {revision_id}, "
-
-    query3 =
+    query2 =
       Map.keys(symbol)
       |> Enum.filter(fn key -> key !== "categories" end)
       |> Enum.map(fn key -> "#{key}: {#{key}}" end)
       |> Enum.join(",")
 
-    query4 = "})"
+    query2 = "{id: {id}, revision_id: {revision_id}, #{query2}})"
 
-    {query5, params1, _counter} =
+    {query3, params1, _counter} =
       symbol["categories"]
       |> Enum.reduce({"", %{}, 0}, fn (cat, {queries, params, n}) ->
         query = """
@@ -502,13 +508,15 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         {queries <> query, Map.put(params, "cat#{n}_url", cat), n + 1}
       end)
 
-    query6 = """
+    query4 = """
       WITH symbol
-      MATCH (symbol)-[crel:CATEGORY]->(category:Category)
+      MATCH (symbol)-[crel:CATEGORY]->(category:Category),
+        (user:User {username: {username}})
+      CREATE (symbol)-[:CONTRIBUTOR {type: "insert"}]->(user)
       RETURN symbol, collect(category) as categories
     """
 
-    query = query1 <> query2 <> query3 <> query4 <> query5 <> query6
+    query = query1 <> query2 <> query3 <> query4
 
     params2 = %{
       id: :rand.uniform(100_000_000),
@@ -525,7 +533,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       example: symbol["example"],
       example_explanation: symbol["example_explanation"],
       notes: symbol["notes"],
-      revision_id: :rand.uniform(100_000_000)
+      revision_id: :rand.uniform(100_000_000),
+      username: username
     }
 
     params = Map.merge(params1, params2)
@@ -537,15 +546,16 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     %{"symbol" => Map.merge(symbol, %{"categories" => categories})}
   end
 
-  def update(new_symbol, old_symbol, 0) do
+  def update(new_symbol, old_symbol, 0 = _review, username) do
     query1 = """
-      MATCH (old_symbol:Symbol {id: {symbol_id}})
+      MATCH (old_symbol:Symbol {id: {symbol_id}}),
+        (user:User {username: {username}})
       OPTIONAL MATCH (old_symbol)-[r1:UPDATE]->(su:UpdateSymbolPatch)
       OPTIONAL MATCH (old_symbol)-[r2:DELETE]->(sd:DeleteSymbolPatch)
       REMOVE old_symbol:Symbol
       SET old_symbol:SymbolRevision
       DELETE r1, r2
-      WITH old_symbol, collect(su) as sus, sd
+      WITH old_symbol, user, COLLECT(su) as sus, sd
     """
 
     query2 =
@@ -556,7 +566,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     query2 = """
       CREATE (new_symbol:Symbol {#{query2}}),
-        (new_symbol)-[:REVISION]->(old_symbol)
+        (new_symbol)-[:REVISION]->(old_symbol),
+        (new_symbol)-[:CONTRIBUTOR {type: "update"}]->(user)
     """
 
     {queries, params1, _counter} =
@@ -583,7 +594,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       )
       WITH new_symbol
       MATCH (new_symbol)-[:CATEGORY]->(category:Category)
-      RETURN new_symbol as symbol, collect(category) as categories
+      RETURN new_symbol as symbol, COLLECT(category) as categories
     """
 
     query = query1 <> query2 <> query3 <> query4
@@ -604,7 +615,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       new_example_explanation: new_symbol["example_explanation"],
       new_notes: new_symbol["notes"],
       new_revision_id: :rand.uniform(100_000_000),
-      symbol_id: old_symbol["id"]
+      symbol_id: old_symbol["id"],
+      username: username
     }
 
     params = Map.merge(params1, params2)
@@ -616,9 +628,10 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     %{"symbol" => Map.merge(symbol, %{"categories" => categories})}
   end
 
-  def update(new_symbol, old_symbol, 1) do
+  def update(new_symbol, old_symbol, 1, username) do
     query1 = """
-      MATCH (old_symbol:Symbol {id: {symbol_id}})
+      MATCH (old_symbol:Symbol {id: {symbol_id}}),
+        (user:User {username: {username}})
       WITH old_symbol
     """
 
@@ -630,7 +643,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     query2 = """
       CREATE (new_symbol:UpdateSymbolPatch {id: {symbol_id}, against_revision: {against_revision}, #{query2}}),
-        (old_symbol)-[:UPDATE]->(new_symbol)
+        (old_symbol)-[:UPDATE]->(new_symbol),
+        (new_symbol)-[:CONTRIBUTOR {type: "update"}]->(user)
       WITH new_symbol
     """
 
@@ -673,7 +687,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       new_notes: new_symbol["notes"],
       new_revision_id: :rand.uniform(100_000_000),
       against_revision: old_symbol["revision_id"],
-      symbol_id: old_symbol["id"]
+      symbol_id: old_symbol["id"],
+      username: username
     }
 
     params = Map.merge(params1, params2)
@@ -685,15 +700,17 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     %{"symbol" => Map.merge(symbol, %{"categories" => categories})}
   end
 
-  def accept_symbol_patch(symbol_id, "insert") do
+  def accept_symbol_patch(symbol_id, "insert", username) do
     query = """
-      MATCH (symbol:InsertSymbolPatch {id: {symbol_id}})-[:CATEGORY]->(c:Category)
+      MATCH (symbol:InsertSymbolPatch {id: {symbol_id}})-[:CATEGORY]->(c:Category),
+        (user:User {username: {username}})
       REMOVE symbol:InsertSymbolPatch
       SET symbol:Symbol
+      CREATE (symbol)-[:CONTRIBUTOR {type: "apply_insert"}]->(user)
       RETURN symbol, collect({name: c.name, url: c.url}) AS categories
     """
 
-    params = %{symbol_id: symbol_id}
+    params = %{symbol_id: symbol_id, username: username}
 
     result = List.first Neo4j.query!(Neo4j.conn, query, params)
 
@@ -706,16 +723,18 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def accept_symbol_patch(symbol_id, "delete") do
+  def accept_symbol_patch(symbol_id, "delete", username) do
     query = """
-      MATCH (symbol:Symbol {id: {symbol_id}})-[r:DELETE]->(sd:DeleteSymbolPatch)
+      MATCH (symbol:Symbol {id: {symbol_id}})-[r:DELETE]->(sd:DeleteSymbolPatch),
+        (user:User {username: {username}})
       REMOVE symbol:Symbol
       SET symbol:SymbolDeleted
       DELETE r, sd
+      CREATE (symbol)-[:CONTRIBUTOR {type: "apply_delete"}]->(user)
       RETURN symbol
     """
 
-    params = %{symbol_id: symbol_id}
+    params = %{symbol_id: symbol_id, username: username}
 
     result = Neo4j.query!(Neo4j.conn, query, params)
 
@@ -726,7 +745,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def accept_symbol_patch(symbol_id, update_or_error) do
+  def accept_symbol_patch(symbol_id, update_or_error, username) do
     output = String.split(update_or_error, ",")
 
     if length(output) !== 2 do
@@ -737,16 +756,17 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       if update !== "update" do
         {:error, 400, "Unknown patch type"}
       else
-        accept_symbol_patch(symbol_id, update, String.to_integer(for_revision))
+        accept_symbol_patch(symbol_id, update, String.to_integer(for_revision), username)
       end
     end
   end
 
-  def accept_symbol_patch(symbol_id, "update", patch_revision_id) do
+  def accept_symbol_patch(symbol_id, "update", patch_revision_id, username) do
     with {:ok, _symbol} <- update_patch_exists?(symbol_id, patch_revision_id),
          {:ok} <- revision_ids_match?(symbol_id, patch_revision_id) do
       query = """
-        MATCH (old_symbol:Symbol {id: {symbol_id}})-[r1:UPDATE]->(new_symbol:UpdateSymbolPatch {revision_id: {patch_id}})
+        MATCH (old_symbol:Symbol {id: {symbol_id}}),
+          (old_symbol)-[r1:UPDATE]->(new_symbol:UpdateSymbolPatch {revision_id: {patch_id}})
         DELETE r1
 
         WITH old_symbol, new_symbol
@@ -772,13 +792,16 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
         WITH new_symbol
 
-        MATCH (new_symbol)-[:CATEGORY]->(category:Category)
+        MATCH (new_symbol)-[:CATEGORY]->(category:Category),
+          (user:User {username: {username}})
+        CREATE (new_symbol)-[:CONTRIBUTOR {type: "apply_update"}]->(user)
         RETURN new_symbol as symbol, collect(category) as categories
       """
 
       params = %{
         symbol_id: symbol_id,
-        patch_id: patch_revision_id
+        patch_id: patch_revision_id,
+        username: username
       }
 
       [%{"categories" => categories, "symbol" => symbol}] = Neo4j.query!(Neo4j.conn, query, params)
@@ -792,15 +815,17 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def discard_symbol_patch(symbol_id, "insert") do
+  def discard_symbol_patch(symbol_id, "insert", username) do
     with {:ok, _symbol} <- is_insert_patch?(symbol_id) do
       query = """
-        MATCH (s:InsertSymbolPatch {id: {symbol_id}})
-        REMOVE s:InsertSymbolPatch
-        SET s:InsertSymbolPatchDeleted
+        MATCH (isp:InsertSymbolPatch {id: {symbol_id}}),
+          (user:User {username: {username}})
+        REMOVE isp:InsertSymbolPatch
+        SET isp:InsertSymbolPatchDeleted
+        CREATE (isp)-[:CONTRIBUTOR {type: "discard_insert"}]->(user)
       """
 
-      params = %{symbol_id: symbol_id}
+      params = %{symbol_id: symbol_id, username: username}
 
       Neo4j.query!(Neo4j.conn, query, params)
 
@@ -811,14 +836,17 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def discard_symbol_patch(symbol_id, "delete") do
+  def discard_symbol_patch(symbol_id, "delete", username) do
     with {:ok, _symbol} <- is_delete_patch?(symbol_id) do
       query = """
-        MATCH (s:Symbol {id: {symbol_id}})-[r:DELETE]->(sd:DeleteSymbolPatch)
+        MATCH (s:Symbol {id: {symbol_id}}),
+          (user:User {username: {username}}),
+          (s)-[r:DELETE]->(sd:DeleteSymbolPatch)
         DELETE r, sd
+        MERGE (s)-[:CONTRIBUTOR {type: "discard_delete"}]->(user)
       """
 
-      params = %{symbol_id: symbol_id}
+      params = %{symbol_id: symbol_id, username: username}
 
       Neo4j.query!(Neo4j.conn, query, params)
 
@@ -829,7 +857,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def discard_symbol_patch(symbol_id, update_or_error) do
+  def discard_symbol_patch(symbol_id, update_or_error, username) do
     output = String.split(update_or_error, ",")
 
     if length(output) !== 2 do
@@ -840,20 +868,22 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       if update !== "update" do
         {:error, 400, "Unknown patch type"}
       else
-        discard_symbol_patch(symbol_id, update, String.to_integer(for_revision))
+        discard_symbol_patch(symbol_id, update, String.to_integer(for_revision), username)
       end
     end
   end
 
-  def discard_symbol_patch(symbol_id, "update", patch_revision_id) do
+  def discard_symbol_patch(symbol_id, "update", patch_revision_id, username) do
     with {:ok, _symbol} <- update_patch_exists?(symbol_id, patch_revision_id) do
       query = """
-        MATCH (s:UpdateSymbolPatch {revision_id: {revision_id}})
-        REMOVE s:UpdateSymbolPatch
-        SET s:UpdateSymbolPatchDeleted
+        MATCH (usp:UpdateSymbolPatch {revision_id: {revision_id}}),
+          (user:User {username: {username}})
+        REMOVE usp:UpdateSymbolPatch
+        SET usp:UpdateSymbolPatchDeleted
+        CREATE (usp)-[:CONTRIBUTOR {type: "discard_update"}]->(user)
       """
 
-      params = %{revision_id: patch_revision_id}
+      params = %{revision_id: patch_revision_id, username: username}
 
       Neo4j.query!(Neo4j.conn, query, params)
 
