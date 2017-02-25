@@ -316,34 +316,34 @@ defmodule PhpInternals.Api.Categories.CategoryController do
     end
   end
 
-  def update_category(conn, %{"category" => %{} = category, "category_name" => old_url_name, "review" => review} = params) do
-    with {:ok} <- Category.contains_required_fields?(category),
-         {:ok} <- Category.contains_only_expected_fields?(category),
-         {:ok, %{"category" => old_category}} <- Category.valid_category?(old_url_name) do
-      new_url_name = Utilities.make_url_friendly_name(category["name"])
+  defp update_category(conn, %{"category" => %{} = new_category, "category_name" => old_url, "review" => review} = params) do
+    with {:ok} <- Category.contains_required_fields?(new_category),
+         {:ok} <- Category.contains_only_expected_fields?(new_category),
+         {:ok, %{"category" => old_category}} <- Category.valid_category?(old_url) do
+      new_url_name = Utilities.make_url_friendly_name(new_category["name"])
 
-      category = Map.merge(category, %{"new_url" => new_url_name, "old_url" => old_url_name})
+      new_category = Map.merge(new_category, %{"url" => new_url_name})
 
-      category =
+      new_category =
         if Map.has_key?(params, "references_patch") do
-          if conn.user.privilege_level == 1 do
+          if conn.user.privilege_level === 1 do
             {:error, 403, "Unauthorised action"}
           else
-            Category.update_category(category, old_category, review, params["references_patch"])
+            Category.update_category(old_category, new_category, review, conn.user.username, params["references_patch"])
           end
         else
-          Category.update_category(category, old_category, review)
+          Category.update_category(old_category, new_category, review, conn.user.username)
         end
 
-      case category do
+      case new_category do
         {:error, status_code, error} ->
           conn
           |> put_status(status_code)
           |> render(PhpInternals.ErrorView, "error.json", error: error)
-        {:ok, status_code, category} ->
+        {:ok, status_code, new_category} ->
           conn
           |> put_status(status_code)
-          |> render("show.json", category: category)
+          |> render("show.json", category: new_category)
       end
     else
       {:error, status_code, error} ->
@@ -353,7 +353,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
     end
   end
 
-  def update_category(conn, _params) do
+  defp update_category(conn, _params) do
     conn
     |> put_status(400)
     |> render(PhpInternals.ErrorView, "error.json", error: "Incomplete request data")

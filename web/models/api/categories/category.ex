@@ -291,7 +291,7 @@ defmodule PhpInternals.Api.Categories.Category do
     query = """
       MATCH (user:User {username: {username}})
       CREATE (category:Category {name: {name}, introduction: {introduction}, url: {url}, revision_id: {rev_id}}),
-        (category)-[:CREATED_BY]->(user)
+        (category)-[:CONTRIBUTOR {type: "insert"}]->(user)
       RETURN category
     """
 
@@ -308,7 +308,7 @@ defmodule PhpInternals.Api.Categories.Category do
     query = """
       MATCH (user:User {username: {username}})
       CREATE (category:InsertCategoryPatch {name: {name}, introduction: {introduction}, url: {url}, revision_id: {rev_id}}),
-        (category)-[:CREATED_BY]->(user)
+        (category)-[:CONTRIBUTOR {type: "insert"}]->(user)
       RETURN category
     """
 
@@ -321,139 +321,215 @@ defmodule PhpInternals.Api.Categories.Category do
     List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def update_category(new_category, old_category, 0, patch_revision_id) do
+  def update_category(old_category, new_category, 0 = _review, username, patch_revision_id) do
     patch_revision_id = String.to_integer(patch_revision_id)
 
     query = """
-      MATCH (category:Category {url: {old_url}})-[:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
+      MATCH (category:Category {url: {old_url}}),
+        (category)-[:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
       RETURN category
     """
 
-    params = %{old_url: new_category["old_url"], patch_revision_id: patch_revision_id}
+    params = %{
+      old_url: old_category["url"],
+      patch_revision_id: patch_revision_id,
+      new_name: new_category["name"],
+      new_url: new_category["url"],
+      new_introduction: new_category["introduction"],
+      new_rev_id: :rand.uniform(100_000_000),
+      username: username
+    }
 
-    if Neo4j.query!(Neo4j.conn, query, params) == [] do
+    if Neo4j.query!(Neo4j.conn, query, params) === [] do
       {:error, 404, "Update patch not found"}
     else
       query = """
-        MATCH (category:Category {url: {old_url}})-[r1:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
-        OPTIONAL MATCH (category)-[r2:REVISION]->(old_revision:CategoryRevision)
-        SET category.name = {new_name},
-          category.introduction = {new_introduction},
-          category.url = {new_url},
-          category.revision_id = {new_rev_id}
-        CREATE (old_category:CategoryRevision {name: {old_name}, introduction: {old_introduction}, url: {old_url}, revision_id: {old_rev_id}})
-        DELETE r1, cp
-        WITH category, old_category, r2, old_revision
-        FOREACH (ignored IN CASE old_revision WHEN NULL THEN [1] ELSE [] END |
-          CREATE (category)-[:REVISION]->(old_category)
-        )
-        FOREACH (ignored IN CASE old_revision WHEN NULL THEN [] ELSE [1] END |
-          DELETE r2
-          CREATE (category)-[:REVISION]->(old_category)-[:REVISION]->(old_revision)
-        )
-        RETURN category
-      """
+        MATCH (old_category:Category {url: {old_url}}),
+          (user:User {username: {username}}),
+          (old_category)-[r1:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
 
-      params = %{new_name: new_category["name"],
-        new_introduction: new_category["introduction"],
-        new_url: new_category["new_url"],
-        new_rev_id: :rand.uniform(100_000_000),
-        old_name: old_category["name"],
-        old_introduction: old_category["introduction"],
-        old_url: new_category["old_url"],
-        old_rev_id: old_category["revision_id"],
-        patch_revision_id: patch_revision_id}
+        CREATE (new_category:Category {
+            name: {new_name}, introduction: {new_introduction}, url: {new_url}, revision_id: {new_rev_id}
+          }),
+          (new_category)-[:REVISION]->(old_category),
+          (new_category)-[:UPDATE_REVISION]->(cp),
+          (new_category)-[:CONTRIBUTOR {type: "update"}]->(user)
+
+        REMOVE old_category:Category
+        SET old_category:CategoryRevision
+
+        REMOVE cp:UpdateCategoryPatch
+        SET cp:UpdateCategoryPatchRevision
+
+        DELETE r1
+
+        WITH old_category, new_category, user
+
+        OPTIONAL MATCH (n)-[r2:CATEGORY]->(old_category)
+        OPTIONAL MATCH (old_category)-[r3:UPDATE]->(ucp:UpdateCategoryPatch)
+        OPTIONAL MATCH (old_category)-[r4:DELETE]->(dcp:DeleteCategoryPatch)
+
+        DELETE r2, r3, r4
+
+        WITH new_category, COLLECT(n) AS ns, COLLECT(ucp) AS ucps, dcp
+
+        FOREACH (n IN ns |
+          CREATE (n)-[:CATEGORY]->(new_category)
+        )
+
+        FOREACH (ucp IN ucps |
+          CREATE (new_category)-[:UPDATE]->(ucp)
+        )
+
+        FOREACH (ignored IN CASE dcp WHEN NULL THEN [] ELSE [1] END |
+          CREATE (new_category)-[:DELETE]->(cdp)
+        )
+
+        return new_category as category
+      """
 
       {:ok, 200, List.first Neo4j.query!(Neo4j.conn, query, params)}
     end
   end
 
-  def update_category(new_category, old_category, 1, patch_revision_id) do
+  def update_category(old_category, new_category, 1 = _review, username, patch_revision_id) do
     patch_revision_id = String.to_integer(patch_revision_id)
 
     query = """
-      MATCH (category:Category {url: {old_url}})-[:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
+      MATCH (ucp:UpdateCategoryPatch {revision_id: {patch_revision_id}}),
+        (category:Category {url: {old_url}})-[:UPDATE]->(ucp)
       RETURN category
     """
 
-    params = %{old_url: new_category["old_url"], patch_revision_id: patch_revision_id}
+    params = %{old_url: old_category["url"], patch_revision_id: patch_revision_id}
 
     if Neo4j.query!(Neo4j.conn, query, params) == [] do
       {:error, 404, "Update patch not found"}
     else
       query = """
-        MATCH (category:Category {url: {old_url}})-[r:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
-        CREATE (category)-[:UPDATE]->(:UpdateCategoryPatch {name: {name}, introduction: {introduction}, url: {new_url}, revision_id: {rev_id}, against_revision: {against_rev}})
-        DELETE r, cp
+        MATCH (category:Category {url: {old_url}}),
+          (category)-[r:UPDATE]->(old_ucp:UpdateCategoryPatch {revision_id: {patch_revision_id}}),
+          (user:User {username: {username}})
+
+        CREATE (new_ucp:UpdateCategoryPatch {
+            name: {name},
+            introduction: {introduction},
+            url: {new_url},
+            revision_id: {rev_id},
+            against_revision: {against_rev}
+          }),
+          (category)-[:UPDATE]->(new_ucp),
+          (new_ucp)-[:CONTRIBUTOR {type: "update"}]->(user),
+          (new_ucp)-[:UPDATE_REVISION]->(old_ucp)
+
+        DELETE r
+
+        REMOVE old_ucp:UpdateCategoryPatch
+        SET old_ucp:UpdateCategoryPatchRevision
+
         RETURN category
       """
 
-      params = %{name: new_category["name"],
+      params = %{
+        name: new_category["name"],
         introduction: new_category["introduction"],
-        new_url: new_category["new_url"],
-        old_url: new_category["old_url"],
+        new_url: new_category["url"],
         rev_id: :rand.uniform(100_000_000),
+        old_url: old_category["url"],
         against_rev: old_category["revision_id"],
-        patch_revision_id: patch_revision_id}
+        patch_revision_id: patch_revision_id,
+        username: username
+      }
 
       {:ok, 202, List.first Neo4j.query!(Neo4j.conn, query, params)}
     end
   end
 
-  def update_category(_new_category, _old_category, _review, _patch_revision_id) do
+  def update_category(_old_category, _new_category, _review, _patch_revision_id, _username) do
     {:error, 400, "Unknown review parameter value"}
   end
 
-  def update_category(new_category, old_category, 0) do
+  def update_category(old_category, new_category, 0, username) do
     query = """
-      MATCH (category:Category {url: {old_url}})
-      OPTIONAL MATCH (category)-[r:REVISION]->(old_revision:CategoryRevision)
-      SET category.name = {new_name},
-        category.introduction = {new_introduction},
-        category.url = {new_url},
-        category.revision_id = {new_rev_id}
-      CREATE (old_category:CategoryRevision {name: {old_name}, introduction: {old_introduction}, url: {old_url}, revision_id: {old_rev_id}})
-      WITH category, old_category, r, old_revision
-      FOREACH (ignored IN CASE old_revision WHEN NULL THEN [1] ELSE [] END |
-        CREATE (category)-[:REVISION]->(old_category)
+      MATCH (old_category:Category {url: {old_url}}),
+        (user:User {username: {username}})
+      OPTIONAL MATCH (old_category)-[r1:UPDATE]->(ucp:UpdateCategoryPatch)
+      OPTIONAL MATCH (old_category)-[r2:DELETE]->(dcp:DeleteCategoryPatch)
+      OPTIONAL MATCH (n)-[r3:CATEGORY]->(old_category)
+
+      CREATE (new_category:Category {
+          name: {new_name},
+          introduction: {new_introduction},
+          url: {new_url},
+          revision_id: {new_rev_id}
+        }),
+        (new_category)-[:REVISION]->(old_category),
+        (new_category)-[:CONTRIBUTOR {type: "update"}]->(user)
+
+      REMOVE old_category:Category
+      SET old_category:CategoryRevision
+
+      DELETE r1, r2
+
+      WITH old_category, new_category, COLLECT(ucp) AS ucps, dcp, COLLECT(n) AS ns
+
+      FOREACH (ucp IN ucps |
+        CREATE (new_category)-[:UPDATE]->(ucp)
       )
-      FOREACH (ignored IN CASE old_revision WHEN NULL THEN [] ELSE [1] END |
-        DELETE r
-        CREATE (category)-[:REVISION]->(old_category)-[:REVISION]->(old_revision)
+
+      FOREACH (ignored IN CASE dcp WHEN NULL THEN [] ELSE [1] END |
+        CREATE (new_category)-[:DELETE]->(dcp)
       )
-      RETURN category
+
+      FOREACH (n IN ns |
+        CREATE (n)-[:CATEGORY]->(new_category)
+      )
+
+      RETURN new_category as category
     """
 
-    params = %{new_name: new_category["name"],
+    params = %{
+      new_name: new_category["name"],
       new_introduction: new_category["introduction"],
-      new_url: new_category["new_url"],
+      new_url: new_category["url"],
       new_rev_id: :rand.uniform(100_000_000),
-      old_name: old_category["name"],
-      old_introduction: old_category["introduction"],
-      old_url: new_category["old_url"],
-      old_rev_id: old_category["revision_id"]}
+      old_url: old_category["url"],
+      username: username
+    }
 
     {:ok, 200, List.first Neo4j.query!(Neo4j.conn, query, params)}
   end
 
-  def update_category(new_category, old_category, 1) do
+  def update_category(old_category, new_category, 1, username) do
     query = """
-      MATCH (category:Category {url: {old_url}})
-      CREATE (category)-[:UPDATE]->(patch:UpdateCategoryPatch {name: {name}, introduction: {introduction}, url: {new_url}, revision_id: {rev_id}, against_revision: {against_rev}})
+      MATCH (category:Category {url: {old_url}}),
+        (user:User {username: {username}})
+      CREATE (ucp:UpdateCategoryPatch {
+          name: {name},
+          introduction: {introduction},
+          url: {new_url},
+          revision_id: {rev_id},
+          against_revision: {against_rev}
+        }),
+        (category)-[:UPDATE]->(ucp),
+        (ucp)-[:CONTRIBUTOR {type: "update"}]->(user)
       RETURN category
     """
 
-    params = %{name: new_category["name"],
+    params = %{
+      name: new_category["name"],
       introduction: new_category["introduction"],
-      new_url: new_category["new_url"],
-      old_url: new_category["old_url"],
+      new_url: new_category["url"],
       rev_id: :rand.uniform(100_000_000),
-      against_rev: old_category["revision_id"]}
+      old_url: old_category["url"],
+      against_rev: old_category["revision_id"],
+      username: username
+    }
 
     {:ok, 202, List.first Neo4j.query!(Neo4j.conn, query, params)}
   end
 
-  def update_category(_new_category, _old_category, _review) do
+  def update_category(_new_category, _old_category, review) do
     {:error, 400, "Unknown review parameter value"}
   end
 
@@ -474,7 +550,7 @@ defmodule PhpInternals.Api.Categories.Category do
             (user:User {username: {username}})
           REMOVE cp:InsertCategoryPatch
           SET cp:Category
-          CREATE (cp)-[:INSERT_APPLIED_BY]->(user)
+          CREATE (cp)-[:CONTRIBUTOR {type: "apply_insert"}]->(user)
           WITH cp
           RETURN cp as category
         """
@@ -505,7 +581,7 @@ defmodule PhpInternals.Api.Categories.Category do
             (user:User {username: {username}})
           REMOVE c:Category
           SET c:CategoryDeleted
-          CREATE (c)-[:DELETE_APPLIED_BY]->(user)
+          CREATE (c)-[:CONTRIBUTOR {type: "apply_delete"}]->(user)
           DELETE r, cd
         """
 
@@ -554,23 +630,39 @@ defmodule PhpInternals.Api.Categories.Category do
           {:error, 400, "Cannot apply patch due to revision ID mismatch"}
         else
           query = """
-            MATCH (c1:Category {url: {category_url}}),
-              (c1)-[r1:UPDATE]->(c2:UpdateCategoryPatch {revision_id: {patch_revision_id}}),
+            MATCH (old_category:Category {url: {category_url}}),
+              (old_category)-[r1:UPDATE]->(new_category:UpdateCategoryPatch {revision_id: {patch_revision_id}}),
               (user:User {username: {username}})
-            OPTIONAL MATCH (c1)-[r2:REVISION]->(old_revision:CategoryRevision)
-            CREATE (old_category:CategoryRevision {name: c1.name, introduction: c1.introduction, url: c1.url, revision_id: c1.revision_id})
-            SET c1.name = c2.name, c1.introduction = c2.introduction, c1.url = c2.url, c1.revision_id = c2.revision_id
-            WITH user, c1, c2, old_category, r1, r2, old_revision
-            FOREACH (ignored IN CASE old_revision WHEN NULL THEN [1] ELSE [] END |
-              CREATE (c1)-[:REVISION]->(old_category)
+
+            CREATE (new_category)-[:REVISION]->(old_category),
+              (new_category)-[:CONTRIBUTOR {type: "apply_update"}]->(user)
+
+            REMOVE new_category:UpdateCategoryPatch
+            SET new_category:Category
+
+            REMOVE old_category:Category
+            SET old_category:CategoryRevision
+
+            DELETE r1
+
+            WITH old_category, new_category
+
+            OPTIONAL MATCH (old_category)-[r2:UPDATE]->(ucp:UpdateCategoryPatch)
+            OPTIONAL MATCH (old_category)-[r3:DELETE]->(dcp:DeleteCategoryPatch)
+
+            DELETE r2, r3
+
+            WITH new_category, dcp, COLLECT(ucp) AS ucps
+
+            FOREACH (ucp IN ucps |
+              CREATE (new_category)-[:UPDATE]->(ucp)
             )
-            FOREACH (ignored IN CASE old_revision WHEN NULL THEN [] ELSE [1] END |
-              DELETE r2
-              CREATE (c1)-[:REVISION]->(old_category)-[:REVISION]->(old_revision)
+
+            FOREACH (ignored IN CASE dcp WHEN NULL THEN [] ELSE [1] END |
+              CREATE (new_category)-[:DELETE]->(dcp)
             )
-            DELETE r1, c2
-            CREATE (c1)-[:UPDATE_APPLIED_BY]->(user)
-            RETURN c1 as category
+
+            RETURN new_category as category
           """
 
           {:ok, List.first Neo4j.query!(Neo4j.conn, query, params)}
@@ -595,7 +687,7 @@ defmodule PhpInternals.Api.Categories.Category do
           (user:User {username: {username}})
         REMOVE cp:InsertCategoryPatch
         SET cp:InsertCategoryPatchDeleted
-        CREATE (cp)-[:INSERT_DISCARDED_BY]->(user)
+        CREATE (cp)-[:CONTRIBUTOR {type: "discard_insert"}]->(user)
       """
 
       Neo4j.query!(Neo4j.conn, query, params)
@@ -625,7 +717,7 @@ defmodule PhpInternals.Api.Categories.Category do
             (user:User {username: {username}}),
             (c)-[r:DELETE]->(cp:DeleteCategoryPatch)
           DELETE r, cp
-          CREATE UNIQUE (c)-[:DELETE_DISCARDED_BY]-(user)
+          MERGE (c)-[:CONTRIBUTOR {type: "discard_delete"}]-(user)
         """
 
         Neo4j.query!(Neo4j.conn, query, params)
@@ -675,7 +767,7 @@ defmodule PhpInternals.Api.Categories.Category do
             (c)-[:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
           REMOVE cp:UpdateCategoryPatch
           SET cp:UpdateCategoryPatchDeleted
-          CREATE (cp)-[:UPDATE_DISCARDED_BY]->(user)
+          CREATE (cp)-[:CONTRIBUTOR {type: "discard_update"}]->(user)
         """
         Neo4j.query!(Neo4j.conn, query, params)
 
@@ -694,7 +786,7 @@ defmodule PhpInternals.Api.Categories.Category do
       FOREACH (ignored IN CASE catdel WHEN NULL THEN [] ELSE [1] END |
         DELETE r, catdel
       )
-      CREATE (c)-[:DELETED_BY]->(user)
+      CREATE (c)-[:CONTRIBUTOR {type: "delete"}]->(user)
     """
 
     params = %{url: category_url, username: username}
@@ -707,7 +799,7 @@ defmodule PhpInternals.Api.Categories.Category do
       MATCH (category:Category {url: {url}}),
         (user:User {username: {username}})
       MERGE (category)-[:DELETE]->(catdel:DeleteCategoryPatch)
-      CREATE (c)-[:DELETED_BY]->(user)
+      CREATE (c)-[:CONTRIBUTOR {type: "delete"}]->(user)
     """
 
     params = %{url: category_url, username: username}
@@ -721,7 +813,7 @@ defmodule PhpInternals.Api.Categories.Category do
         (user:User {username: {username}})
       REMOVE c:CategoryDeleted
       SET c:Category
-      CREATE (c)-[:UNDO_DELETE_BY]->(user)
+      CREATE (c)-[:CONTRIBUTOR {type: "undo_delete"}]->(user)
     """
 
     params = %{url: category_url, username: username}
