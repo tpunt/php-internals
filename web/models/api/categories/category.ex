@@ -167,7 +167,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def fetch_all_categories_patches_delete do
     query = """
-      MATCH (category_delete:Category)-[:DELETE]-(:DeleteCategoryPatch)
+      MATCH (category_delete:Category)-[:DELETE]->(:DeleteCategoryPatch)
       RETURN category_delete
     """
     Neo4j.query!(Neo4j.conn, query)
@@ -469,7 +469,7 @@ defmodule PhpInternals.Api.Categories.Category do
       REMOVE old_category:Category
       SET old_category:CategoryRevision
 
-      DELETE r1, r2
+      DELETE r1, r2, r3
 
       WITH old_category, new_category, COLLECT(ucp) AS ucps, dcp, COLLECT(n) AS ns
 
@@ -717,7 +717,7 @@ defmodule PhpInternals.Api.Categories.Category do
             (user:User {username: {username}}),
             (c)-[r:DELETE]->(cp:DeleteCategoryPatch)
           DELETE r, cp
-          MERGE (c)-[:CONTRIBUTOR {type: "discard_delete"}]-(user)
+          MERGE (c)-[:CONTRIBUTOR {type: "discard_delete"}]->(user)
         """
 
         Neo4j.query!(Neo4j.conn, query, params)
@@ -780,7 +780,7 @@ defmodule PhpInternals.Api.Categories.Category do
     query = """
       MATCH (c:Category {url: {url}}),
         (user:User {username: {username}})
-      OPTIONAL MATCH (c)-[r:DELETE]-(catdel:DeleteCategoryPatch)
+      OPTIONAL MATCH (c)-[r:DELETE]->(catdel:DeleteCategoryPatch)
       REMOVE c:Category
       SET c:CategoryDeleted
       FOREACH (ignored IN CASE catdel WHEN NULL THEN [] ELSE [1] END |
