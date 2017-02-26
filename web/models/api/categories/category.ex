@@ -185,7 +185,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
     params = %{category_url: category_url}
 
-    Neo4j.query!(Neo4j.conn, query, params)
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def fetch_category_patch_insert(category_url) do
@@ -196,7 +196,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
     params = %{category_url: category_url}
 
-    Neo4j.query!(Neo4j.conn, query, params)
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def fetch_category_patch_update(category_url, patch_id) do
@@ -207,7 +207,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
     params = %{category_url: category_url, patch_id: String.to_integer(patch_id)}
 
-    Neo4j.query!(Neo4j.conn, query, params)
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def fetch_category_patches_update(category_url) do
@@ -218,7 +218,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
     params = %{category_url: category_url}
 
-    Neo4j.query!(Neo4j.conn, query, params)
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def fetch_category_patch_delete(category_url) do
@@ -231,7 +231,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
     params = %{category_url: category_url}
 
-    Neo4j.query!(Neo4j.conn, query, params)
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def fetch_category(category_url) do
@@ -242,7 +242,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
     params = %{category_url: category_url}
 
-    Neo4j.query!(Neo4j.conn, query, params)
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def fetch_category_overview(category_url) do
@@ -284,7 +284,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
     params = %{category_url: category_url}
 
-    Neo4j.query!(Neo4j.conn, query, params)
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def insert_category(category, 0, username) do
@@ -592,20 +592,9 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def accept_category_patch(category_url, update_or_error, username) do
-    output = String.split(update_or_error, ",")
-
-    if length(output) !== 2 do
-      {:error, 400, "Unknown or malformed patch type"}
-    else
-      [update, for_revision] = output
-
-      if update !== "update" do
-        {:error, 400, "Unknown patch type"}
-      else
-        accept_category_patch(category_url, update, String.to_integer(for_revision), username)
-      end
-    end
+  def accept_category_patch(category_url, update, username) do
+    [update, for_revision] = String.split(update, ",")
+    accept_category_patch(category_url, update, String.to_integer(for_revision), username)
   end
 
   def accept_category_patch(category_url, "update", patch_revision_id, username) do
@@ -727,25 +716,12 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def discard_category_patch(category_url, update_or_error, username) do
-    output = String.split(update_or_error, ",")
-
-    if length(output) != 2 do
-      {:error, 400, "Unknown or malformed patch type"}
-    else
-      [update, for_revision] = output
-
-      if update != "update" do
-        {:error, 400, "Unknown patch type"}
-      else
-        discard_category_patch(category_url, update, for_revision, username)
-      end
-    end
+  def discard_category_patch(category_url, update, username) do
+    [update, for_revision] = String.split(update, ",")
+    discard_category_patch(category_url, update, String.to_integer(for_revision), username)
   end
 
   def discard_category_patch(category_url, "update", patch_revision_id, username) do
-    patch_revision_id = String.to_integer(patch_revision_id)
-
     query = """
       OPTIONAL MATCH (c:Category {url: {category_url}})
       OPTIONAL MATCH (c)-[:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})

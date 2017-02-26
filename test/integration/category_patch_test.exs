@@ -497,7 +497,7 @@ defmodule CategoryPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status == 400
-    assert %{"error" => %{"message" => "Unknown or malformed patch type"}}
+    assert %{"error" => %{"message" => "Unknown patch action"}}
       = Poison.decode! response.resp_body
 
     Neo4j.query!(Neo4j.conn, "MATCH (c:Category {revision_id: #{rev_id}}) DELETE c")
@@ -516,7 +516,7 @@ defmodule CategoryPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status == 400
-    assert %{"error" => %{"message" => "Unknown or malformed patch type"}}
+    assert %{"error" => %{"message" => "Unknown patch action"}}
       = Poison.decode! response.resp_body
 
     Neo4j.query!(Neo4j.conn, "MATCH (c:Category {revision_id: #{rev_id}}) DELETE c")

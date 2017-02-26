@@ -22,7 +22,7 @@ defmodule PhpInternals.Router do
       patch "/:category_name", CategoryController, :update
       delete "/:category_name", CategoryController, :delete
       get "/", CategoryController, :index
-      post "/", CategoryController, :insert
+      post "/", CategoryController, :create
     end
 
     scope "/articles", Articles do

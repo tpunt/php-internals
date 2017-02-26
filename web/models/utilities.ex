@@ -9,8 +9,15 @@ defmodule PhpInternals.Utilities do
 
   def valid_review_param?(review) do
     cond do
-      review in [0, 1] -> {:ok}
+      review in ["0", "1"] -> {:ok, String.to_integer(review)}
       true -> {:error, 400, "Unknown review param"}
+    end
+  end
+
+  def valid_patch_action?(type) do
+    case Regex.named_captures(~r/\A(?<type>insert|delete|update,[0-9]{1,10})\z/, type) do
+      %{"type" => _type} -> {:ok}
+      _ -> {:error, 400, "Unknown patch action"}
     end
   end
 
