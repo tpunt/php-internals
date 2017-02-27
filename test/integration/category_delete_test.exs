@@ -120,4 +120,30 @@ defmodule CategoryDeleteTest do
 
     assert response.status == 404
   end
+
+  @doc """
+  DELETE /api/categories/... -H 'authorization: ...'
+  """
+  test "Authorised invalid attempt at deleting a category (patch limit reached)" do
+    name = :rand.uniform(100_000_000)
+    Neo4j.query!(Neo4j.conn, """
+      CREATE (user:User {username: '#{name}', access_token: '#{name}', privilege_level: 1}),
+        (c:UpdateCategoryPatch)
+      FOREACH (ignored in RANGE(1, 20) |
+        CREATE (c)-[:CONTRIBUTOR]->(user)
+      )
+    """)
+
+    conn =
+      conn(:delete, "/api/categories/...")
+      |> put_req_header("authorization", "#{name}")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 400
+    assert %{"error" => %{"message" => "The maximum patch limit (20) has been exceeded!"}}
+      = Poison.decode!(response.resp_body)
+
+    Neo4j.query!(Neo4j.conn, "MATCH (user:User {username: '#{name}'})<-[r:CONTRIBUTOR]-(c) DELETE r, user, c")
+  end
 end

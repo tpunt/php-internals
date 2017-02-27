@@ -3,6 +3,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
 
   alias PhpInternals.Api.Categories.Category
   alias PhpInternals.Utilities
+  alias PhpInternals.Api.Users.User
 
   @default_limit 20
   @default_order_by "name"
@@ -403,7 +404,8 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   defp insert(conn, %{"category" => category, "review" => review}) do
-    with {:ok} <- Category.contains_required_fields?(category),
+    with {:ok} <- User.within_patch_limit?(conn.user),
+         {:ok} <- Category.contains_required_fields?(category),
          {:ok} <- Category.contains_only_expected_fields?(category),
          {:ok, url_name} <- Utilities.is_url_friendly?(category["name"]),
          {:ok} <- Category.does_not_exist?(url_name) do
@@ -426,7 +428,8 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   defp modify(conn, %{"category" => new_category, "category_name" => old_url, "review" => review} = params) do
-    with {:ok} <- Category.contains_required_fields?(new_category),
+    with {:ok} <- User.within_patch_limit?(conn.user),
+         {:ok} <- Category.contains_required_fields?(new_category),
          {:ok} <- Category.contains_only_expected_fields?(new_category),
          {:ok, new_url_name} <- Utilities.is_url_friendly?(new_category["name"]),
          {:ok, %{"category" => old_category}} <- Category.valid?(old_url) do
@@ -462,7 +465,8 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   defp remove(conn, %{"category_name" => category_url, "review" => review}) do
-    with {:ok, _category} <- Category.valid?(category_url),
+    with {:ok} <- User.within_patch_limit?(conn.user),
+         {:ok, _category} <- Category.valid?(category_url),
          {:ok} <- Category.contains_no_symbols?(category_url) do
       Category.soft_delete(category_url, review, conn.user.username)
 

@@ -3,6 +3,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
   alias PhpInternals.Api.Categories.Category
   alias PhpInternals.Api.Symbols.Symbol
+  alias PhpInternals.Api.Users.User
   alias PhpInternals.Utilities
 
   def index(%{user: %{privilege_level: 0}} = conn, %{"patches" => _scope}) do
@@ -220,7 +221,8 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   end
 
   defp insert(conn, %{"symbol" => symbol, "review" => review}) do
-    with {:ok} <- Symbol.contains_required_fields?(symbol),
+    with {:ok} <- User.within_patch_limit?(conn.user),
+         {:ok} <- Symbol.contains_required_fields?(symbol),
          {:ok} <- Symbol.contains_only_expected_fields?(symbol),
          {:ok, url_name} <- Utilities.is_url_friendly?(symbol["name"]),
          {:ok} <- Category.all_valid?(symbol["categories"]) do
@@ -320,7 +322,8 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   end
 
   defp modify(conn, %{"symbol" => symbol, "symbol_id" => symbol_id, "review" => review} = params) do
-    with {:ok} <- Symbol.contains_required_fields?(symbol),
+    with {:ok} <- User.within_patch_limit?(conn.user),
+         {:ok} <- Symbol.contains_required_fields?(symbol),
          {:ok} <- Symbol.contains_only_expected_fields?(symbol),
          {:ok, url_name} <- Utilities.is_url_friendly?(symbol["name"]),
          {:ok} <- Category.all_valid?(symbol["categories"]),
@@ -375,7 +378,8 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   end
 
   defp remove(conn, %{"symbol_id" => symbol_id, "review" => review}) do
-    with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
+    with {:ok} <- User.within_patch_limit?(conn.user),
+         {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
          {:ok, _symbol} <- Symbol.valid?(symbol_id) do
       Symbol.soft_delete(symbol_id, review)
 

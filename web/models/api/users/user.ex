@@ -2,6 +2,7 @@ defmodule PhpInternals.Api.Users.User do
   use PhpInternals.Web, :model
 
   @valid_fields ["name", "privilege_level"]
+  @patch_limit 20
 
   def valid?(username) do
     user = fetch_by_username(username)
@@ -19,6 +20,36 @@ defmodule PhpInternals.Api.Users.User do
     else
       {:error, 400, "Unknown fields provided"}
     end
+  end
+
+  def within_patch_limit?(%{privilege_level: 1} = user) do
+    query = """
+      MATCH (user:User {username: {username}}),
+        (c)-[:CONTRIBUTOR]->(user)
+      WHERE HEAD(LABELS(c)) IN [
+        "InsertCategoryPatch",
+        "UpdateCategoryPatch",
+        "DeleteCategoryPatch",
+        "InsertSymbolPatch",
+        "UpdateSymbolPatch",
+        "DeleteSymbolPatch"
+      ]
+      RETURN COUNT(c) AS count
+    """
+
+    params = %{username: user.username}
+
+    [%{"count" => count}] = Neo4j.query!(Neo4j.conn, query, params)
+
+    if count === @patch_limit do
+      {:error, 400, "The maximum patch limit (#{@patch_limit}) has been exceeded!"}
+    else
+      {:ok}
+    end
+  end
+
+  def within_patch_limit?(_user) do
+    {:ok}
   end
 
   def fetch_all do
