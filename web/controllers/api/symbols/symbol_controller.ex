@@ -207,30 +207,6 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Malformed input data")
   end
 
-  defp insert(conn, %{"symbol" => symbol, "review" => review}) do
-    with {:ok} <- User.within_patch_limit?(conn.user),
-         {:ok} <- Symbol.contains_required_fields?(symbol),
-         {:ok} <- Symbol.contains_only_expected_fields?(symbol),
-         {:ok, url_name} <- Utilities.is_url_friendly?(symbol["name"]),
-         {:ok} <- Category.all_valid?(symbol["categories"]) do
-      symbol =
-        symbol
-        |> Map.merge(%{"url" => url_name})
-        |> Symbol.insert(review, conn.user.username)
-
-      status_code = if review === 0, do: 201, else: 202
-
-      conn
-      |> put_status(status_code)
-      |> render("symbol.json", symbol: symbol)
-    else
-      {:error, status_code, status} ->
-        conn
-        |> put_status(status_code)
-        |> render(PhpInternals.ErrorView, "error.json", error: status)
-    end
-  end
-
   def update(%{user: %{privilege_level: 0}} = conn, _params) do
     conn
     |> put_status(401)
@@ -302,6 +278,55 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Malformed input data")
   end
 
+  def delete(%{user: %{privilege_level: 0}} = conn, _params) do
+    conn
+    |> put_status(401)
+    |> render(PhpInternals.ErrorView, "error.json", error: "Unauthenticated access attempt")
+  end
+
+  def delete(%{user: %{privilege_level: 1}} = conn, params) do
+    remove(conn, Map.put(params, "review", 1))
+  end
+
+  def delete(conn, %{"review" => review} = params) do
+    with {:ok, review} <- Utilities.valid_review_param?(review) do
+      remove(conn, Map.put(params, "review", review))
+    else
+      {:error, status_code, status} ->
+        conn
+        |> put_status(status_code)
+        |> render(PhpInternals.ErrorView, "error.json", error: status)
+    end
+  end
+
+  def delete(conn, params) do
+    remove(conn, Map.put(params, "review", 0))
+  end
+
+  defp insert(conn, %{"symbol" => symbol, "review" => review}) do
+    with {:ok} <- User.within_patch_limit?(conn.user),
+         {:ok} <- Symbol.contains_required_fields?(symbol),
+         {:ok} <- Symbol.contains_only_expected_fields?(symbol),
+         {:ok, url_name} <- Utilities.is_url_friendly?(symbol["name"]),
+         {:ok} <- Category.all_valid?(symbol["categories"]) do
+      symbol =
+        symbol
+        |> Map.merge(%{"url" => url_name})
+        |> Symbol.insert(review, conn.user.username)
+
+      status_code = if review === 0, do: 201, else: 202
+
+      conn
+      |> put_status(status_code)
+      |> render("symbol.json", symbol: symbol)
+    else
+      {:error, status_code, status} ->
+        conn
+        |> put_status(status_code)
+        |> render(PhpInternals.ErrorView, "error.json", error: status)
+    end
+  end
+
   defp modify(%{user: %{privilege_level: 1}} = conn, %{"references_patch" => _refs_patch}) do
     conn
     |> put_status(403)
@@ -337,31 +362,6 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
         |> put_status(status_code)
         |> render(PhpInternals.ErrorView, "error.json", error: error)
     end
-  end
-
-  def delete(%{user: %{privilege_level: 0}} = conn, _params) do
-    conn
-    |> put_status(401)
-    |> render(PhpInternals.ErrorView, "error.json", error: "Unauthenticated access attempt")
-  end
-
-  def delete(%{user: %{privilege_level: 1}} = conn, params) do
-    remove(conn, Map.put(params, "review", 1))
-  end
-
-  def delete(conn, %{"review" => review} = params) do
-    with {:ok, review} <- Utilities.valid_review_param?(review) do
-      remove(conn, Map.put(params, "review", review))
-    else
-      {:error, status_code, status} ->
-        conn
-        |> put_status(status_code)
-        |> render(PhpInternals.ErrorView, "error.json", error: status)
-    end
-  end
-
-  def delete(conn, params) do
-    remove(conn, Map.put(params, "review", 0))
   end
 
   defp remove(conn, %{"symbol_id" => symbol_id, "review" => review}) do
