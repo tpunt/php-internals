@@ -108,8 +108,9 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
   def show(conn, %{"symbol_id" => symbol_id, "patches" => "update", "patch_id" => patch_id}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
+         {:ok, patch_id} <- Utilities.valid_id?(patch_id),
          {:ok, _symbol} <- Symbol.valid?(symbol_id),
-         {:ok, symbol} <- Symbol.update_patch_exists?(symbol_id, String.to_integer(patch_id)) do
+         {:ok, symbol} <- Symbol.update_patch_exists?(symbol_id, patch_id) do
       render(conn, "show_update.json", symbol: symbol)
     else
       {:error, status_code, error} ->
