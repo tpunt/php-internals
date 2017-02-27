@@ -139,17 +139,17 @@ defmodule PhpInternals.Api.Categories.Category do
     Neo4j.query!(Neo4j.conn, query)
   end
 
-  def fetch_all_patches do
+  def fetch_all_patches("all") do
     query = """
       MATCH (category:Category)-[:UPDATE|:DELETE]->(cp)
       RETURN category, collect(cp) as patches
     """
 
-    %{inserts: fetch_all_insert_patches,
+    %{inserts: fetch_all_patches("insert"),
       patches: Neo4j.query!(Neo4j.conn, query)}
   end
 
-  def fetch_all_insert_patches do
+  def fetch_all_patches("insert") do
     query = """
       MATCH (category_insert:InsertCategoryPatch)
       RETURN category_insert
@@ -157,7 +157,7 @@ defmodule PhpInternals.Api.Categories.Category do
     Neo4j.query!(Neo4j.conn, query)
   end
 
-  def fetch_all_update_patches do
+  def fetch_all_patches("update") do
     query = """
       MATCH (category:Category)-[:UPDATE]->(update_category:UpdateCategoryPatch)
       RETURN {category: category, updates: collect(update_category)} as category_update
@@ -165,7 +165,7 @@ defmodule PhpInternals.Api.Categories.Category do
     Neo4j.query!(Neo4j.conn, query)
   end
 
-  def fetch_all_delete_patches do
+  def fetch_all_patches("delete") do
     query = """
       MATCH (category_delete:Category)-[:DELETE]->(:DeleteCategoryPatch)
       RETURN category_delete

@@ -25,6 +25,14 @@ defmodule PhpInternals.Utilities do
     end
   end
 
+  def valid_patch_type?(type) do
+    if type in ["all", "insert", "update", "delete"] do
+      {:ok}
+    else
+      {:error, 400, "Unknown patch type"}
+    end
+  end
+
   def valid_limit?(limit) do
     if limit === nil do
       {:ok, @default_result_limit}

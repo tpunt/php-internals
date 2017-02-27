@@ -20,30 +20,15 @@ defmodule PhpInternals.Api.Categories.CategoryController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised access attempt")
   end
 
-  def index(conn, %{"patches" => "all"}) do
-    all_categories_patches = Category.fetch_all_patches
-    render(conn, "index_patches_all.json", categories_patches: all_categories_patches)
-  end
-
-  def index(conn, %{"patches" => "insert"}) do
-    all_categories_patches_insert = Category.fetch_all_insert_patches
-    render(conn, "index_patches_insert.json", categories_patches: all_categories_patches_insert)
-  end
-
-  def index(conn, %{"patches" => "update"}) do
-    all_categories_patches_update = Category.fetch_all_update_patches
-    render(conn, "index_patches_update.json", categories_patches: all_categories_patches_update)
-  end
-
-  def index(conn, %{"patches" => "delete"}) do
-    all_categories_patches_delete = Category.fetch_all_delete_patches
-    render(conn, "index_patches_delete.json", categories_patches: all_categories_patches_delete)
-  end
-
-  def index(conn, %{"patches" => _scope}) do
-    conn
-    |> put_status(404)
-    |> render(PhpInternals.ErrorView, "error.json", error: "Unknown patches type specified")
+  def index(conn, %{"patches" => type}) do
+    with {:ok} <- Utilities.valid_patch_type?(type) do
+      render(conn, "index_patches_#{type}.json", categories_patches: Category.fetch_all_patches(type))
+    else
+      {:error, status_code, error} ->
+        conn
+        |> put_status(status_code)
+        |> render(PhpInternals.ErrorView, "error.json", error: error)
+    end
   end
 
   def index(%{user: %{privilege_level: 0}} = conn, %{"status" => "deleted"}) do
