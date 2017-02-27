@@ -14,7 +14,7 @@ defmodule SymbolPatchTest do
     conn = conn(:patch, "/api/symbols/non-existent")
     response = Router.call(conn, @opts)
 
-    assert response.status == 401
+    assert response.status === 401
     assert %{"error" => %{"message" => "Unauthenticated access attempt"}}
       = Poison.decode!(response.resp_body)
   end
@@ -33,7 +33,7 @@ defmodule SymbolPatchTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 404
+    assert response.status === 404
     assert %{"error" => %{"message" => "The specified symbol could not be found"}}
       = Poison.decode!(response.resp_body)
   end
@@ -52,7 +52,7 @@ defmodule SymbolPatchTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 400
+    assert response.status === 400
     assert %{"error" => %{"message" => "Required fields are missing (expecting: name, description, definition, definition_location, type, categories(as well as parameters and declaration for functions))"}}
       = Poison.decode!(response.resp_body)
   end
@@ -71,7 +71,7 @@ defmodule SymbolPatchTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 400
+    assert response.status === 400
     assert %{"error" => %{"message" => "An invalid category has been entered"}}
       = Poison.decode!(response.resp_body)
   end
@@ -90,7 +90,7 @@ defmodule SymbolPatchTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 400
+    assert response.status === 400
     assert %{"error" => %{"message" => "At least one category must be given"}}
       = Poison.decode!(response.resp_body)
   end
@@ -126,24 +126,21 @@ defmodule SymbolPatchTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 202
+    assert response.status === 202
     assert %{"symbol" => %{"name" => new_sym_name2}} = Poison.decode!(response.resp_body)
-    assert String.to_integer(new_sym_name2) == new_sym_name
-    refute [] == Neo4j.query!(Neo4j.conn, """
+    assert String.to_integer(new_sym_name2) === new_sym_name
+    refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
         (s)-[:UPDATE]->(su:UpdateSymbolPatch {name: '#{new_sym_name}'}),
         (su)-[:CATEGORY]->(c:Category {url: 'existent'}),
-        (su)-[:CONTRIBUTOR {type: 'update'}]->()
+        (su)-[:CONTRIBUTOR {type: 'update'}]->(:User {access_token: 'at1'})
       RETURN su
     """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {url: 'existent'}),
-        (s:Symbol {revision_id: #{sym_rev}})-[r1:CATEGORY]->(c),
-        (s)-[r2:UPDATE]->(su:UpdateSymbolPatch {name: '#{new_sym_name}'}),
-        (su)-[r3:CATEGORY]->(c),
-        (su)-[r4:CONTRIBUTOR {type: 'update'}]->()
-      DELETE r1, r2, r3, r4, s, su
+      MATCH (s:Symbol {revision_id: #{sym_rev}})-[r1]-(),
+        (su:UpdateSymbolPatch {name: '#{new_sym_name}'})-[r2]-()
+      DELETE r1, r2, s, su
     """)
   end
 
@@ -179,26 +176,22 @@ defmodule SymbolPatchTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 202
+    assert response.status === 202
     assert %{"symbol" => %{"name" => new_sym_name2}} = Poison.decode!(response.resp_body)
-    assert String.to_integer(new_sym_name2) == new_sym_name
-    refute [] == Neo4j.query!(Neo4j.conn, """
+    assert String.to_integer(new_sym_name2) === new_sym_name
+    refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
-        (s)-[:UPDATE]->(su:UpdateSymbolPatch {name: '#{new_sym_name}'}),
+        (su:UpdateSymbolPatch {name: '#{new_sym_name}'}),
+        (s)-[:UPDATE]->(su),
         (su)-[:CATEGORY]->(c:Category {url: 'existent'}),
-        (su)-[:CONTRIBUTOR {type: 'update'}]->()
+        (su)-[:CONTRIBUTOR {type: 'update'}]->(:User {access_token: 'at2'})
       RETURN su
     """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {url: 'existent'}),
-        (s:Symbol {revision_id: #{sym_rev}}),
-        (su:UpdateSymbolPatch {name: '#{new_sym_name}'}),
-        (c)<-[r1:CATEGORY]-(s),
-        (s)-[r2:UPDATE]->(su),
-        (su)-[r3:CATEGORY]->(c),
-        (su)-[r4:CONTRIBUTOR {type: 'update'}]->()
-      DELETE r1, r2, r3, r4, s, su
+      MATCH (s:Symbol {revision_id: #{sym_rev}})-[r1]-(),
+        (su:UpdateSymbolPatch {name: '#{new_sym_name}'})-[r2]-()
+      DELETE r1, r2, s, su
     """)
   end
 
@@ -224,8 +217,8 @@ defmodule SymbolPatchTest do
         }),
         (s)-[:CATEGORY]->(c)
     """)
-    data = %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..",
-      "definition" => "..","definition_location" => "..","type" => "macro","categories" => ["existent"]}}
+    data = %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..",
+      "definition_location" => "..","type" => "macro","categories" => ["existent"]}}
 
     conn =
       conn(:patch, "/api/symbols/#{sym_id}", data)
@@ -237,14 +230,6 @@ defmodule SymbolPatchTest do
     assert response.status === 200
     assert %{"symbol" => %{"name" => new_sym_name2}} = Poison.decode!(response.resp_body)
     assert String.to_integer(new_sym_name2) === new_sym_name
-    assert [] === Neo4j.query!(Neo4j.conn, """
-      MATCH (s:Symbol {revision_id: #{sym_rev}}),
-        (su:UpdateSymbolPatch {name: '#{new_sym_name}'}),
-        (c:Category {url: 'existent'}),
-        (s)-[:UPDATE]->(su),
-        (su)-[:CATEGORY]->(c)
-      RETURN su
-    """)
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {url: 'existent'}),
         (s:Symbol {name: '#{new_sym_name}'}),
@@ -252,19 +237,14 @@ defmodule SymbolPatchTest do
         (s)-[:CATEGORY]->(c),
         (s)-[:REVISION]->(sr),
         (sr)-[:CATEGORY]->(c),
-        (s)-[:CONTRIBUTOR {type: 'update'}]->()
+        (s)-[:CONTRIBUTOR {type: 'update'}]->(:User {access_token: 'at3'})
       RETURN sr
     """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {url: 'existent'}),
-        (s:Symbol {revision_id: '#{new_sym_name}'}),
-        (sr:SymbolRevision {revision_id: #{sym_rev}}),
-        (c)<-[r1:CATEGORY]-(s),
-        (s)-[r2:REVISION]->(sr),
-        (sr)-[r3:CATEGORY]->(c),
-        (s)-[r4:CONTRIBUTOR {type: 'update'}]->()
-        DELETE r1, r2, r3, r4, s, sr
+      MATCH (s:Symbol {revision_id: '#{new_sym_name}'})-[r1]-(),
+        (sr:SymbolRevision {revision_id: #{sym_rev}})-[r2]-()
+      DELETE r1, r2, s, sr
     """)
   end
 
@@ -311,15 +291,6 @@ defmodule SymbolPatchTest do
 
     assert response.status === 200
     assert %{"symbol" => %{"name" => "...2"}} = Poison.decode!(response.resp_body)
-    assert [] === Neo4j.query!(Neo4j.conn, """
-      MATCH (s:Symbol {revision_id: #{sym_rev}}),
-        (su:UpdateSymbolPatch {revision_id: #{sym_rev_b}}),
-        (c:Category {url: 'existent'}),
-        (s)-[:UPDATE]->(su),
-        (s)-[:CATEGORY]->(c),
-        (su)-[:CATEGORY]->(c)
-      RETURN su
-    """)
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (sr:SymbolRevision {revision_id: #{sym_rev}}),
         (s:Symbol {revision_id: #{sym_rev_b}}),
@@ -327,19 +298,14 @@ defmodule SymbolPatchTest do
         (s)-[:REVISION]->(sr),
         (s)-[:CATEGORY]->(c),
         (sr)-[:CATEGORY]->(c),
-        (s)-[:CONTRIBUTOR {type: 'apply_update'}]->()
+        (s)-[:CONTRIBUTOR {type: 'apply_update'}]->(:User {access_token: 'at3'})
       RETURN sr
     """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {url: 'existent'}),
-        (s:Symbol {revision_id: #{sym_rev_b}}),
-        (sr:SymbolRevision {revision_id: #{sym_rev}}),
-        (c)<-[r1:CATEGORY]-(s),
-        (s)-[r2:REVISION]->(sr),
-        (sr)-[r3:CATEGORY]->(c),
-        (s)-[r4:CONTRIBUTOR {type: 'apply_update'}]->()
-        DELETE r1, r2, r3, r4, s, sr
+      MATCH (s:Symbol {revision_id: #{sym_rev_b}})-[r1]-(),
+        (sr:SymbolRevision {revision_id: #{sym_rev}})-[r2]-()
+      DELETE r1, r2, s, sr
     """)
   end
 
@@ -385,15 +351,6 @@ defmodule SymbolPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert [] === Neo4j.query!(Neo4j.conn, """
-      MATCH (s:Symbol {revision_id: #{sym_rev}}),
-        (su:UpdateSymbolPatch {revision_id: #{sym_rev_b}}),
-        (c:Category {url: 'existent'}),
-        (s)-[:UPDATE]->(su),
-        (s)-[:CATEGORY]->(c),
-        (su)-[:CATEGORY]->(c)
-      RETURN su
-    """)
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
         (su:UpdateSymbolPatchDeleted {revision_id: #{sym_rev_b}}),
@@ -401,19 +358,14 @@ defmodule SymbolPatchTest do
         (s)-[:UPDATE]->(su),
         (s)-[:CATEGORY]->(c),
         (su)-[:CATEGORY]->(c),
-        (su)-[:CONTRIBUTOR {type: 'discard_update'}]->()
+        (su)-[:CONTRIBUTOR {type: 'discard_update'}]->(:User {access_token: 'at3'})
       RETURN su
     """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (s:Symbol {revision_id: #{sym_rev}}),
-        (su:UpdateSymbolPatch {revision_id: #{sym_rev_b}}),
-        (c:Category {url: 'existent'}),
-        (s)-[r1:UPDATE]->(su),
-        (s)-[r2:CATEGORY]->(c),
-        (su)-[r3:CATEGORY]->(c),
-        (su)-[r4:CONTRIBUTOR {type: 'discard_update'}]->()
-        DELETE r1, r2, r3, r4, s, su
+      MATCH (s:Symbol {revision_id: #{sym_rev}})-[r1]-(),
+        (su:UpdateSymbolPatch {revision_id: #{sym_rev_b}})-[r2]-()
+      DELETE r1, r2, s, su
     """)
   end
 
@@ -446,26 +398,17 @@ defmodule SymbolPatchTest do
 
     assert response.status === 200
     assert %{"symbol" => %{"name" => "..."}} = Poison.decode!(response.resp_body)
-    assert [] === Neo4j.query!(Neo4j.conn, """
-      MATCH (s:InsertSymbolPatch {revision_id: #{sym_rev}}),
-        (c:Category {url: 'existent'}),
-        (s)-[:CATEGORY]->(c)
-      RETURN s
-    """)
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
         (c:Category {url: 'existent'}),
         (s)-[:CATEGORY]->(c),
-        (s)-[:CONTRIBUTOR {type: 'apply_insert'}]->()
+        (s)-[:CONTRIBUTOR {type: 'apply_insert'}]->(:User {access_token: 'at3'})
       RETURN s
     """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (s:Symbol {revision_id: #{sym_rev}}),
-        (c:Category {url: 'existent'}),
-        (s)-[r1:CATEGORY]->(c),
-        (s)-[r2:CONTRIBUTOR {type: 'apply_insert'}]->()
-      DELETE r1, r2, s
+      MATCH (s:Symbol {revision_id: #{sym_rev}})-[r]-()
+      DELETE r, s
     """)
   end
 
@@ -497,26 +440,17 @@ defmodule SymbolPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert [] === Neo4j.query!(Neo4j.conn, """
-      MATCH (s:InsertSymbolPatch {revision_id: #{sym_rev}}),
-        (c:Category {url: 'existent'}),
-        (s)-[:CATEGORY]->(c)
-      RETURN s
-    """)
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:InsertSymbolPatchDeleted {revision_id: #{sym_rev}}),
         (c:Category {url: 'existent'}),
         (s)-[:CATEGORY]->(c),
-        (s)-[:CONTRIBUTOR {type: 'discard_insert'}]->()
+        (s)-[:CONTRIBUTOR {type: 'discard_insert'}]->(:User {access_token: 'at3'})
       RETURN s
     """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (s:InsertSymbolPatchDeleted {revision_id: #{sym_rev}}),
-        (c:Category {url: 'existent'}),
-        (s)-[r1:CATEGORY]->(c),
-        (s)-[r2:CONTRIBUTOR {type: 'discard_insert'}]->()
-      DELETE r1, r2, s
+      MATCH (s:InsertSymbolPatchDeleted {revision_id: #{sym_rev}})-[r]-()
+      DELETE r, s
     """)
   end
 
@@ -549,27 +483,17 @@ defmodule SymbolPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 204
-    assert [] === Neo4j.query!(Neo4j.conn, """
-      MATCH (s:Symbol {revision_id: #{sym_rev}}),
-        (c:Category {url: 'existent'}),
-        (s)-[:CATEGORY]->(c),
-        (s)-[:DELETE]->(:DeleteSymbolPatch)
-      RETURN s
-    """)
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (sd:SymbolDeleted {revision_id: #{sym_rev}}),
         (c:Category {url: 'existent'}),
         (sd)-[:CATEGORY]->(c),
-        (sd)-[:CONTRIBUTOR {type: 'apply_delete'}]->()
+        (sd)-[:CONTRIBUTOR {type: 'apply_delete'}]->(:User {access_token: 'at3'})
       RETURN sd
     """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (sd:SymbolDeleted {revision_id: #{sym_rev}}),
-        (c:Category {url: 'existent'}),
-        (sd)-[r1:CATEGORY]->(c),
-        (sd)-[r2:CONTRIBUTOR {type: 'apply_delete'}]->()
-      DELETE r1, r2, sd
+      MATCH (sd:SymbolDeleted {revision_id: #{sym_rev}})-[r]-()
+      DELETE r, sd
     """)
   end
 
@@ -603,27 +527,17 @@ defmodule SymbolPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert [] === Neo4j.query!(Neo4j.conn, """
-      MATCH (s:Symbol {revision_id: #{sym_rev}}),
-        (c:Category {url: 'existent'}),
-        (s)-[:CATEGORY]->(c),
-        (s)-[:DELETE]->(:DeleteSymbolPatch)
-      RETURN s
-    """)
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
         (c:Category {url: 'existent'}),
         (s)-[:CATEGORY]->(c),
-        (s)-[:CONTRIBUTOR {type: 'discard_delete'}]->()
+        (s)-[:CONTRIBUTOR {type: 'discard_delete'}]->(:User {access_token: 'at3'})
       RETURN s
     """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (s:Symbol {revision_id: #{sym_rev}}),
-        (c:Category {url: 'existent'}),
-        (s)-[r1:CATEGORY]->(c),
-        (s)-[r2:CONTRIBUTOR {type: 'discard_delete'}]->()
-      DELETE r1, r2, s
+      MATCH (s:Symbol {revision_id: #{sym_rev}})-[r]-()
+      DELETE r, s
     """)
   end
 
@@ -650,6 +564,6 @@ defmodule SymbolPatchTest do
     assert %{"error" => %{"message" => "The maximum patch limit (20) has been exceeded!"}}
       = Poison.decode!(response.resp_body)
 
-    Neo4j.query!(Neo4j.conn, "MATCH (user:User {username: '#{name}'})<-[r:CONTRIBUTOR]-(c) DELETE r, user, c")
+    Neo4j.query!(Neo4j.conn, "MATCH (u:User {username: '#{name}'})<-[r]-(c) DELETE r, u, c")
   end
 end

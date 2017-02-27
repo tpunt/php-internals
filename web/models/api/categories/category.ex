@@ -768,9 +768,9 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def soft_delete(category_url, _review = 1, username) do
     query = """
-      MATCH (category:Category {url: {url}}),
+      MATCH (c:Category {url: {url}}),
         (user:User {username: {username}})
-      MERGE (category)-[:DELETE]->(catdel:DeleteCategoryPatch)
+      MERGE (c)-[:DELETE]->(catdel:DeleteCategoryPatch)
       CREATE (c)-[:CONTRIBUTOR {type: "delete"}]->(user)
     """
 

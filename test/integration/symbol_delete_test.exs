@@ -14,7 +14,7 @@ defmodule SymbolDeleteTest do
     conn = conn(:delete, "/api/symbols/non-existent")
     response = Router.call(conn, @opts)
 
-    assert response.status == 401
+    assert response.status === 401
     assert %{"error" => %{"message" => "Unauthenticated access attempt"}} = Poison.decode!(response.resp_body)
   end
 
@@ -29,7 +29,7 @@ defmodule SymbolDeleteTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 404
+    assert response.status === 404
     assert %{"error" => %{"message" => "The specified symbol could not be found"}} = Poison.decode!(response.resp_body)
   end
 
@@ -44,7 +44,7 @@ defmodule SymbolDeleteTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 400
+    assert response.status === 400
     assert %{"error" => %{"message" => "Invalid integer ID given"}} = Poison.decode!(response.resp_body)
   end
 
@@ -52,14 +52,22 @@ defmodule SymbolDeleteTest do
   DELETE /api/symbols/existent -H authorization: at1
   """
   test "authorised valid delete patch submission for review 1" do
-    cat_name = :rand.uniform(100_000_000)
-    cat_rev = :rand.uniform(100_000_000)
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
-      CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
+      MATCH (c:Category {url: 'existent'})
+      CREATE (s:Symbol {
+          id: #{sym_id},
+          name: '...',
+          description: '.',
+          url: '...',
+          definition: '.',
+          definition_location: '.',
+          type: 'macro',
+          revision_id: #{sym_rev}
+        }),
+        (s)-[:CATEGORY]->(c)
     """)
 
     conn =
@@ -69,12 +77,18 @@ defmodule SymbolDeleteTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 202
-    refute [] == Neo4j.query!(Neo4j.conn, "MATCH (s:Symbol {revision_id: #{sym_rev}})-[:DELETE]->(:DeleteSymbolPatch) RETURN s")
+    assert response.status === 202
+    refute [] === Neo4j.query!(Neo4j.conn, """
+      MATCH (s:Symbol {revision_id: #{sym_rev}}),
+        (s)-[:DELETE]->(dsp:DeleteSymbolPatch),
+        (s)-[:CONTRIBUTOR {type: 'delete'}]->(:User {access_token: 'at1'})
+      RETURN s
+    """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {revision_id: #{cat_rev}})<-[r1:CATEGORY]-(s:Symbol {revision_id: #{sym_rev}})-[r2:DELETE]->(sd:DeleteSymbolPatch)
-      DELETE r1, r2, c, s, sd
+      MATCH (s:Symbol {revision_id: #{sym_rev}})-[r1]-(),
+        (s)-[r2:DELETE]->(sd:DeleteSymbolPatch)
+      DELETE r1, r2, s, sd
     """)
   end
 
@@ -82,14 +96,22 @@ defmodule SymbolDeleteTest do
   DELETE /api/symbols/existent -H authorization: at3
   """
   test "authorised valid update delete submission for review 2" do
-    cat_name = :rand.uniform(100_000_000)
-    cat_rev = :rand.uniform(100_000_000)
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
-      CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
+      MATCH (c:Category {url: 'existent'})
+      CREATE (s:Symbol {
+          id: #{sym_id},
+          name: '...',
+          description: '.',
+          url: '...',
+          definition: '.',
+          definition_location: '.',
+          type: 'macro',
+          revision_id: #{sym_rev}
+        }),
+        (s)-[:CATEGORY]->(c)
     """)
 
     conn =
@@ -99,12 +121,18 @@ defmodule SymbolDeleteTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 202
-    refute [] == Neo4j.query!(Neo4j.conn, "MATCH (s:Symbol {revision_id: #{sym_rev}})-[:DELETE]->(:DeleteSymbolPatch) RETURN s")
+    assert response.status === 202
+    refute [] === Neo4j.query!(Neo4j.conn, """
+      MATCH (s:Symbol {revision_id: #{sym_rev}}),
+        (s)-[:DELETE]->(dsp:DeleteSymbolPatch),
+        (s)-[:CONTRIBUTOR {type: 'delete'}]->(:User {access_token: 'at3'})
+      RETURN s
+    """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {revision_id: #{cat_rev}})<-[r1:CATEGORY]-(s:Symbol {revision_id: #{sym_rev}})-[r2:DELETE]->(sd:DeleteSymbolPatch)
-      DELETE r1, r2, c, s, sd
+      MATCH (s:Symbol {revision_id: #{sym_rev}})-[r1]-(),
+        (s)-[r2:DELETE]->(sd:DeleteSymbolPatch)
+      DELETE r1, r2, s, sd
     """)
   end
 
@@ -112,14 +140,22 @@ defmodule SymbolDeleteTest do
   DELETE /api/symbols/existent -H authorization: at2
   """
   test "authorised valid soft delete patch submission 1" do
-    cat_name = :rand.uniform(100_000_000)
-    cat_rev = :rand.uniform(100_000_000)
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
-      CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
+      MATCH (c:Category {url: 'existent'})
+      CREATE (s:Symbol {
+          id: #{sym_id},
+          name: '...',
+          description: '.',
+          url: '...',
+          definition: '.',
+          definition_location: '.',
+          type: 'macro',
+          revision_id: #{sym_rev}
+        }),
+        (s)-[:CATEGORY]->(c)
     """)
 
     conn =
@@ -129,13 +165,16 @@ defmodule SymbolDeleteTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 204
-    assert [] == Neo4j.query!(Neo4j.conn, "MATCH (s:Symbol {revision_id: #{sym_rev}}) RETURN s")
-    refute [] == Neo4j.query!(Neo4j.conn, "MATCH (s:SymbolDeleted {revision_id: #{sym_rev}}) RETURN s")
+    assert response.status === 204
+    refute [] === Neo4j.query!(Neo4j.conn, """
+      MATCH (sd:SymbolDeleted {revision_id: #{sym_rev}}),
+        (sd)-[:CONTRIBUTOR {type: 'delete'}]->(:User {access_token: 'at2'})
+      RETURN sd
+    """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {revision_id: #{cat_rev}})<-[r:CATEGORY]-(s:SymbolDeleted {revision_id: #{sym_rev}})
-      DELETE r, c, s
+      MATCH (sd:SymbolDeleted {revision_id: #{sym_rev}})-[r]-()
+      DELETE r, sd
     """)
   end
 
@@ -143,14 +182,22 @@ defmodule SymbolDeleteTest do
   DELETE /api/symbols/existent -H authorization: at3
   """
   test "authorised valid soft delete patch submission 2" do
-    cat_name = :rand.uniform(100_000_000)
-    cat_rev = :rand.uniform(100_000_000)
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
-      CREATE (c:Category {name: '#{cat_name}', introduction: '...', url: '#{cat_name}', revision_id: #{cat_rev}}),
-        (s:Symbol {id: #{sym_id}, name: '...', description: '.', url: '...', definition: '.', definition_location: '.', type: 'macro', revision_id: #{sym_rev}})-[:CATEGORY]->(c)
+      MATCH (c:Category {url: 'existent'})
+      CREATE (s:Symbol {
+          id: #{sym_id},
+          name: '...',
+          description: '.',
+          url: '...',
+          definition: '.',
+          definition_location: '.',
+          type: 'macro',
+          revision_id: #{sym_rev}
+        }),
+        (s)-[:CATEGORY]->(c)
     """)
 
     conn =
@@ -160,13 +207,16 @@ defmodule SymbolDeleteTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 204
-    assert [] == Neo4j.query!(Neo4j.conn, "MATCH (s:Symbol {revision_id: #{sym_rev}}) RETURN s")
-    refute [] == Neo4j.query!(Neo4j.conn, "MATCH (s:SymbolDeleted {revision_id: #{sym_rev}}) RETURN s")
+    assert response.status === 204
+    refute [] === Neo4j.query!(Neo4j.conn, """
+      MATCH (sd:SymbolDeleted {revision_id: #{sym_rev}}),
+        (sd)-[:CONTRIBUTOR {type: 'delete'}]->(:User {access_token: 'at3'})
+      RETURN sd
+    """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {revision_id: #{cat_rev}})<-[r:CATEGORY]-(s:SymbolDeleted {revision_id: #{sym_rev}})
-      DELETE r, c, s
+      MATCH (sd:SymbolDeleted {revision_id: #{sym_rev}})-[r]-()
+      DELETE r, sd
     """)
   end
 
@@ -193,6 +243,6 @@ defmodule SymbolDeleteTest do
     assert %{"error" => %{"message" => "The maximum patch limit (20) has been exceeded!"}}
       = Poison.decode!(response.resp_body)
 
-    Neo4j.query!(Neo4j.conn, "MATCH (user:User {username: '#{name}'})<-[r:CONTRIBUTOR]-(c) DELETE r, user, c")
+    Neo4j.query!(Neo4j.conn, "MATCH (u:User {username: '#{name}'})-[r]-(c) DELETE r, u, c")
   end
 end

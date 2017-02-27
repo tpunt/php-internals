@@ -649,7 +649,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     query1 = """
       MATCH (old_symbol:Symbol {id: {symbol_id}}),
         (user:User {username: {username}})
-      WITH old_symbol
+      WITH old_symbol, user
     """
 
     query2 =
@@ -911,41 +911,47 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def soft_delete(symbol_id, 0 = _review) do
+  def soft_delete(symbol_id, 0 = _review, username) do
     query = """
-      MATCH (symbol:Symbol {id: {symbol_id}})
+      MATCH (symbol:Symbol {id: {symbol_id}}),
+        (user:User {username: {username}})
       OPTIONAL MATCH (symbol)-[r:DELETE]->(sym_del:DeleteSymbolPatch)
       REMOVE symbol:Symbol
       SET symbol:SymbolDeleted
       FOREACH (ignored IN CASE sym_del WHEN NULL THEN [] ELSE [1] END |
         DELETE r, sym_del
       )
+      CREATE (symbol)-[:CONTRIBUTOR {type: "delete"}]->(user)
     """
 
-    params = %{symbol_id: symbol_id}
+    params = %{symbol_id: symbol_id, username: username}
 
     Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def soft_delete(symbol_id, 1 = _review) do
+  def soft_delete(symbol_id, 1 = _review, username) do
     query = """
-      MATCH (symbol:Symbol {id: {symbol_id}})
+      MATCH (symbol:Symbol {id: {symbol_id}}),
+        (user:User {username: {username}})
       MERGE (symbol)-[:DELETE]->(:DeleteSymbolPatch)
+      CREATE (symbol)-[:CONTRIBUTOR {type: "delete"}]->(user)
     """
 
-    params = %{symbol_id: symbol_id}
+    params = %{symbol_id: symbol_id, username: username}
 
     Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def soft_delete_undo(symbol_id, 0 = _review) do
+  def soft_delete_undo(symbol_id, 0 = _review, username) do
     query = """
-      MATCH (symbol:SymbolDeleted {id: {symbol_id}})
+      MATCH (symbol:SymbolDeleted {id: {symbol_id}}),
+        (user:User {username: {username}})
       REMOVE symbol:SymbolDeleted
       SET symbol:Symbol
+      CREATE (symbol)-[:CONTRIBUTOR {type: "undo_delete"}]->(user)
     """
 
-    params = %{symbol_id: symbol_id}
+    params = %{symbol_id: symbol_id, username: username}
 
     Neo4j.query!(Neo4j.conn, query, params)
   end

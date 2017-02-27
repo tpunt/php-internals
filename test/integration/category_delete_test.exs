@@ -61,7 +61,7 @@ defmodule CategoryDeleteTest do
     assert response.status == 202
     refute [] == Neo4j.query!(Neo4j.conn, "MATCH (c1:Category {name: '#{name}'})-[:DELETE]->(c2:DeleteCategoryPatch) RETURN c2")
 
-    Neo4j.query!(Neo4j.conn, "MATCH (c1:Category {name: '#{name}'})-[r:DELETE]->(c2:DeleteCategoryPatch) DELETE r, c1, c2")
+    Neo4j.query!(Neo4j.conn, "MATCH ()-[r1]-(c1:Category {name: '#{name}'})-[r2:DELETE]->(c2:DeleteCategoryPatch) DELETE r1, r2, c1, c2")
   end
 
   @doc """

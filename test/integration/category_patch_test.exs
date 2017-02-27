@@ -597,8 +597,7 @@ defmodule CategoryPatchTest do
     refute [] == Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatchDeleted {revision_id: #{rev_id}}) RETURN c")
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:InsertCategoryPatchDeleted {revision_id: #{rev_id}}),
-        (c)-[r:CONTRIBUTOR {type: 'discard_insert'}]->()
+      MATCH (c:InsertCategoryPatchDeleted {revision_id: #{rev_id}})-[r]-()
       DELETE r, c
     """)
   end

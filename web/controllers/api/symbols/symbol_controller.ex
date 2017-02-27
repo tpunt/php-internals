@@ -363,7 +363,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     with {:ok} <- User.within_patch_limit?(conn.user),
          {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
          {:ok, _symbol} <- Symbol.valid?(symbol_id) do
-      Symbol.soft_delete(symbol_id, review)
+      Symbol.soft_delete(symbol_id, review, conn.user.username)
 
       status_code = if review == 0, do: 204, else: 202
 
