@@ -69,16 +69,6 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     end
   end
 
-  def show(conn, %{"symbol_id" => symbol_id, "view" => "overview"}) do
-    fetch(conn, symbol_id, "overview")
-  end
-
-  def show(conn, %{"view" => _view}) do
-    conn
-    |> put_status(400)
-    |> render(PhpInternals.ErrorView, "error.json", error: "Unknown view type")
-  end
-
   def show(%{user: %{privilege_level: 0}} = conn, %{"patches" => _scope}) do
     conn
     |> put_status(401)
@@ -159,14 +149,11 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Unknown patch type specified")
   end
 
-  def show(conn, %{"symbol_id" => symbol_id}) do
-    fetch(conn, symbol_id, "normal")
-  end
-
-  defp fetch(conn, symbol_id, view) do
+  def show(conn, %{"symbol_id" => symbol_id} = params) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, symbol} <- Symbol.fetch(symbol_id, view) do
-      case view do
+         {:ok, view_type} <- Symbol.valid_view_type?(params["view"]),
+         {:ok, symbol} <- Symbol.fetch(symbol_id, view_type) do # why is this this type of method?
+      case view_type do
         "normal" -> render(conn, "show.json", symbol: symbol)
         "overview" -> render(conn, "show_overview.json", symbol: symbol)
       end

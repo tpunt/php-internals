@@ -1,10 +1,15 @@
 defmodule PhpInternals.Api.Symbols.Symbol do
   use PhpInternals.Web, :model
 
-  @default_order_by "name"
   @valid_order_bys ["name"]
-  @default_symbol_type "all"
+  @default_order_by "name"
+
   @valid_symbol_types ["macro", "function", "variable", "type"]
+  @default_symbol_type "all"
+
+  @view_types ["normal", "overview"]
+  @default_view_type "normal"
+
   @required_fields [
     "name",
     "description",
@@ -67,6 +72,18 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         {:ok, symbol_type}
       else
         {:error, 400, "Invalid symbol type field given (expecting: #{Enum.join(@valid_symbol_types, ", ")})"}
+      end
+    end
+  end
+
+  def valid_view_type?(view_type) do
+    if view_type === nil do
+      {:ok, @default_view_type}
+    else
+      if Enum.member?(@view_types, view_type) do
+        {:ok, view_type}
+      else
+        {:error, 400, "Invalid view type given (expecting: #{Enum.join(@view_types, ", ")})"}
       end
     end
   end

@@ -31,7 +31,7 @@ defmodule SymbolGetTest do
   GET /api/symbols/0123
   """
   test "get a non-existent symbol" do
-    conn = conn(:get, "/api/symbols/0123")
+    conn = conn(:get, "/api/symbols/0123", %{})
     response = Router.call(conn, @opts)
 
     assert response.status == 404
@@ -45,7 +45,8 @@ defmodule SymbolGetTest do
     response = Router.call(conn, @opts)
 
     assert response.status == 400
-    assert %{"error" => %{"message" => "Unknown view type"}} = Poison.decode! response.resp_body
+    assert %{"error" => %{"message" => "Invalid view type given (expecting: normal, overview)"}}
+      = Poison.decode! response.resp_body
   end
 
   @doc """
@@ -80,7 +81,7 @@ defmodule SymbolGetTest do
         (s)-[:CATEGORY]->(c)
     """)
 
-    conn = conn(:get, "/api/symbols/#{sym_id}")
+    conn = conn(:get, "/api/symbols/#{sym_id}", %{})
     response = Router.call(conn, @opts)
 
     assert response.status == 200
