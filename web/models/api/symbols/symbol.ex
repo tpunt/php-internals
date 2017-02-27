@@ -138,7 +138,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def is_delete_patch?(symbol_id) do
+  def has_delete_patch?(symbol_id) do
     query = """
       MATCH (c:Category)<-[:CATEGORY]-(symbol:Symbol {id: {symbol_id}})-[:DELETE]->(:DeleteSymbolPatch)
       RETURN symbol, collect({name: c.name, url: c.url}) AS categories
@@ -854,7 +854,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   end
 
   def discard_patch(symbol_id, "delete", username) do
-    with {:ok, _symbol} <- is_delete_patch?(symbol_id) do
+    with {:ok, _symbol} <- has_delete_patch?(symbol_id) do
       query = """
         MATCH (s:Symbol {id: {symbol_id}}),
           (user:User {username: {username}}),

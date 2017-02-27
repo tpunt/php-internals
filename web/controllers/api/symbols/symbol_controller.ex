@@ -96,7 +96,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   def show(conn, %{"symbol_id" => symbol_id, "patches" => "delete"}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
          {:ok, _symbol} <- Symbol.valid?(symbol_id),
-         {:ok, symbol} <- Symbol.is_delete_patch?(symbol_id) do
+         {:ok, symbol} <- Symbol.has_delete_patch?(symbol_id) do
       render(conn, "show_delete.json", symbol: symbol)
     else
       {:error, status_code, error} ->

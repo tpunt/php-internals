@@ -18,8 +18,8 @@ defmodule PhpInternals.Utilities do
     end
   end
 
-  def valid_patch_action?(type) do
-    case Regex.named_captures(~r/\A(?<type>insert|delete|update,[0-9]{1,10})\z/, type) do
+  def valid_patch_action?(action) do
+    case Regex.named_captures(~r/\A(?<type>insert|delete|update,[0-9]{1,10})\z/, action) do
       %{"type" => _type} -> {:ok}
       _ -> {:error, 400, "Unknown patch action"}
     end
