@@ -231,8 +231,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def fetch_all(order_by, ordering, offset, limit, symbol_type, category_filter, search_term) do
     query1 = "MATCH (s:Symbol)"
-    query2 = if category_filter === nil, do: "", else: "-[:CATEGORY]->(:Category {url: {category_url}})"
-    query3 = ", (s)-[:CATEGORY]->(c:Category)"
+    query2 = if category_filter === nil, do: "", else: ", (c:Category {url: {category_url}})"
+    query3 = ", (s)-[:CATEGORY]->(c)"
     {query4, search_term} =
       if search_term === nil do
         {"", search_term}

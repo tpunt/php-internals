@@ -208,4 +208,33 @@ defmodule SymbolsGetTest do
     assert response.status == 200
     assert %{"symbols" => []} = Poison.decode! response.resp_body
   end
+
+  @doc """
+  GET /api/symbols?category=existent
+  """
+  test "Filter all symbols by a specific category" do
+    sym_id = :rand.uniform(100_000_000)
+    sym_rev = :rand.uniform(100_000_000)
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {url: 'existent'})
+      CREATE (s:Symbol {id: #{sym_id},
+          name: '...',
+          description: '.',
+          url: '...',
+          definition: '.',
+          definition_location: '..',
+          type: 'macro',
+          revision_id: #{sym_rev}
+        }),
+        (s)-[:CATEGORY]->(c)
+    """)
+
+    conn = conn(:get, "/api/symbols", %{"category" => "existent"})
+
+    response = Router.call(conn, @opts)
+
+    assert response.status == 200
+    assert %{"symbols" => symbols} = Poison.decode! response.resp_body
+    assert %{"symbol" => %{}} = List.first symbols
+  end
 end
