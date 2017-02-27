@@ -282,7 +282,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def fetch_all_patches do
+  def fetch_all_patches("all") do
     query = """
       MATCH (c1:Category)<-[:CATEGORY]-(symbol:Symbol)-[:UPDATE]->(su:UpdateSymbolPatch)-[:CATEGORY]->(c2:Category)
       OPTIONAL MATCH (symbol)-[:DELETE]->(sd:DeleteSymbolPatch)
@@ -330,11 +330,11 @@ defmodule PhpInternals.Api.Symbols.Symbol do
           end
         end)
 
-    %{inserts: fetch_all_insert_patches,
+    %{inserts: fetch_all_patches("insert"),
       patches: patches}
   end
 
-  def fetch_all_insert_patches do
+  def fetch_all_patches("insert") do
     query = """
       MATCH (symbol:InsertSymbolPatch)-[:CATEGORY]->(c:Category)
       RETURN {symbol: symbol, categories: collect({name: c.name, url: c.url})} as symbol_insert
@@ -347,7 +347,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end)
   end
 
-  def fetch_all_update_patches do
+  def fetch_all_patches("update") do
     query = """
       MATCH (c1:Category)<-[:CATEGORY]-(symbol:Symbol)-[:UPDATE]->(su:UpdateSymbolPatch)-[:CATEGORY]->(c2:Category)
       WITH c1, symbol, {categories: collect({name: c2.name, url: c2.url}), update: su} AS sus
@@ -377,7 +377,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       end)
   end
 
-  def fetch_all_delete_patches do
+  def fetch_all_patches("delete") do
     query = """
       MATCH (c:Category)<-[:CATEGORY]-(symbol:Symbol)-[:DELETE]->(:DeleteSymbolPatch)
       RETURN {

@@ -18,20 +18,14 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised access attempt")
   end
 
-  def index(conn, %{"patches" => scope}) do
-    case scope do
-      "all" ->
-        render(conn, "index_patches_all.json", symbols_patches: Symbol.fetch_all_patches)
-      "insert" ->
-        render(conn, "index_patches_insert.json", symbols_patches: Symbol.fetch_all_insert_patches)
-      "update" ->
-        render(conn, "index_patches_update.json", symbols_patches: Symbol.fetch_all_update_patches)
-      "delete" ->
-        render(conn, "index_patches_delete.json", symbols_patches: Symbol.fetch_all_delete_patches)
-      _ ->
+  def index(conn, %{"patches" => type}) do
+    with {:ok} <- Utilities.valid_patch_type?(type) do
+      render(conn, "index_patches_#{type}.json", symbols_patches: Symbol.fetch_all_patches(type))
+    else
+      {:error, status_code, error} ->
         conn
-        |> put_status(404)
-        |> render(PhpInternals.ErrorView, "error.json", error: "Unknown patches type specified")
+        |> put_status(status_code)
+        |> render(PhpInternals.ErrorView, "error.json", error: error)
     end
   end
 
