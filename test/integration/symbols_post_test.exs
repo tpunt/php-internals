@@ -32,7 +32,7 @@ defmodule SymbolsPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status == 400
-    assert %{"error" => %{"message" => "Bad request data format"}} = Poison.decode!(response.resp_body)
+    assert %{"error" => %{"message" => "Malformed input data"}} = Poison.decode!(response.resp_body)
   end
 
   @doc """

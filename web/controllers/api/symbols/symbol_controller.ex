@@ -183,22 +183,46 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Unauthenticated access attempt")
   end
 
-  def create(conn, params) do
-    review =
-      cond do
-        conn.user.privilege_level === 1 -> 1
-        Map.has_key?(params, "review") -> String.to_integer(params["review"])
-        true -> 0
-      end
+  def create(%{user: %{privilege_level: 1}} = conn, %{"symbol" => %{}, "review" => review} = params) do
+    with {:ok, _review} <- Utilities.valid_review_param?(review) do
+      insert(conn, Map.put(params, "review", 1))
+    else
+      {:error, status_code, status} ->
+        conn
+        |> put_status(status_code)
+        |> render(PhpInternals.ErrorView, "error.json", error: status)
+    end
+  end
 
-    insert(conn, Map.put(params, "review", review))
+  def create(%{user: %{privilege_level: 1}} = conn, %{"symbol" => %{}} = params) do
+    insert(conn, Map.put(params, "review", 1))
+  end
+
+  def create(conn, %{"symbol" => %{}, "review" => review} = params) do
+    with {:ok, review} <- Utilities.valid_review_param?(review) do
+      insert(conn, Map.put(params, "review", review))
+    else
+      {:error, status_code, status} ->
+        conn
+        |> put_status(status_code)
+        |> render(PhpInternals.ErrorView, "error.json", error: status)
+    end
+  end
+
+  def create(conn, %{"symbol" => %{}} = params) do
+    insert(conn, Map.put(params, "review", 0))
+  end
+
+  def create(conn, _params) do
+    conn
+    |> put_status(400)
+    |> render(PhpInternals.ErrorView, "error.json", error: "Malformed input data")
   end
 
   defp insert(conn, %{"symbol" => symbol, "review" => review}) do
     with {:ok} <- Symbol.contains_required_fields?(symbol),
          {:ok} <- Symbol.contains_only_expected_fields?(symbol),
-         {:ok} <- Category.valid_categories?(symbol["categories"]),
-         {:ok} <- Utilities.valid_review_param?(review) do
+         {:ok} <- Category.valid_categories?(symbol["categories"]) do
       url_name = Utilities.make_url_friendly_name(symbol["name"])
 
       symbol =
@@ -217,12 +241,6 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
         |> put_status(status_code)
         |> render(PhpInternals.ErrorView, "error.json", error: status)
     end
-  end
-
-  defp insert(conn, _params) do
-    conn
-    |> put_status(400)
-    |> render(PhpInternals.ErrorView, "error.json", error: "Bad request data format")
   end
 
   def update(%{user: %{privilege_level: 0}} = conn, _params) do
@@ -271,15 +289,29 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     end
   end
 
-  def update(conn, params) do
-    review =
-      cond do
-        conn.user.privilege_level === 1 -> 1
-        Map.has_key?(params, "review") -> String.to_integer(params["review"])
-        true -> 0
-      end
+  def update(%{user: %{privilege_level: 1}} = conn, %{"symbol" => %{}} = params) do
+    modify(conn, Map.put(params, "review", 1))
+  end
 
-    modify(conn, Map.put(params, "review", review))
+  def update(conn, %{"symbol" => %{}, "review" => review} = params) do
+    with {:ok, review} <- Utilities.valid_review_param?(review) do
+      modify(conn, Map.put(params, "review", review))
+    else
+      {:error, status_code, status} ->
+        conn
+        |> put_status(status_code)
+        |> render(PhpInternals.ErrorView, "error.json", error: status)
+    end
+  end
+
+  def update(conn, %{"symbol" => %{}} = params) do
+    modify(conn, Map.put(params, "review", 0))
+  end
+
+  def update(conn, _params) do
+    conn
+    |> put_status(400)
+    |> render(PhpInternals.ErrorView, "error.json", error: "Malformed input data")
   end
 
   defp modify(%{user: %{privilege_level: 1}} = conn, %{"references_patch" => _refs_patch}) do
@@ -288,13 +320,12 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised access attempt")
   end
 
-  defp modify(conn, %{"symbol" => %{} = symbol, "symbol_id" => symbol_id, "review" => review} = params) do
+  defp modify(conn, %{"symbol" => symbol, "symbol_id" => symbol_id, "review" => review} = params) do
     with {:ok} <- Symbol.contains_required_fields?(symbol),
          {:ok} <- Symbol.contains_only_expected_fields?(symbol),
          {:ok} <- Category.valid_categories?(symbol["categories"]),
          {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, old_symbol} <- Symbol.symbol_exists?(symbol_id),
-         {:ok} <- Utilities.valid_review_param?(review) do
+         {:ok, old_symbol} <- Symbol.symbol_exists?(symbol_id) do
       url_name = Utilities.make_url_friendly_name(symbol["name"])
 
       symbol = Map.merge(symbol, %{"url" => url_name})
@@ -319,27 +350,29 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     end
   end
 
-  defp modify(conn, _params) do
-    conn
-    |> put_status(400)
-    |> render(PhpInternals.ErrorView, "error.json", error: "Bad request data format")
-  end
-
   def delete(%{user: %{privilege_level: 0}} = conn, _params) do
     conn
     |> put_status(401)
     |> render(PhpInternals.ErrorView, "error.json", error: "Unauthenticated access attempt")
   end
 
-  def delete(conn, params) do
-    review =
-      cond do
-        conn.user.privilege_level === 1 -> 1
-        Map.has_key?(params, "review") -> String.to_integer(params["review"])
-        true -> 0
-      end
+  def delete(%{user: %{privilege_level: 1}} = conn, params) do
+    remove(conn, Map.put(params, "review", 1))
+  end
 
-    remove(conn, Map.put(params, "review", review))
+  def delete(conn, %{"review" => review} = params) do
+    with {:ok, review} <- Utilities.valid_review_param?(review) do
+      remove(conn, Map.put(params, "review", review))
+    else
+      {:error, status_code, status} ->
+        conn
+        |> put_status(status_code)
+        |> render(PhpInternals.ErrorView, "error.json", error: status)
+    end
+  end
+
+  def delete(conn, params) do
+    remove(conn, Map.put(params, "review", 0))
   end
 
   defp remove(%{user: %{privilege_level: 3}} = conn, %{"symbol_id" => symbol_id, "mode" => "hard"}) do
@@ -365,8 +398,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
   defp remove(conn, %{"symbol_id" => symbol_id, "review" => review}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, _symbol} <- Symbol.symbol_exists?(symbol_id),
-         {:ok} <- Utilities.valid_review_param?(review) do
+         {:ok, _symbol} <- Symbol.symbol_exists?(symbol_id) do
       Symbol.soft_delete_symbol(symbol_id, review)
 
       status_code = if review == 0, do: 204, else: 202
