@@ -6,7 +6,7 @@ defmodule PhpInternals.Api.Users.UserController do
   def index(%{user: %{privilege_level: 3}} = conn, _params) do
     conn
     |> put_status(200)
-    |> render("index.json", users: User.fetch_users)
+    |> render("index.json", users: User.fetch_all)
   end
 
   def index(%{user: %{privilege_level: 0}} = conn, _params) do
@@ -22,7 +22,7 @@ defmodule PhpInternals.Api.Users.UserController do
   end
 
   def show(conn, %{"username" => username}) do
-    with {:ok, user} <- User.user_exists?(username) do
+    with {:ok, user} <- User.valid?(username) do
       conn
       |> put_status(200)
       |> render("show.json", user: user)
@@ -35,8 +35,8 @@ defmodule PhpInternals.Api.Users.UserController do
   end
 
   def self(%{user: user} = conn, _params) do
-    user_data = %{"user" =>
-        %{"username" => user.username, "name" => user.name, "privilege_level" => user.privilege_level}}
+    user_data = %{"user" => %{"username" => user.username, "name" => user.name,
+      "privilege_level" => user.privilege_level}}
 
     conn
     |> put_status(200)
@@ -51,7 +51,7 @@ defmodule PhpInternals.Api.Users.UserController do
 
   def update(%{user: %{privilege_level: 3}} = conn, %{"username" => username, "user" => %{} = user}) do
     with {:ok} <- User.valid_params?(user),
-         {:ok, _user_old} <- User.user_exists?(username) do
+         {:ok, _user_old} <- User.valid?(username) do
       conn
       |> put_status(200)
       |> render("show.json", user: User.update(username, user))

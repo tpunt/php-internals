@@ -40,7 +40,7 @@ defmodule PhpInternals.Api.Articles.Article do
   def valid_view?("overview" = view), do: {:ok, view}
   def valid_view?(_view), do: {:error, 400, "Invalid view field given"}
 
-  def exists?(article_url) do
+  def valid?(article_url) do
     query = """
       MATCH (article:Article {url: {url}}),
         (article)-[arel:AUTHOR]->(u:User),
@@ -67,7 +67,7 @@ defmodule PhpInternals.Api.Articles.Article do
     end
   end
 
-  def series_exists?(series_url) do
+  def valid_series?(series_url) do
     query = """
       MATCH (a:Article {series_url: {series_url}}),
         (a)-[arel:AUTHOR]->(u:User),
@@ -108,7 +108,7 @@ defmodule PhpInternals.Api.Articles.Article do
     end
   end
 
-  def exists_from_series?(series_url, article_url) do
+  def valid_in_series?(series_url, article_url) do
     query = """
       MATCH (article:Article {series_url: {series_url}, url: {url}}),
         (article)-[arel:AUTHOR]->(u:User),
@@ -135,8 +135,8 @@ defmodule PhpInternals.Api.Articles.Article do
     end
   end
 
-  def does_not_exist?(article_url) do
-    case exists?(article_url) do
+  def not_valid?(article_url) do
+    case valid?(article_url) do
       {:ok, _article} ->
         {:error, 400, "The article with the specified name already exists"}
       {:error, 404, _status} ->
@@ -144,7 +144,7 @@ defmodule PhpInternals.Api.Articles.Article do
     end
   end
 
-  def fetch_articles(order_by, ordering, offset, limit, category_filter, view) do
+  def fetch(order_by, ordering, offset, limit, category_filter, view) do
     query1 =
       if category_filter === nil do
         "MATCH (a:Article)"
@@ -303,7 +303,7 @@ defmodule PhpInternals.Api.Articles.Article do
     %{"article" => article}
   end
 
-  def soft_delete_article(article_url) do
+  def soft_delete(article_url) do
     query = """
       MATCH (article:Article {url: {url}})
       REMOVE article:Article

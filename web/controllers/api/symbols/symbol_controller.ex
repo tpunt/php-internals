@@ -20,13 +20,13 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   def index(conn, %{"patches" => scope}) do
     case scope do
       "all" ->
-        render(conn, "index_patches_all.json", symbols_patches: Symbol.fetch_all_symbols_patches)
+        render(conn, "index_patches_all.json", symbols_patches: Symbol.fetch_all_patches)
       "insert" ->
-        render(conn, "index_patches_insert.json", symbols_patches: Symbol.fetch_all_symbols_patches_insert)
+        render(conn, "index_patches_insert.json", symbols_patches: Symbol.fetch_all_insert_patches)
       "update" ->
-        render(conn, "index_patches_update.json", symbols_patches: Symbol.fetch_all_symbols_patches_update)
+        render(conn, "index_patches_update.json", symbols_patches: Symbol.fetch_all_update_patches)
       "delete" ->
-        render(conn, "index_patches_delete.json", symbols_patches: Symbol.fetch_all_symbols_patches_delete)
+        render(conn, "index_patches_delete.json", symbols_patches: Symbol.fetch_all_delete_patches)
       _ ->
         conn
         |> put_status(404)
@@ -47,7 +47,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   end
 
   def index(conn, %{"status" => "deleted"}) do
-    render(conn, "index_deleted.json", symbols: Symbol.fetch_all_symbols_deleted)
+    render(conn, "index_deleted.json", symbols: Symbol.fetch_all_deleted)
   end
 
   def index(conn, params) do
@@ -55,10 +55,10 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
          {:ok, ordering} <- Utilities.valid_ordering?(params["ordering"]),
          {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]),
-         {:ok, symbol_type} <- Symbol.valid_symbol_type?(params["type"]),
-         {:ok, _category} <- Category.valid_category?(params["category"]) do
+         {:ok, symbol_type} <- Symbol.valid_type?(params["type"]),
+         {:ok, _category} <- Category.valid?(params["category"]) do
         #  {:ok, search_term} <- Symbol.valid_search?(params["search"]) do
-      symbols = Symbol.fetch_all_symbols(order_by, ordering, offset, limit, symbol_type, params["category"], params["search"])
+      symbols = Symbol.fetch_all(order_by, ordering, offset, limit, symbol_type, params["category"], params["search"])
       render(conn, "index.json", symbols: symbols)
     else
       {:error, status_code, error} ->
@@ -104,7 +104,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
   def show(conn, %{"symbol_id" => symbol_id, "patches" => "delete"}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, _symbol} <- Symbol.symbol_exists?(symbol_id),
+         {:ok, _symbol} <- Symbol.valid?(symbol_id),
          {:ok, symbol} <- Symbol.is_delete_patch?(symbol_id) do
       render(conn, "show_delete.json", symbol: symbol)
     else
@@ -117,7 +117,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
   def show(conn, %{"symbol_id" => symbol_id, "patches" => "update", "patch_id" => patch_id}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, _symbol} <- Symbol.symbol_exists?(symbol_id),
+         {:ok, _symbol} <- Symbol.valid?(symbol_id),
          {:ok, symbol} <- Symbol.update_patch_exists?(symbol_id, String.to_integer(patch_id)) do
       render(conn, "show_update.json", symbol: symbol)
     else
@@ -130,8 +130,8 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
   def show(conn, %{"symbol_id" => symbol_id, "patches" => "update"}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, _symbol} <- Symbol.symbol_exists?(symbol_id) do
-      render(conn, "show_updates.json", symbol: Symbol.fetch_symbol_update_patches(symbol_id))
+         {:ok, _symbol} <- Symbol.valid?(symbol_id) do
+      render(conn, "show_updates.json", symbol: Symbol.fetch_update_patches_for(symbol_id))
     else
       {:error, status_code, error} ->
         conn
@@ -222,7 +222,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   defp insert(conn, %{"symbol" => symbol, "review" => review}) do
     with {:ok} <- Symbol.contains_required_fields?(symbol),
          {:ok} <- Symbol.contains_only_expected_fields?(symbol),
-         {:ok} <- Category.valid_categories?(symbol["categories"]) do
+         {:ok} <- Category.all_valid?(symbol["categories"]) do
       url_name = Utilities.make_url_friendly_name(symbol["name"])
 
       symbol =
@@ -257,7 +257,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
   def update(conn, %{"symbol_id" => symbol_id, "apply_patch" => action}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, return} <- Symbol.accept_symbol_patch(symbol_id, action, conn.user.username) do
+         {:ok, return} <- Symbol.accept_patch(symbol_id, action, conn.user.username) do
       if is_integer(return) do
         send_resp(conn, return, "")
       else
@@ -279,7 +279,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
   def update(conn, %{"symbol_id" => symbol_id, "discard_patch" => action}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, status_code} <- Symbol.discard_symbol_patch(symbol_id, action, conn.user.username) do
+         {:ok, status_code} <- Symbol.discard_patch(symbol_id, action, conn.user.username) do
       send_resp(conn, status_code, "")
     else
       {:error, status_code, message} ->
@@ -323,9 +323,9 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   defp modify(conn, %{"symbol" => symbol, "symbol_id" => symbol_id, "review" => review} = params) do
     with {:ok} <- Symbol.contains_required_fields?(symbol),
          {:ok} <- Symbol.contains_only_expected_fields?(symbol),
-         {:ok} <- Category.valid_categories?(symbol["categories"]),
+         {:ok} <- Category.all_valid?(symbol["categories"]),
          {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, old_symbol} <- Symbol.symbol_exists?(symbol_id) do
+         {:ok, old_symbol} <- Symbol.valid?(symbol_id) do
       url_name = Utilities.make_url_friendly_name(symbol["name"])
 
       symbol = Map.merge(symbol, %{"url" => url_name})
@@ -378,7 +378,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   defp remove(%{user: %{privilege_level: 3}} = conn, %{"symbol_id" => symbol_id, "mode" => "hard"}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
          {:ok, _symbol} <- Symbol.is_deleted?(symbol_id) do
-      Symbol.hard_delete_symbol(symbol_id)
+      Symbol.hard_delete(symbol_id)
 
       conn
       |> send_resp(204, "")
@@ -398,8 +398,8 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
   defp remove(conn, %{"symbol_id" => symbol_id, "review" => review}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, _symbol} <- Symbol.symbol_exists?(symbol_id) do
-      Symbol.soft_delete_symbol(symbol_id, review)
+         {:ok, _symbol} <- Symbol.valid?(symbol_id) do
+      Symbol.soft_delete(symbol_id, review)
 
       status_code = if review == 0, do: 204, else: 202
 

@@ -59,7 +59,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def valid_symbol_type?(symbol_type) do
+  def valid_type?(symbol_type) do
     if symbol_type === nil do
       {:ok, @default_symbol_type}
     else
@@ -71,7 +71,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def symbol_exists?(symbol_id) do
+  def valid?(symbol_id) do
     query = "MATCH (symbol:Symbol {id: {symbol_id}}) RETURN symbol"
     params = %{symbol_id: symbol_id}
     result = List.first Neo4j.query!(Neo4j.conn, query, params)
@@ -229,7 +229,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def fetch_all_symbols(order_by, ordering, offset, limit, symbol_type, category_filter, search_term) do
+  def fetch_all(order_by, ordering, offset, limit, symbol_type, category_filter, search_term) do
     query1 = "MATCH (s:Symbol)"
     query2 = if category_filter === nil, do: "", else: "-[:CATEGORY]->(:Category {url: {category_url}})"
     query3 = ", (s)-[:CATEGORY]->(c:Category)"
@@ -265,7 +265,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def fetch_all_symbols_patches do
+  def fetch_all_patches do
     query = """
       MATCH (c1:Category)<-[:CATEGORY]-(symbol:Symbol)-[:UPDATE]->(su:UpdateSymbolPatch)-[:CATEGORY]->(c2:Category)
       OPTIONAL MATCH (symbol)-[:DELETE]->(sd:DeleteSymbolPatch)
@@ -313,11 +313,11 @@ defmodule PhpInternals.Api.Symbols.Symbol do
           end
         end)
 
-    %{inserts: fetch_all_symbols_patches_insert,
+    %{inserts: fetch_all_insert_patches,
       patches: patches}
   end
 
-  def fetch_all_symbols_patches_insert do
+  def fetch_all_insert_patches do
     query = """
       MATCH (symbol:InsertSymbolPatch)-[:CATEGORY]->(c:Category)
       RETURN {symbol: symbol, categories: collect({name: c.name, url: c.url})} as symbol_insert
@@ -330,7 +330,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end)
   end
 
-  def fetch_all_symbols_patches_update do
+  def fetch_all_update_patches do
     query = """
       MATCH (c1:Category)<-[:CATEGORY]-(symbol:Symbol)-[:UPDATE]->(su:UpdateSymbolPatch)-[:CATEGORY]->(c2:Category)
       WITH c1, symbol, {categories: collect({name: c2.name, url: c2.url}), update: su} AS sus
@@ -360,7 +360,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       end)
   end
 
-  def fetch_all_symbols_patches_delete do
+  def fetch_all_delete_patches do
     query = """
       MATCH (c:Category)<-[:CATEGORY]-(symbol:Symbol)-[:DELETE]->(:DeleteSymbolPatch)
       RETURN {
@@ -375,7 +375,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       end)
   end
 
-  def fetch_all_symbols_deleted do
+  def fetch_all_deleted do
     query = """
       MATCH (c:Category)<-[:CATEGORY]-(s:SymbolDeleted)
       RETURN {
@@ -451,7 +451,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def fetch_symbol_update_patches(symbol_id) do
+  def fetch_update_patches_for(symbol_id) do
     query = """
       MATCH (c1:Category)<-[:CATEGORY]-(s1:Symbol {id: {symbol_id}})
       OPTIONAL MATCH (s1)-[:UPDATE]->(s2:UpdateSymbolPatch)-[:CATEGORY]->(c2:Category)
@@ -700,7 +700,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     %{"symbol" => Map.merge(symbol, %{"categories" => categories})}
   end
 
-  def accept_symbol_patch(symbol_id, "insert", username) do
+  def accept_patch(symbol_id, "insert", username) do
     query = """
       MATCH (symbol:InsertSymbolPatch {id: {symbol_id}})-[:CATEGORY]->(c:Category),
         (user:User {username: {username}})
@@ -723,7 +723,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def accept_symbol_patch(symbol_id, "delete", username) do
+  def accept_patch(symbol_id, "delete", username) do
     query = """
       MATCH (symbol:Symbol {id: {symbol_id}})-[r:DELETE]->(sd:DeleteSymbolPatch),
         (user:User {username: {username}})
@@ -745,7 +745,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def accept_symbol_patch(symbol_id, update_or_error, username) do
+  def accept_patch(symbol_id, update_or_error, username) do
     output = String.split(update_or_error, ",")
 
     if length(output) !== 2 do
@@ -756,12 +756,12 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       if update !== "update" do
         {:error, 400, "Unknown patch type"}
       else
-        accept_symbol_patch(symbol_id, update, String.to_integer(for_revision), username)
+        accept_patch(symbol_id, update, String.to_integer(for_revision), username)
       end
     end
   end
 
-  def accept_symbol_patch(symbol_id, "update", patch_revision_id, username) do
+  def accept_patch(symbol_id, "update", patch_revision_id, username) do
     with {:ok, _symbol} <- update_patch_exists?(symbol_id, patch_revision_id),
          {:ok} <- revision_ids_match?(symbol_id, patch_revision_id) do
       query = """
@@ -815,7 +815,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def discard_symbol_patch(symbol_id, "insert", username) do
+  def discard_patch(symbol_id, "insert", username) do
     with {:ok, _symbol} <- is_insert_patch?(symbol_id) do
       query = """
         MATCH (isp:InsertSymbolPatch {id: {symbol_id}}),
@@ -836,7 +836,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def discard_symbol_patch(symbol_id, "delete", username) do
+  def discard_patch(symbol_id, "delete", username) do
     with {:ok, _symbol} <- is_delete_patch?(symbol_id) do
       query = """
         MATCH (s:Symbol {id: {symbol_id}}),
@@ -857,7 +857,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def discard_symbol_patch(symbol_id, update_or_error, username) do
+  def discard_patch(symbol_id, update_or_error, username) do
     output = String.split(update_or_error, ",")
 
     if length(output) !== 2 do
@@ -868,12 +868,12 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       if update !== "update" do
         {:error, 400, "Unknown patch type"}
       else
-        discard_symbol_patch(symbol_id, update, String.to_integer(for_revision), username)
+        discard_patch(symbol_id, update, String.to_integer(for_revision), username)
       end
     end
   end
 
-  def discard_symbol_patch(symbol_id, "update", patch_revision_id, username) do
+  def discard_patch(symbol_id, "update", patch_revision_id, username) do
     with {:ok, _symbol} <- update_patch_exists?(symbol_id, patch_revision_id) do
       query = """
         MATCH (usp:UpdateSymbolPatch {revision_id: {revision_id}}),
@@ -894,7 +894,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def soft_delete_symbol(symbol_id, 0 = _review) do
+  def soft_delete(symbol_id, 0 = _review) do
     query = """
       MATCH (symbol:Symbol {id: {symbol_id}})
       OPTIONAL MATCH (symbol)-[r:DELETE]->(sym_del:DeleteSymbolPatch)
@@ -910,7 +910,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def soft_delete_symbol(symbol_id, 1 = _review) do
+  def soft_delete(symbol_id, 1 = _review) do
     query = """
       MATCH (symbol:Symbol {id: {symbol_id}})
       MERGE (symbol)-[:DELETE]->(:DeleteSymbolPatch)
@@ -921,7 +921,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def soft_delete_symbol_undo(symbol_id, 0 = _review) do
+  def soft_delete_undo(symbol_id, 0 = _review) do
     query = """
       MATCH (symbol:SymbolDeleted {id: {symbol_id}})
       REMOVE symbol:SymbolDeleted
@@ -933,7 +933,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def hard_delete_symbol(symbol_id) do
+  def hard_delete(symbol_id) do
     query = """
       MATCH (symbol:SymbolDeleted {id: {symbol_id}})
       OPTIONAL MATCH (symbol)-[r]-()

@@ -20,22 +20,22 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   def index(conn, %{"patches" => "all"}) do
-    all_categories_patches = Category.fetch_all_categories_patches
+    all_categories_patches = Category.fetch_all_patches
     render(conn, "index_patches_all.json", categories_patches: all_categories_patches)
   end
 
   def index(conn, %{"patches" => "insert"}) do
-    all_categories_patches_insert = Category.fetch_all_categories_patches_insert
+    all_categories_patches_insert = Category.fetch_all_insert_patches
     render(conn, "index_patches_insert.json", categories_patches: all_categories_patches_insert)
   end
 
   def index(conn, %{"patches" => "update"}) do
-    all_categories_patches_update = Category.fetch_all_categories_patches_update
+    all_categories_patches_update = Category.fetch_all_update_patches
     render(conn, "index_patches_update.json", categories_patches: all_categories_patches_update)
   end
 
   def index(conn, %{"patches" => "delete"}) do
-    all_categories_patches_delete = Category.fetch_all_categories_patches_delete
+    all_categories_patches_delete = Category.fetch_all_delete_patches
     render(conn, "index_patches_delete.json", categories_patches: all_categories_patches_delete)
   end
 
@@ -52,7 +52,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   def index(%{user: %{privilege_level: 3}} = conn, %{"status" => "deleted"}) do
-    all_deleted_categories = Category.fetch_all_categories_deleted
+    all_deleted_categories = Category.fetch_all_deleted
     render(conn, "index_normal.json", categories: all_deleted_categories)
   end
 
@@ -68,7 +68,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
          {:ok, ordering} <- Utilities.valid_ordering?(params["ordering"]),
          {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
-      all_categories = Category.fetch_all_categories(view_type, order_by, ordering, offset, limit)
+      all_categories = Category.fetch_all(view_type, order_by, ordering, offset, limit)
       render(conn, "index_#{view_type}.json", categories: all_categories)
     else
       {:error, status_code, error} ->
@@ -91,8 +91,8 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   def show(conn, %{"category_name" => category_url, "patches" => "all"}) do
-    with {:ok, %{"category" => _category}} <- Category.valid_category?(category_url) do
-      category_patches = Category.fetch_category_patches(category_url)
+    with {:ok, _category} <- Category.valid?(category_url) do
+      category_patches = Category.fetch_patches_for(category_url)
       render(conn, "index_patches_changes.json", category: category_patches)
     else
       {:error, status_code, error} ->
@@ -103,7 +103,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   def show(conn, %{"category_name" => category_url, "patches" => "insert"}) do
-    category_patch_insert = Category.fetch_category_patch_insert(category_url)
+    category_patch_insert = Category.fetch_insert_patch_for(category_url)
 
     if category_patch_insert === nil do
       conn
@@ -115,8 +115,8 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   def show(conn, %{"category_name" => category_url, "patches" => "update", "patch_id" => patch_id}) do
-    with {:ok, %{"category" => _category}} <- Category.valid_category?(category_url) do
-      category_patch_update = Category.fetch_category_patch_update(category_url, patch_id)
+    with {:ok, _category} <- Category.valid?(category_url) do
+      category_patch_update = Category.fetch_update_patch_for(category_url, patch_id)
 
       if category_patch_update === nil do
         conn
@@ -134,8 +134,8 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   def show(conn, %{"category_name" => category_url, "patches" => "update"}) do
-    with {:ok, %{"category" => _category}} <- Category.valid_category?(category_url) do
-      category_patches_update = Category.fetch_category_patches_update(category_url)
+    with {:ok, _category} <- Category.valid?(category_url) do
+      category_patches_update = Category.fetch_update_patches_for(category_url)
 
       if category_patches_update === nil do
         conn
@@ -153,8 +153,8 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   def show(conn, %{"category_name" => category_url, "patches" => "delete"}) do
-    with {:ok, %{"category" => _category}} <- Category.valid_category?(category_url) do
-      category_patch_delete = Category.fetch_category_patch_delete(category_url)
+    with {:ok, _category} <- Category.valid?(category_url) do
+      category_patch_delete = Category.fetch_delete_patch_for(category_url)
 
       if category_patch_delete === nil do
         conn
@@ -178,8 +178,8 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   def show(conn, %{"category_name" => category_url, "view" => "full"}) do
-    with {:ok, %{"category" => _category}} <- Category.valid_category?(category_url) do
-      render(conn, "show_full.json", category: Category.fetch_category_full(category_url))
+    with {:ok, _category} <- Category.valid?(category_url) do
+      render(conn, "show_full.json", category: Category.fetch_full(category_url))
     else
       {:error, status_code, error} ->
         conn
@@ -189,7 +189,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   def show(conn, %{"category_name" => category_url, "view" => "overview"}) do
-    with {:ok, category} <- Category.valid_category?(category_url) do
+    with {:ok, category} <- Category.valid?(category_url) do
       render(conn, "show_overview.json", category: category)
     else
       {:error, status_code, error} ->
@@ -206,7 +206,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   def show(conn, %{"category_name" => category_url}) do
-    with {:ok, category} <- Category.valid_category?(category_url) do
+    with {:ok, category} <- Category.valid?(category_url) do
       render(conn, "show.json", category: category)
     else
       {:error, status_code, error} ->
@@ -258,29 +258,6 @@ defmodule PhpInternals.Api.Categories.CategoryController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Malformed input data")
   end
 
-  defp insert(conn, %{"category" => category, "review" => review}) do
-    with {:ok} <- Category.contains_required_fields?(category),
-         {:ok} <- Category.contains_only_expected_fields?(category),
-         {:ok} <- Category.does_not_exist?(Utilities.make_url_friendly_name(category["name"])) do
-      url_name = Utilities.make_url_friendly_name(category["name"])
-      category =
-        category
-        |> Map.put("url_name", url_name)
-        |> Category.insert_category(review, conn.user.username)
-
-      status_code = if review === 0, do: 201, else: 202
-
-      conn
-      |> put_status(status_code)
-      |> render("show.json", category: category)
-    else
-      {:error, status_code, message} ->
-        conn
-        |> put_status(status_code)
-        |> render(PhpInternals.ErrorView, "error.json", error: message)
-    end
-  end
-
   def update(%{user: %{privilege_level: 0}} = conn, %{"apply_patch" => _action, "category_name" => _category_url}) do
     conn
     |> put_status(401)
@@ -295,7 +272,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
 
   def update(conn, %{"apply_patch" => action, "category_name" => category_url}) do
     with {:ok} <- Utilities.valid_patch_action?(action) do
-      return = Category.accept_category_patch(category_url, action, conn.user.username)
+      return = Category.accept_patch(category_url, action, conn.user.username)
 
       case return do
         {:ok, status_code} when is_integer(status_code) ->
@@ -329,7 +306,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
 
   def update(conn, %{"discard_patch" => action, "category_name" => category_url}) do
     with {:ok} <- Utilities.valid_patch_action?(action) do
-      return = Category.discard_category_patch(category_url, action, conn.user.username)
+      return = Category.discard_patch(category_url, action, conn.user.username)
 
       case return do
         {:ok, status_code} ->
@@ -425,10 +402,33 @@ defmodule PhpInternals.Api.Categories.CategoryController do
     remove(conn, Map.put(params, "review", 0))
   end
 
+  defp insert(conn, %{"category" => category, "review" => review}) do
+    with {:ok} <- Category.contains_required_fields?(category),
+         {:ok} <- Category.contains_only_expected_fields?(category),
+         {:ok} <- Category.does_not_exist?(Utilities.make_url_friendly_name(category["name"])) do
+      url_name = Utilities.make_url_friendly_name(category["name"])
+      category =
+        category
+        |> Map.put("url_name", url_name)
+        |> Category.insert(review, conn.user.username)
+
+      status_code = if review === 0, do: 201, else: 202
+
+      conn
+      |> put_status(status_code)
+      |> render("show.json", category: category)
+    else
+      {:error, status_code, message} ->
+        conn
+        |> put_status(status_code)
+        |> render(PhpInternals.ErrorView, "error.json", error: message)
+    end
+  end
+
   defp modify(conn, %{"category" => new_category, "category_name" => old_url, "review" => review} = params) do
     with {:ok} <- Category.contains_required_fields?(new_category),
          {:ok} <- Category.contains_only_expected_fields?(new_category),
-         {:ok, %{"category" => old_category}} <- Category.valid_category?(old_url) do
+         {:ok, %{"category" => old_category}} <- Category.valid?(old_url) do
       new_url_name = Utilities.make_url_friendly_name(new_category["name"])
 
       new_category = Map.merge(new_category, %{"url" => new_url_name})
@@ -438,10 +438,10 @@ defmodule PhpInternals.Api.Categories.CategoryController do
           if conn.user.privilege_level === 1 do
             {:error, 403, "Unauthorised action"}
           else
-            Category.update_category(old_category, new_category, review, conn.user.username, params["references_patch"])
+            Category.update(old_category, new_category, review, conn.user.username, params["references_patch"])
           end
         else
-          Category.update_category(old_category, new_category, review, conn.user.username)
+          Category.update(old_category, new_category, review, conn.user.username)
         end
 
       case new_category do
@@ -462,10 +462,10 @@ defmodule PhpInternals.Api.Categories.CategoryController do
     end
   end
 
-  def remove(conn, %{"category_name" => category_url, "review" => review}) do
-    with {:ok, _category} <- Category.valid_category?(category_url),
+  defp remove(conn, %{"category_name" => category_url, "review" => review}) do
+    with {:ok, _category} <- Category.valid?(category_url),
          {:ok} <- Category.contains_no_symbols?(category_url) do
-      Category.soft_delete_category(category_url, review, conn.user.username)
+      Category.soft_delete(category_url, review, conn.user.username)
 
       status_code = if review == 0, do: 204, else: 202
 

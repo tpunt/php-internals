@@ -2,7 +2,6 @@ defmodule PhpInternals.Api.Articles.ArticleController do
   use PhpInternals.Web, :controller
 
   alias PhpInternals.Api.Categories.Category
-  alias PhpInternals.Api.Users.User
   alias PhpInternals.Api.Articles.Article
   alias PhpInternals.Utilities
 
@@ -11,9 +10,9 @@ defmodule PhpInternals.Api.Articles.ArticleController do
          {:ok, ordering} <- Utilities.valid_ordering?(params["ordering"]),
          {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]),
-         {:ok, _category} <- Category.valid_category?(params["category"]),
+         {:ok, _category} <- Category.valid?(params["category"]),
          {:ok, view} <- Article.valid_view?(params["view"]) do
-      render(conn, "index_#{view}.json", articles: Article.fetch_articles(order_by, ordering, offset, limit, params["category"], view))
+      render(conn, "index_#{view}.json", articles: Article.fetch(order_by, ordering, offset, limit, params["category"], view))
     else
       {:error, status_code, error} ->
         conn
@@ -22,8 +21,8 @@ defmodule PhpInternals.Api.Articles.ArticleController do
     end
   end
 
-  def show(conn, %{"series_name" => series_url, "article_name" => article_url} = params) do
-    with {:ok, article} <- Article.exists_from_series?(series_url, article_url) do
+  def show(conn, %{"series_name" => series_url, "article_name" => article_url}) do
+    with {:ok, article} <- Article.valid_in_series?(series_url, article_url) do
       conn
       |> put_status(200)
       |> render("show_full.json", article: article)
@@ -35,14 +34,14 @@ defmodule PhpInternals.Api.Articles.ArticleController do
     end
   end
 
-  def show(conn, %{"article_name" => article_url} = params) do
-    case Article.series_exists?(article_url) do
+  def show(conn, %{"article_name" => article_url}) do
+    case Article.valid_series?(article_url) do
       {:ok, articles} ->
         conn
         |> put_status(200)
         |> render("index_overview.json", articles: articles)
       _ ->
-        case Article.exists?(article_url) do
+        case Article.valid?(article_url) do
           {:ok, article} ->
             conn
             |> put_status(200)
@@ -74,8 +73,8 @@ defmodule PhpInternals.Api.Articles.ArticleController do
   def insert(conn, %{"article" => article}) do
     with {:ok} <- Article.contains_required_fields?(article),
          {:ok} <- Article.contains_only_expected_fields?(article),
-         {:ok} <- Article.does_not_exist?(Utilities.make_url_friendly_name(article["title"])),
-         {:ok} <- Category.valid_categories?(article["categories"]) do
+         {:ok} <- Article.not_valid?(Utilities.make_url_friendly_name(article["title"])),
+         {:ok} <- Category.all_valid?(article["categories"]) do
       article =
         article
         |> Map.put("url", Utilities.make_url_friendly_name(article["title"]))
@@ -94,10 +93,10 @@ defmodule PhpInternals.Api.Articles.ArticleController do
   end
 
   def update(%{user: %{privilege_level: 3}} = conn, %{"article_name" => article_url, "article" => article}) do
-    with {:ok, _article} <- Article.exists?(article_url),
+    with {:ok, _article} <- Article.valid?(article_url),
          {:ok} <- Article.contains_required_fields?(article),
          {:ok} <- Article.contains_only_expected_fields?(article),
-         {:ok} <- Category.valid_categories?(article["categories"]) do
+         {:ok} <- Category.all_valid?(article["categories"]) do
       article =
         article
         |> Map.put("url", Utilities.make_url_friendly_name(article["title"]))
@@ -128,8 +127,8 @@ defmodule PhpInternals.Api.Articles.ArticleController do
   end
 
   def delete(%{user: %{privilege_level: 3}} = conn, %{"article_name" => article_url}) do
-    with {:ok, _article} <- Article.exists?(article_url) do
-      Article.soft_delete_article(article_url)
+    with {:ok, _article} <- Article.valid?(article_url) do
+      Article.soft_delete(article_url)
 
       conn
       |> send_resp(204, "")

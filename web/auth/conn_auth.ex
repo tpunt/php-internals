@@ -13,7 +13,7 @@ defmodule PhpInternals.Auth.ConnAuth do
         {0, "", ""}
       else
         {_header, token} = auth_header
-        user = User.fetch_user_by_token(token)
+        user = User.fetch_by_token(token)
 
         if user === nil do
           {0, "", ""}

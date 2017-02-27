@@ -3,8 +3,8 @@ defmodule PhpInternals.Api.Users.User do
 
   @valid_fields ["name", "privilege_level"]
 
-  def user_exists?(username) do
-    user = fetch_user_by_username(username)
+  def valid?(username) do
+    user = fetch_by_username(username)
 
     if user === nil do
       {:error, 404, "The specified user does not exist"}
@@ -21,7 +21,7 @@ defmodule PhpInternals.Api.Users.User do
     end
   end
 
-  def fetch_users do
+  def fetch_all do
     query = """
       MATCH (u:User)
       RETURN {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
@@ -30,7 +30,7 @@ defmodule PhpInternals.Api.Users.User do
     Neo4j.query!(Neo4j.conn, query)
   end
 
-  def fetch_user_by_username(username) do
+  def fetch_by_username(username) do
     query = """
       MATCH (user:User {username: {username}})
       RETURN user
@@ -44,7 +44,7 @@ defmodule PhpInternals.Api.Users.User do
     end
   end
 
-  def fetch_user_by_id(user_id) do
+  def fetch_by_id(user_id) do
     query = """
       MATCH (user:User {id: {id}})
       RETURN user
@@ -58,7 +58,7 @@ defmodule PhpInternals.Api.Users.User do
     end
   end
 
-  def fetch_user_by_token(access_token) do
+  def fetch_by_token(access_token) do
     query = """
       MATCH (u:User {access_token: {access_token}})
       RETURN {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
@@ -72,7 +72,7 @@ defmodule PhpInternals.Api.Users.User do
     end
   end
 
-  def fetch_user_by_secret(client_secret) do
+  def fetch_by_secret(client_secret) do
     query = """
       MATCH (user:User {client_secret: {client_secret}})
       RETURN user
@@ -86,7 +86,7 @@ defmodule PhpInternals.Api.Users.User do
     end
   end
 
-  def update_user_token(username, access_token) do
+  def update_token(username, access_token) do
     query = """
       MATCH (u:User {username: {username}})
       SET u.access_token = {access_token}
@@ -98,7 +98,7 @@ defmodule PhpInternals.Api.Users.User do
     Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def insert_user(auth_info) do
+  def insert(auth_info) do
     query = """
       CREATE (user:User {
         name: {name},

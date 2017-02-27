@@ -16,9 +16,7 @@ defmodule PhpInternals.Api.Auth.AuthController do
 
   def logout(conn, _params) do
     User.delete_token(conn.user.username)
-
-    conn
-    |> send_resp(200, "")
+    send_resp(conn, 200, "")
   end
 
   def callback(conn, %{"provider" => provider, "code" => code}) do
@@ -30,21 +28,21 @@ defmodule PhpInternals.Api.Auth.AuthController do
       |> put_status(400)
       |> render(PhpInternals.ErrorView, "error.json", error: "Failed request (#{client.token.other_params["error"]})")
     else
-      if User.fetch_user_by_token(client.token.access_token) === nil do
+      if User.fetch_by_token(client.token.access_token) === nil do
         {:ok, data} = HTTPoison.get("https://api.github.com/user?access_token=#{client.token.access_token}")
         user_data = Poison.decode! data.body
 
         # safe to do?
-        case User.user_exists?(user_data["login"]) do
+        case User.valid?(user_data["login"]) do
           {:ok, _user} ->
-            User.update_user_token(user_data["login"], client.token.access_token)
+            User.update_token(user_data["login"], client.token.access_token)
           {:error, _status_code, _message} ->
             auth_info = %{access_token: client.token.access_token,
               provider: provider,
               name: user.name,
               username: user_data["login"]}
 
-            User.insert_user(auth_info)
+            User.insert(auth_info)
         end
       end
 
