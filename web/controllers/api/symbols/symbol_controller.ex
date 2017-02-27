@@ -375,27 +375,6 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     remove(conn, Map.put(params, "review", 0))
   end
 
-  defp remove(%{user: %{privilege_level: 3}} = conn, %{"symbol_id" => symbol_id, "mode" => "hard"}) do
-    with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, _symbol} <- Symbol.is_deleted?(symbol_id) do
-      Symbol.hard_delete(symbol_id)
-
-      conn
-      |> send_resp(204, "")
-    else
-      {:error, status_code, error} ->
-        conn
-        |> put_status(status_code)
-        |> render(PhpInternals.ErrorView, "error.json", error: error)
-    end
-  end
-
-  defp remove(%{user: %{privilege_level: _pl}} = conn, %{"mode" => "hard"}) do
-    conn
-    |> put_status(403)
-    |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised access attempt")
-  end
-
   defp remove(conn, %{"symbol_id" => symbol_id, "review" => review}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
          {:ok, _symbol} <- Symbol.valid?(symbol_id) do

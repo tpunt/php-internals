@@ -932,16 +932,4 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     Neo4j.query!(Neo4j.conn, query, params)
   end
-
-  def hard_delete(symbol_id) do
-    query = """
-      MATCH (symbol:SymbolDeleted {id: {symbol_id}})
-      OPTIONAL MATCH (symbol)-[r]-()
-      DELETE r, symbol
-    """
-
-    params = %{symbol_id: symbol_id}
-
-    Neo4j.query!(Neo4j.conn, query, params)
-  end
 end

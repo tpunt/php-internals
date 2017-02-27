@@ -792,16 +792,4 @@ defmodule PhpInternals.Api.Categories.Category do
 
     Neo4j.query!(Neo4j.conn, query, params)
   end
-
-  def hard_delete(category_url, 0) do
-    query = """
-      MATCH (category:CategoryDeleted {url: {url}})
-      OPTIONAL MATCH (category)-[crel]-()
-      DELETE crel, category
-    """
-
-    params = %{url: category_url}
-
-    Neo4j.query!(Neo4j.conn, query, params)
-  end
 end
