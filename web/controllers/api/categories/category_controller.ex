@@ -405,8 +405,8 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   defp insert(conn, %{"category" => category, "review" => review}) do
     with {:ok} <- Category.contains_required_fields?(category),
          {:ok} <- Category.contains_only_expected_fields?(category),
-         {:ok} <- Category.does_not_exist?(Utilities.make_url_friendly_name(category["name"])) do
-      url_name = Utilities.make_url_friendly_name(category["name"])
+         {:ok, url_name} <- Utilities.is_url_friendly?(category["name"]),
+         {:ok} <- Category.does_not_exist?(url_name) do
       category =
         category
         |> Map.put("url_name", url_name)
@@ -428,9 +428,8 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   defp modify(conn, %{"category" => new_category, "category_name" => old_url, "review" => review} = params) do
     with {:ok} <- Category.contains_required_fields?(new_category),
          {:ok} <- Category.contains_only_expected_fields?(new_category),
+         {:ok, new_url_name} <- Utilities.is_url_friendly?(new_category["name"]),
          {:ok, %{"category" => old_category}} <- Category.valid?(old_url) do
-      new_url_name = Utilities.make_url_friendly_name(new_category["name"])
-
       new_category = Map.merge(new_category, %{"url" => new_url_name})
 
       new_category =

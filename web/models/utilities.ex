@@ -3,8 +3,12 @@ defmodule PhpInternals.Utilities do
   @max_result_limit 100
   @default_ordering "ASC"
 
-  def make_url_friendly_name(name) do
-    String.downcase(String.replace(name, " ", "_"))
+  def is_url_friendly?(name) do
+    if String.length(name) < 50 do
+      {:ok, String.downcase(String.replace(name, " ", "_"))}
+    else
+      {:error, 400, "Bad URL-friendly name"}
+    end
   end
 
   def valid_review_param?(review) do

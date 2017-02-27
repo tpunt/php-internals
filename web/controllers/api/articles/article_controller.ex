@@ -73,12 +73,14 @@ defmodule PhpInternals.Api.Articles.ArticleController do
   def insert(conn, %{"article" => article}) do
     with {:ok} <- Article.contains_required_fields?(article),
          {:ok} <- Article.contains_only_expected_fields?(article),
-         {:ok} <- Article.not_valid?(Utilities.make_url_friendly_name(article["title"])),
+         {:ok, article_url_name} <- Utilities.is_url_friendly?(article["title"]),
+         {:ok, series_url_name} <- Utilities.is_url_friendly?(article["series_name"]),
+         {:ok} <- Article.not_valid?(article_url_name),
          {:ok} <- Category.all_valid?(article["categories"]) do
       article =
         article
-        |> Map.put("url", Utilities.make_url_friendly_name(article["title"]))
-        |> Map.put("series_url", Utilities.make_url_friendly_name(article["series_name"]))
+        |> Map.put("url", article_url_name)
+        |> Map.put("series_url", series_url_name)
         |> Article.insert(conn.user.username)
 
       conn
@@ -96,11 +98,14 @@ defmodule PhpInternals.Api.Articles.ArticleController do
     with {:ok, _article} <- Article.valid?(article_url),
          {:ok} <- Article.contains_required_fields?(article),
          {:ok} <- Article.contains_only_expected_fields?(article),
+         {:ok, article_url_name} <- Utilities.is_url_friendly?(article["title"]),
+         {:ok, series_url_name} <- Utilities.is_url_friendly?(article["series_name"]),
+         {:ok} <- Article.not_valid?(article_url_name),
          {:ok} <- Category.all_valid?(article["categories"]) do
       article =
         article
-        |> Map.put("url", Utilities.make_url_friendly_name(article["title"]))
-        |> Map.put("series_url", Utilities.make_url_friendly_name(article["series_name"]))
+        |> Map.put("url", article_url_name)
+        |> Map.put("series_url", series_url_name)
         |> Article.update(article_url)
 
       conn

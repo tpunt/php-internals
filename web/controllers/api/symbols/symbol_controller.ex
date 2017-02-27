@@ -222,9 +222,8 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   defp insert(conn, %{"symbol" => symbol, "review" => review}) do
     with {:ok} <- Symbol.contains_required_fields?(symbol),
          {:ok} <- Symbol.contains_only_expected_fields?(symbol),
+         {:ok, url_name} <- Utilities.is_url_friendly?(symbol["name"]),
          {:ok} <- Category.all_valid?(symbol["categories"]) do
-      url_name = Utilities.make_url_friendly_name(symbol["name"])
-
       symbol =
         symbol
         |> Map.merge(%{"url" => url_name})
@@ -323,15 +322,15 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   defp modify(conn, %{"symbol" => symbol, "symbol_id" => symbol_id, "review" => review} = params) do
     with {:ok} <- Symbol.contains_required_fields?(symbol),
          {:ok} <- Symbol.contains_only_expected_fields?(symbol),
+         {:ok, url_name} <- Utilities.is_url_friendly?(symbol["name"]),
          {:ok} <- Category.all_valid?(symbol["categories"]),
          {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
          {:ok, old_symbol} <- Symbol.valid?(symbol_id) do
-      url_name = Utilities.make_url_friendly_name(symbol["name"])
-
       symbol = Map.merge(symbol, %{"url" => url_name})
 
       symbol =
         if Map.has_key?(params, "references_patch") do
+          # check privilege_level > 1
           Symbol.update(symbol, old_symbol["symbol"], review, params["references_patch"], conn.user.username)
         else
           Symbol.update(symbol, old_symbol["symbol"], review, conn.user.username)
