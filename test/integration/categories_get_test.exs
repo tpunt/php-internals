@@ -13,7 +13,7 @@ defmodule CategoriesGetTest do
     conn = conn(:get, "/api/categories", %{})
     response = Router.call(conn, @opts)
 
-    assert response.status == 200
+    assert response.status === 200
     assert %{"categories" => _categories} = Poison.decode!(response.resp_body)
   end
 
@@ -24,7 +24,7 @@ defmodule CategoriesGetTest do
     conn = conn(:get, "/api/categories", %{"view" => "overview"})
     response = Router.call(conn, @opts)
 
-    assert response.status == 200
+    assert response.status === 200
     assert %{"categories" => _categories} = Poison.decode!(response.resp_body)
   end
 
@@ -35,7 +35,7 @@ defmodule CategoriesGetTest do
     conn = conn(:get, "/api/categories", %{"patches" => "all"})
     response = Router.call(conn, @opts)
 
-    assert response.status == 401
+    assert response.status === 401
   end
 
   @doc """
@@ -48,7 +48,7 @@ defmodule CategoriesGetTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 403
+    assert response.status === 403
   end
 
   @doc """
@@ -61,7 +61,7 @@ defmodule CategoriesGetTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 200
+    assert response.status === 200
     assert %{"categories_patches" => _patches, "categories_inserts" => _inserts} = Poison.decode! response.resp_body
   end
 
@@ -75,7 +75,7 @@ defmodule CategoriesGetTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 200
+    assert response.status === 200
     assert %{"categories_patches" => _patches, "categories_inserts" => _inserts} = Poison.decode! response.resp_body
   end
 
@@ -89,7 +89,7 @@ defmodule CategoriesGetTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 200
+    assert response.status === 200
     assert %{"categories_inserts" => _inserts} = Poison.decode! response.resp_body
   end
 
@@ -103,7 +103,7 @@ defmodule CategoriesGetTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 200
+    assert response.status === 200
     assert %{"categories_updates" => _updates} = Poison.decode! response.resp_body
   end
 
@@ -117,7 +117,7 @@ defmodule CategoriesGetTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 200
+    assert response.status === 200
     assert %{"categories_deletes" => _deletes} = Poison.decode! response.resp_body
   end
 
@@ -131,7 +131,7 @@ defmodule CategoriesGetTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 403
+    assert response.status === 403
   end
 
   @doc """
@@ -144,7 +144,7 @@ defmodule CategoriesGetTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status == 200
+    assert response.status === 200
     assert %{"categories" => _categories} = Poison.decode!(response.resp_body)
   end
 end
