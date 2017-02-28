@@ -127,8 +127,7 @@ defmodule SymbolPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 202
-    assert %{"symbol" => %{"name" => new_sym_name2}} = Poison.decode!(response.resp_body)
-    assert String.to_integer(new_sym_name2) === new_sym_name
+    assert %{"symbol" => %{"name" => "..."}} = Poison.decode!(response.resp_body)
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
         (s)-[:UPDATE]->(su:UpdateSymbolPatch {name: '#{new_sym_name}'}),
@@ -177,8 +176,7 @@ defmodule SymbolPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 202
-    assert %{"symbol" => %{"name" => new_sym_name2}} = Poison.decode!(response.resp_body)
-    assert String.to_integer(new_sym_name2) === new_sym_name
+    assert %{"symbol" => %{"name" => "..."}} = Poison.decode!(response.resp_body)
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
         (su:UpdateSymbolPatch {name: '#{new_sym_name}'}),
@@ -242,7 +240,7 @@ defmodule SymbolPatchTest do
     """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (s:Symbol {revision_id: '#{new_sym_name}'})-[r1]-(),
+      MATCH (s:Symbol {name: '#{new_sym_name}'})-[r1]-(),
         (sr:SymbolRevision {revision_id: #{sym_rev}})-[r2]-()
       DELETE r1, r2, s, sr
     """)
@@ -292,8 +290,8 @@ defmodule SymbolPatchTest do
     assert response.status === 200
     assert %{"symbol" => %{"name" => "...2"}} = Poison.decode!(response.resp_body)
     refute [] === Neo4j.query!(Neo4j.conn, """
-      MATCH (sr:SymbolRevision {revision_id: #{sym_rev}}),
-        (s:Symbol {revision_id: #{sym_rev_b}}),
+      MATCH (s:Symbol {revision_id: #{sym_rev_b}}),
+        (sr:SymbolRevision {revision_id: #{sym_rev}}),
         (c:Category {url: 'existent'}),
         (s)-[:REVISION]->(sr),
         (s)-[:CATEGORY]->(c),
@@ -364,7 +362,7 @@ defmodule SymbolPatchTest do
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}})-[r1]-(),
-        (su:UpdateSymbolPatch {revision_id: #{sym_rev_b}})-[r2]-()
+        (su:UpdateSymbolPatchDeleted {revision_id: #{sym_rev_b}})-[r2]-()
       DELETE r1, r2, s, su
     """)
   end
@@ -538,6 +536,117 @@ defmodule SymbolPatchTest do
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}})-[r]-()
       DELETE r, s
+    """)
+  end
+
+  test "Authorised update existing symbol from update patch review" do
+    rev_id = :rand.uniform(100_000_000)
+    rev_id2 = :rand.uniform(100_000_000)
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {name: 'existent'})
+      CREATE (s:Symbol {
+          id: #{rev_id},
+          name: '.',
+          description: '.',
+          url: '.',
+          definition: '.',
+          definition_location: '.',
+          type: 'macro',
+          revision_id: #{rev_id}
+        }),
+        (usp:UpdateSymbolPatch {
+          id: #{rev_id},
+          name: '..',
+          description: '..',
+          url: '..',
+          definition: '..',
+          definition_location: '..',
+          type: 'macro',
+          revision_id: #{rev_id2}
+        }),
+        (s)-[:UPDATE]->(usp),
+        (s)-[:CATEGORY]->(c)
+    """)
+    data = %{"review" => "1", "references_patch" => "#{rev_id2}", "symbol" =>
+      %{"name" => "...","description" => "...","definition" => "...",
+      "definition_location" => "...","type" => "macro","categories" => ["existent"]}}
+
+    conn =
+      conn(:patch, "/api/symbols/#{rev_id}", data)
+      |> put_req_header("authorization", "at3")
+    response = Router.call(conn, @opts)
+
+    assert response.status === 202
+    assert %{"symbol" => %{"name" => "."}} = Poison.decode! response.resp_body
+    refute [] === Neo4j.query!(Neo4j.conn, """
+      MATCH (s:Symbol {revision_id: #{rev_id}}),
+        (s)-[:UPDATE]->(usp:UpdateSymbolPatch {name: '...'}),
+        (usp)-[:UPDATE_REVISION]->(uspr:UpdateSymbolPatchRevision {revision_id: #{rev_id2}}),
+        (usp)-[:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'})
+      RETURN s
+    """)
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (s:Symbol {revision_id: #{rev_id}})-[r1]-(),
+        (uspr:UpdateSymbolPatchRevision {revision_id: #{rev_id2}})-[r2]-(),
+        (s)-[r3:UPDATE]->(usp:UpdateSymbolPatch {name: '...'})-[r4]-()
+      DELETE r1, r2, r3, r4, s, usp, uspr
+    """)
+  end
+
+  test "Authorised update existing symbol from update patch no review" do
+    rev_id = :rand.uniform(100_000_000)
+    rev_id2 = :rand.uniform(100_000_000)
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {name: 'existent'})
+      CREATE (s:Symbol {
+          id: #{rev_id},
+          name: '.',
+          description: '.',
+          url: '.',
+          definition: '.',
+          definition_location: '.',
+          type: 'macro',
+          revision_id: #{rev_id}
+        }),
+        (usp:UpdateSymbolPatch {
+          id: #{rev_id},
+          name: '..',
+          description: '..',
+          url: '..',
+          definition: '..',
+          definition_location: '..',
+          type: 'macro',
+          revision_id: #{rev_id2}
+        }),
+        (s)-[:UPDATE]->(usp),
+        (s)-[:CATEGORY]->(c)
+    """)
+    data = %{"references_patch" => "#{rev_id2}", "symbol" => %{"name" => "...",
+      "description" => "...","definition" => "...", "definition_location" => "...",
+      "type" => "macro","categories" => ["existent"]}}
+
+    conn =
+      conn(:patch, "/api/symbols/#{rev_id}", data)
+      |> put_req_header("authorization", "at3")
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"symbol" => %{"name" => "..."}} = Poison.decode! response.resp_body
+    refute [] === Neo4j.query!(Neo4j.conn, """
+      MATCH (sr:SymbolRevision {revision_id: #{rev_id}}),
+        (s:Symbol {name: '...'})-[:REVISION]->(sr),
+        (s)-[:UPDATE_REVISION]->(uspr:UpdateSymbolPatchRevision {revision_id: #{rev_id2}}),
+        (s)-[:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'})
+      RETURN s
+    """)
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (sr:SymbolRevision {revision_id: #{rev_id}})-[r1]-(),
+        (s:Symbol {name: '...'})-[r2:REVISION]->(sr),
+        (s)-[r3]-(),
+        (uspr:UpdateSymbolPatchRevision {revision_id: #{rev_id2}})-[r4]-()
+      DELETE r1, r2, r3, r4, s, sr, uspr
     """)
   end
 

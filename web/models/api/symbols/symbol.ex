@@ -563,7 +563,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     %{"symbol" => Map.merge(symbol, %{"categories" => categories})}
   end
 
-  def update(new_symbol, old_symbol, 0 = _review, username) do
+  def update(old_symbol, new_symbol, 0 = _review, username, nil = _patch_revision_id) do
     query1 = """
       MATCH (old_symbol:Symbol {id: {symbol_id}}),
         (user:User {username: {username}})
@@ -594,7 +594,6 @@ defmodule PhpInternals.Api.Symbols.Symbol do
           {queries ++ ["""
             WITH new_symbol, sus, sd
             MATCH (cat#{n}:Category {url: {cat#{n}_url}})
-            WITH cat#{n}, new_symbol, sus, sd
             CREATE (new_symbol)-[:CATEGORY]->(cat#{n})
           """], Map.put(params, "cat#{n}_url", cat), n + 1}
         end)
@@ -603,15 +602,18 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     query4 = """
       WITH new_symbol, sus, sd
+
       FOREACH (su IN sus |
         CREATE (new_symbol)-[:UPDATE]->(su)
       )
+
       FOREACH (unused IN CASE sd WHEN NULL THEN [] ELSE [1] END |
         CREATE (new_symbol)-[:DELETE]->(sd)
       )
+
       WITH new_symbol
       MATCH (new_symbol)-[:CATEGORY]->(category:Category)
-      RETURN new_symbol as symbol, COLLECT(category) as categories
+      RETURN new_symbol as symbol, COLLECT({category: category}) as categories
     """
 
     query = query1 <> query2 <> query3 <> query4
@@ -640,12 +642,10 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     [%{"categories" => categories, "symbol" => symbol}] = Neo4j.query!(Neo4j.conn, query, params)
 
-    categories = Enum.map(categories, &(%{"category" => &1}))
-
-    %{"symbol" => Map.merge(symbol, %{"categories" => categories})}
+    {:ok, 200, %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
   end
 
-  def update(new_symbol, old_symbol, 1, username) do
+  def update(old_symbol, new_symbol, 1, username, nil = _patch_revision_id) do
     query1 = """
       MATCH (old_symbol:Symbol {id: {symbol_id}}),
         (user:User {username: {username}})
@@ -662,7 +662,6 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       CREATE (new_symbol:UpdateSymbolPatch {id: {symbol_id}, against_revision: {against_revision}, #{query2}}),
         (old_symbol)-[:UPDATE]->(new_symbol),
         (new_symbol)-[:CONTRIBUTOR {type: "update"}]->(user)
-      WITH new_symbol
     """
 
     {queries, params1, _counter} =
@@ -670,19 +669,17 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       |> Enum.reduce({[], %{}, 0},
         fn cat, {queries, params, n} ->
           {queries ++ ["""
+            WITH old_symbol, new_symbol
             MATCH (cat#{n}:Category {url: {cat#{n}_url}})
-            WITH cat#{n}, new_symbol
             CREATE (new_symbol)-[:CATEGORY]->(cat#{n})
-            WITH new_symbol
           """], Map.put(params, "cat#{n}_url", cat), n + 1}
         end)
 
     query3 = Enum.join(queries, " ")
-
     query4 = """
-      WITH new_symbol
-      MATCH (new_symbol)-[:CATEGORY]->(category:Category)
-      RETURN new_symbol as symbol, collect(category) as categories
+      WITH old_symbol
+      MATCH (old_symbol)-[:CATEGORY]->(category:Category)
+      RETURN old_symbol as symbol, COLLECT({category: category}) as categories
     """
 
     query = query1 <> query2 <> query3 <> query4
@@ -712,9 +709,186 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     [%{"categories" => categories, "symbol" => symbol}] = Neo4j.query!(Neo4j.conn, query, params)
 
-    categories = Enum.map(categories, &(%{"category" => &1}))
+    {:ok, 202, %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
+  end
 
-    %{"symbol" => Map.merge(symbol, %{"categories" => categories})}
+  def update(old_symbol, new_symbol, 0 = _review, username, patch_revision_id) do
+    query = """
+      MATCH (usp:UpdateSymbolPatch {revision_id: {patch_revision_id}}),
+        (symbol:Symbol {url: {old_url}})-[:UPDATE]->(usp)
+      RETURN symbol
+    """
+
+    params = %{old_url: old_symbol["url"], patch_revision_id: patch_revision_id}
+
+    if Neo4j.query!(Neo4j.conn, query, params) == [] do
+      {:error, 404, "Update patch not found"}
+    else
+      query1 = """
+        MATCH (old_symbol:Symbol {id: {symbol_id}}),
+          (symbol_patch:UpdateSymbolPatch {revision_id: {patch_revision_id}}),
+          (old_symbol)-[r1:UPDATE]->(symbol_patch),
+          (user:User {username: {username}})
+        REMOVE old_symbol:Symbol
+        SET old_symbol:SymbolRevision
+        REMOVE symbol_patch:UpdateSymbolPatch
+        SET symbol_patch:UpdateSymbolPatchRevision
+        DELETE r1
+      """
+
+      query2 =
+        Map.keys(old_symbol)
+        |> Enum.filter(fn key -> key !== "categories" end)
+        |> Enum.map(fn key -> "#{key}: {new_#{key}}" end)
+        |> Enum.join(",")
+
+      query2 = """
+        CREATE (new_symbol:Symbol {#{query2}}),
+          (new_symbol)-[:REVISION]->(old_symbol),
+          (new_symbol)-[:CONTRIBUTOR {type: "update"}]->(user),
+          (new_symbol)-[:UPDATE_REVISION]->(symbol_patch)
+      """
+
+      {queries, params1, _counter} =
+        new_symbol["categories"]
+        |> Enum.reduce({[], %{}, 0},
+          fn cat, {queries, params, n} ->
+            {queries ++ ["""
+              WITH old_symbol, new_symbol
+              MATCH (cat#{n}:Category {url: {cat#{n}_url}})
+              CREATE (new_symbol)-[:CATEGORY]->(cat#{n})
+            """], Map.put(params, "cat#{n}_url", cat), n + 1}
+          end)
+
+      query3 = Enum.join(queries, " ")
+
+      query4 = """
+        WITH old_symbol, new_symbol
+
+        OPTIONAL MATCH (old_symbol)-[r1:UPDATE]->(su:UpdateSymbolPatch)
+        OPTIONAL MATCH (old_symbol)-[r2:DELETE]->(sd:DeleteSymbolPatch)
+
+        WITH old_symbol, new_symbol, COLLECT(su) as sus, sd
+
+        FOREACH (su IN sus |
+          CREATE (new_symbol)-[:UPDATE]->(su)
+        )
+
+        FOREACH (unused IN CASE sd WHEN NULL THEN [] ELSE [1] END |
+          CREATE (new_symbol)-[:DELETE]->(sd)
+        )
+
+        WITH new_symbol
+
+        MATCH (new_symbol)-[:CATEGORY]->(category:Category)
+        RETURN new_symbol as symbol, COLLECT({category: category}) as categories
+      """
+
+      query = query1 <> query2 <> query3 <> query4
+
+      params2 = %{
+        new_id: old_symbol["id"],
+        new_name: new_symbol["name"],
+        new_url: new_symbol["url"],
+        new_type: new_symbol["type"],
+        new_description: new_symbol["description"],
+        new_declaration: new_symbol["declaration"],
+        new_parameters: new_symbol["parameters"],
+        new_return_type: new_symbol["return_type"],
+        new_return_description: new_symbol["return_description"],
+        new_definition: new_symbol["definition"],
+        new_definition_location: new_symbol["definition_location"],
+        new_example: new_symbol["example"],
+        new_example_explanation: new_symbol["example_explanation"],
+        new_notes: new_symbol["notes"],
+        new_revision_id: :rand.uniform(100_000_000),
+        symbol_id: old_symbol["id"],
+        username: username,
+        patch_revision_id: patch_revision_id
+      }
+
+      params = Map.merge(params1, params2)
+
+      [%{"categories" => categories, "symbol" => symbol}] = Neo4j.query!(Neo4j.conn, query, params)
+
+      {:ok, 200, %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
+    end
+  end
+
+  def update(old_symbol, new_symbol, 1, username, patch_revision_id) do
+    query1 = """
+      MATCH (old_symbol:Symbol {id: {symbol_id}}),
+        (symbol_patch:UpdateSymbolPatch {revision_id: {patch_revision_id}}),
+        (old_symbol)-[r1:UPDATE]->(symbol_patch),
+        (user:User {username: {username}})
+
+      REMOVE symbol_patch:UpdateSymbolPatch
+      SET symbol_patch:UpdateSymbolPatchRevision
+      DELETE r1
+
+      WITH old_symbol, user, symbol_patch
+    """
+
+    query2 =
+      Map.keys(old_symbol)
+      |> Enum.filter(fn key -> key !== "categories" end)
+      |> Enum.map(fn key -> "#{key}: {new_#{key}}" end)
+      |> Enum.join(",")
+
+    query2 = """
+      CREATE (new_symbol:UpdateSymbolPatch {id: {symbol_id}, against_revision: {against_revision}, #{query2}}),
+        (old_symbol)-[:UPDATE]->(new_symbol),
+        (new_symbol)-[:UPDATE_REVISION]->(symbol_patch),
+        (new_symbol)-[:CONTRIBUTOR {type: "update"}]->(user)
+    """
+
+    {queries, params1, _counter} =
+      new_symbol["categories"]
+      |> Enum.reduce({[], %{}, 0},
+        fn cat, {queries, params, n} ->
+          {queries ++ ["""
+            WITH old_symbol, new_symbol
+            MATCH (cat#{n}:Category {url: {cat#{n}_url}})
+            CREATE (new_symbol)-[:CATEGORY]->(cat#{n})
+          """], Map.put(params, "cat#{n}_url", cat), n + 1}
+        end)
+
+    query3 = Enum.join(queries, " ")
+    query4 = """
+      WITH old_symbol
+      MATCH (old_symbol)-[:CATEGORY]->(category:Category)
+      RETURN old_symbol as symbol, COLLECT({category: category}) as categories
+    """
+
+    query = query1 <> query2 <> query3 <> query4
+
+    params2 = %{
+      new_id: old_symbol["id"],
+      new_name: new_symbol["name"],
+      new_url: new_symbol["url"],
+      new_type: new_symbol["type"],
+      new_description: new_symbol["description"],
+      new_declaration: new_symbol["declaration"],
+      new_parameters: new_symbol["parameters"],
+      new_return_type: new_symbol["return_type"],
+      new_return_description: new_symbol["return_description"],
+      new_definition: new_symbol["definition"],
+      new_definition_location: new_symbol["definition_location"],
+      new_example: new_symbol["example"],
+      new_example_explanation: new_symbol["example_explanation"],
+      new_notes: new_symbol["notes"],
+      new_revision_id: :rand.uniform(100_000_000),
+      against_revision: old_symbol["revision_id"],
+      symbol_id: old_symbol["id"],
+      username: username,
+      patch_revision_id: patch_revision_id
+    }
+
+    params = Map.merge(params1, params2)
+
+    [%{"categories" => categories, "symbol" => symbol}] = Neo4j.query!(Neo4j.conn, query, params)
+
+    {:ok, 202, %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
   end
 
   def accept_patch(symbol_id, "insert", username) do

@@ -322,10 +322,10 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     end
   end
 
-  defp modify(%{user: %{privilege_level: 1}} = conn, %{"references_patch" => _refs_patch}) do
+  defp modify(%{user: %{privilege_level: 1}} = conn, %{"category" => _, "category_name" => _, "references_patch" => _}) do
     conn
     |> put_status(403)
-    |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised access attempt")
+    |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised action")
   end
 
   defp modify(conn, %{"symbol" => symbol, "symbol_id" => symbol_id, "review" => review} = params) do
@@ -335,22 +335,21 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
          {:ok, url_name} <- Utilities.is_url_friendly?(symbol["name"]),
          {:ok} <- Category.all_valid?(symbol["categories"]),
          {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, old_symbol} <- Symbol.valid?(symbol_id) do
+         {:ok, %{"symbol" => old_symbol}} <- Symbol.valid?(symbol_id),
+         {:ok, references_patch} <- Utilities.valid_optional_id?(params["references_patch"]) do
       symbol = Map.merge(symbol, %{"url" => url_name})
+      symbol = Symbol.update(old_symbol, symbol, review, conn.user.username, references_patch)
 
-      symbol =
-        if Map.has_key?(params, "references_patch") do
-          # check privilege_level > 1
-          Symbol.update(symbol, old_symbol["symbol"], review, params["references_patch"], conn.user.username)
-        else
-          Symbol.update(symbol, old_symbol["symbol"], review, conn.user.username)
-        end
-
-      status_code = if review === 0, do: 200, else: 202
-
-      conn
-      |> put_status(status_code)
-      |> render("show.json", symbol: symbol)
+      case symbol do
+        {:error, status_code, error} ->
+          conn
+          |> put_status(status_code)
+          |> render(PhpInternals.ErrorView, "error.json", error: error)
+        {:ok, status_code, symbol} ->
+          conn
+          |> put_status(status_code)
+          |> render("show.json", symbol: symbol)
+      end
     else
       {:error, status_code, error} ->
         conn
