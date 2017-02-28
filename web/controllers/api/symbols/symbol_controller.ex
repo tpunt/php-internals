@@ -127,9 +127,8 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   end
 
   def show(conn, %{"symbol_id" => symbol_id, "patches" => "all"}) do
-    with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, symbol} <- Symbol.has_patches?(symbol_id) do
-      render(conn, "show_patches_changes.json", symbol: symbol)
+    with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id) do
+      render(conn, "show_patches_changes.json", symbol: Symbol.fetch_all_patches_for(symbol_id))
     else
       {:error, status_code, error} ->
         conn

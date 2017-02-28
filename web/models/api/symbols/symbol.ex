@@ -194,40 +194,6 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def has_patches?(symbol_id) do
-    query = """
-      MATCH (c1:Category)<-[:CATEGORY]-(s:Symbol {id: {symbol_id}})
-      OPTIONAL MATCH (s)-[:UPDATE]->(su:UpdateSymbolPatch)-[:CATEGORY]->(c2:Category)
-      OPTIONAL MATCH (s)-[:DELETE]->(sd:DeleteSymbolPatch)
-      WITH c1, s, sd, {categories: CASE c2 WHEN NULL THEN [] ELSE collect({name: c2.name, url: c2.url}) END, update: su} AS sus
-      RETURN {
-        symbol: s,
-        categories: collect({name: c1.name, url: c1.url}),
-        patches: {
-          updates: collect(CASE sus.update WHEN NULL THEN NULL ELSE sus END),
-          delete: CASE sd WHEN NULL THEN 0 ELSE 1 END
-        }
-      } AS symbol_patches
-    """
-
-    params = %{symbol_id: symbol_id}
-
-    result = List.first Neo4j.query!(Neo4j.conn, query, params)
-
-    %{"symbol_patches" =>
-      %{"categories" => categories, "symbol" => symbol, "patches" =>
-        %{"delete" => delete, "updates" => updates}}} = result
-
-    updates =
-      Enum.map(updates, fn %{"categories" => categories, "update" => update} ->
-        %{"update" => %{"symbol" => Map.merge(update, %{"categories" => categories})}}
-      end)
-
-    symbol = Map.merge(symbol, %{"categories" => categories})
-
-    {:ok, %{"symbol_patches" => %{"symbol" => symbol, "patches" => %{"delete" => delete, "updates" => updates}}}}
-  end
-
   def revision_ids_match?(symbol_id, patch_revision_id) do
     query = """
       MATCH (s1:Symbol {id: {symbol_id}})-[:UPDATE]->(s2:UpdateSymbolPatch {revision_id: {patch_id}})
@@ -466,6 +432,40 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
       {:ok, %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
     end
+  end
+
+  def fetch_all_patches_for(symbol_id) do
+    query = """
+      MATCH (c1:Category)<-[:CATEGORY]-(s:Symbol {id: {symbol_id}})
+      OPTIONAL MATCH (s)-[:UPDATE]->(su:UpdateSymbolPatch)-[:CATEGORY]->(c2:Category)
+      OPTIONAL MATCH (s)-[:DELETE]->(sd:DeleteSymbolPatch)
+      WITH c1, s, sd, {categories: CASE c2 WHEN NULL THEN [] ELSE collect({name: c2.name, url: c2.url}) END, update: su} AS sus
+      RETURN {
+        symbol: s,
+        categories: collect({name: c1.name, url: c1.url}),
+        patches: {
+          updates: collect(CASE sus.update WHEN NULL THEN NULL ELSE sus END),
+          delete: CASE sd WHEN NULL THEN 0 ELSE 1 END
+        }
+      } AS symbol_patches
+    """
+
+    params = %{symbol_id: symbol_id}
+
+    result = List.first Neo4j.query!(Neo4j.conn, query, params)
+
+    %{"symbol_patches" =>
+      %{"categories" => categories, "symbol" => symbol, "patches" =>
+        %{"delete" => delete, "updates" => updates}}} = result
+
+    updates =
+      Enum.map(updates, fn %{"categories" => categories, "update" => update} ->
+        %{"update" => %{"symbol" => Map.merge(update, %{"categories" => categories})}}
+      end)
+
+    symbol = Map.merge(symbol, %{"categories" => categories})
+
+    %{"symbol_patches" => %{"symbol" => symbol, "patches" => %{"delete" => delete, "updates" => updates}}}
   end
 
   def fetch_update_patches_for(symbol_id) do
