@@ -205,7 +205,7 @@ defmodule PhpInternals.Api.Categories.Category do
       RETURN {category: category, update: update_category} as category_update
     """
 
-    params = %{category_url: category_url, patch_id: String.to_integer(patch_id)}
+    params = %{category_url: category_url, patch_id: patch_id}
 
     List.first Neo4j.query!(Neo4j.conn, query, params)
   end

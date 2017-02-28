@@ -101,7 +101,8 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   def show(conn, %{"category_name" => category_url, "patches" => "update", "patch_id" => patch_id}) do
-    with {:ok, _category} <- Category.valid?(category_url) do
+    with {:ok, _category} <- Category.valid?(category_url),
+         {:ok, patch_id} <- Utilities.valid_id?(patch_id) do
       category_patch_update = Category.fetch_update_patch_for(category_url, patch_id)
 
       if category_patch_update === nil do
