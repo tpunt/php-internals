@@ -103,7 +103,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   def is_deleted?(symbol_id) do
     query = """
       MATCH (symbol:SymbolDeleted {id: {symbol_id}})-[:CATEGORY]->(c:Category)
-      RETURN symbol, collect({name: c.name, url: c.url}) AS categories
+      RETURN symbol, collect({category: {name: c.name, url: c.url}}) AS categories
     """
 
     params = %{symbol_id: symbol_id}
@@ -113,16 +113,14 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     if result === nil do
       {:error, 404, "The specified deleted symbol could not be found"}
     else
-      categories = Enum.map(result["categories"], &(%{"category" => &1}))
-
-      {:ok, %{"symbol_deleted" => Map.merge(result["symbol"], %{"categories" => categories})}}
+      {:ok, %{"symbol_deleted" => Map.merge(result["symbol"], %{"categories" => result["categories"]})}}
     end
   end
 
   def is_insert_patch?(symbol_id) do
     query = """
       MATCH (symbol:InsertSymbolPatch {id: {symbol_id}})-[:CATEGORY]->(c:Category)
-      RETURN symbol, collect({name: c.name, url: c.url}) AS categories
+      RETURN symbol, COLLECT({category: {name: c.name, url: c.url}}) AS categories
     """
 
     params = %{symbol_id: symbol_id}
@@ -132,16 +130,14 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     if result === nil do
       {:error, 404, "The specified symbol insert patch could not be found"}
     else
-      categories = Enum.map(result["categories"], &(%{"category" => &1}))
-
-      {:ok, %{"symbol_insert" => Map.merge(result["symbol"], %{"categories" => categories})}}
+      {:ok, %{"symbol_insert" => Map.merge(result["symbol"], %{"categories" => result["categories"]})}}
     end
   end
 
   def has_delete_patch?(symbol_id) do
     query = """
       MATCH (c:Category)<-[:CATEGORY]-(symbol:Symbol {id: {symbol_id}})-[:DELETE]->(:DeleteSymbolPatch)
-      RETURN symbol, collect({name: c.name, url: c.url}) AS categories
+      RETURN symbol, COLLECT({category: {name: c.name, url: c.url}}) AS categories
     """
 
     params = %{symbol_id: symbol_id}
@@ -153,7 +149,6 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     else
       %{"symbol" => symbol, "categories" => categories} = result
 
-      categories = Enum.map(categories, &(%{"category" => &1}))
       symbol = Map.merge(symbol, %{"categories" => categories})
 
       {:ok, %{"symbol_delete" => %{"symbol" => symbol}}}
@@ -169,8 +164,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         (usp)-[:CATEGORY]->(c2:Category)
       RETURN {
         symbol: s,
-        categories: collect(c1),
-        update: {symbol: usp, categories: collect(c2)}
+        categories: COLLECT({category: c1}),
+        update: {symbol: usp, categories: COLLECT({category: c2})}
       } AS symbol_update
     """
 
@@ -184,9 +179,6 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       %{"symbol_update" =>
         %{"symbol" => symbol1, "categories" => categories1, "update" =>
           %{"symbol" => symbol2, "categories" => categories2}}}  = result
-
-      categories1 = Enum.map(categories1, &(%{"category" => &1}))
-      categories2 = Enum.map(categories2, &(%{"category" => &1}))
 
       {:ok, %{"symbol_update" =>
         %{"symbol" => Map.merge(symbol1, %{"categories" => categories1}), "update" =>
@@ -376,19 +368,17 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   def fetch(symbol_id, "normal") do
     query = """
       MATCH (symbol:Symbol {id: {symbol_id}})-[r:CATEGORY]->(category:Category)
-      RETURN symbol, collect({name: category.name, url: category.url}) AS categories
+      RETURN symbol, COLLECT({category: {name: category.name, url: category.url}}) AS categories
     """
 
     params = %{symbol_id: symbol_id}
 
     result = Neo4j.query!(Neo4j.conn, query, params)
 
-    if result == [] do
+    if result === [] do
       {:error, 404, "Symbol not found"}
     else
       [%{"categories" => categories, "symbol" => symbol}] = result
-
-      categories = Enum.map(categories, &(%{"category" => &1}))
 
       {:ok, %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
     end
@@ -416,7 +406,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   def fetch(symbol_id, "full") do
     query = """
       MATCH (symbol:Symbol {id: {symbol_id}})-[r:CATEGORY]->(category:Category)
-      RETURN symbol, collect(category) AS categories
+      RETURN symbol, COLLECT({category: category}) AS categories
     """
 
     params = %{symbol_id: symbol_id}
@@ -427,8 +417,6 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       {:error, 404, "Symbol not found"}
     else
       [%{"categories" => categories, "symbol" => symbol}] = result
-
-      categories = Enum.map(categories, &(%{"category" => &1}))
 
       {:ok, %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
     end
@@ -472,10 +460,10 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     query = """
       MATCH (c1:Category)<-[:CATEGORY]-(s1:Symbol {id: {symbol_id}})
       OPTIONAL MATCH (s1)-[:UPDATE]->(s2:UpdateSymbolPatch)-[:CATEGORY]->(c2:Category)
-      WITH c1, s1, s2, collect({name: c2.name, url: c2.url}) AS c2s
+      WITH c1, s1, s2, collect({category: {name: c2.name, url: c2.url}}) AS c2s
       RETURN {
         symbol: s1,
-        categories: collect({name: c1.name, url: c1.url}),
+        categories: collect({category: {name: c1.name, url: c1.url}}),
         updates: CASE s2 WHEN NULL THEN [] ELSE collect({symbol: s2, categories: c2s}) END
       } AS symbol_updates
     """
@@ -488,12 +476,9 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     updates =
       Enum.map(updates, fn %{"symbol" => symbol, "categories" => categories} ->
-        categories = Enum.map(categories, &(%{"category" => &1}))
-
         %{"symbol" => Map.merge(symbol, %{"categories" => categories})}
       end)
 
-    categories = Enum.map(categories, &(%{"category" => &1}))
     symbol = Map.merge(symbol, %{"categories" => categories})
 
     %{"symbol_updates" => %{"symbol" => symbol, "updates" => updates}}
@@ -530,7 +515,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       MATCH (symbol)-[crel:CATEGORY]->(category:Category),
         (user:User {username: {username}})
       CREATE (symbol)-[:CONTRIBUTOR {type: "insert"}]->(user)
-      RETURN symbol, collect(category) as categories
+      RETURN symbol, COLLECT({category: category}) as categories
     """
 
     query = query1 <> query2 <> query3 <> query4
@@ -557,8 +542,6 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     params = Map.merge(params1, params2)
 
     [%{"categories" => categories, "symbol" => symbol}] = Neo4j.query!(Neo4j.conn, query, params)
-
-    categories = Enum.map(categories, &(%{"category" => &1}))
 
     %{"symbol" => Map.merge(symbol, %{"categories" => categories})}
   end
@@ -986,7 +969,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         MATCH (new_symbol)-[:CATEGORY]->(category:Category),
           (user:User {username: {username}})
         CREATE (new_symbol)-[:CONTRIBUTOR {type: "apply_update"}]->(user)
-        RETURN new_symbol as symbol, collect(category) as categories
+        RETURN new_symbol AS symbol, COLLECT({category: category}) AS categories
       """
 
       params = %{
@@ -996,8 +979,6 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       }
 
       [%{"categories" => categories, "symbol" => symbol}] = Neo4j.query!(Neo4j.conn, query, params)
-
-      categories = Enum.map(categories, &(%{"category" => &1}))
 
       {:ok, %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
     else
