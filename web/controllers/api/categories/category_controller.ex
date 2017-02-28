@@ -412,24 +412,21 @@ defmodule PhpInternals.Api.Categories.CategoryController do
     end
   end
 
+  defp modify(%{user: %{privilege_level: 1}} = conn, %{"category" => _, "category_name" => _, "references_patch" => _}) do
+    conn
+    |> put_status(403)
+    |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised action")
+  end
+
   defp modify(conn, %{"category" => new_category, "category_name" => old_url, "review" => review} = params) do
     with {:ok} <- User.within_patch_limit?(conn.user),
          {:ok} <- Category.contains_required_fields?(new_category),
          {:ok} <- Category.contains_only_expected_fields?(new_category),
          {:ok, new_url_name} <- Utilities.is_url_friendly?(new_category["name"]),
-         {:ok, %{"category" => old_category}} <- Category.valid?(old_url) do
+         {:ok, %{"category" => old_category}} <- Category.valid?(old_url),
+         {:ok, references_patch} <- Utilities.valid_optional_id?(params["references_patch"]) do
       new_category = Map.merge(new_category, %{"url" => new_url_name})
-
-      new_category =
-        if Map.has_key?(params, "references_patch") do
-          if conn.user.privilege_level === 1 do
-            {:error, 403, "Unauthorised action"}
-          else
-            Category.update(old_category, new_category, review, conn.user.username, params["references_patch"])
-          end
-        else
-          Category.update(old_category, new_category, review, conn.user.username)
-        end
+      new_category = Category.update(old_category, new_category, review, conn.user.username, references_patch)
 
       case new_category do
         {:error, status_code, error} ->

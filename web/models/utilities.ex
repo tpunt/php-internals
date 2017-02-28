@@ -69,4 +69,8 @@ defmodule PhpInternals.Utilities do
       _ -> {:error, 400, "Invalid integer ID given"}
     end
   end
+
+  def valid_optional_id?(id) do
+    if id === nil, do: {:ok, id}, else: valid_id?(id)
+  end
 end

@@ -321,9 +321,87 @@ defmodule PhpInternals.Api.Categories.Category do
     List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def update(old_category, new_category, 0 = _review, username, patch_revision_id) do
-    patch_revision_id = String.to_integer(patch_revision_id)
+  def update(old_category, new_category, 0 = _review, username, nil = _patch_revision_id) do
+    query = """
+      MATCH (old_category:Category {url: {old_url}}),
+        (user:User {username: {username}})
+      OPTIONAL MATCH (old_category)-[r1:UPDATE]->(ucp:UpdateCategoryPatch)
+      OPTIONAL MATCH (old_category)-[r2:DELETE]->(dcp:DeleteCategoryPatch)
+      OPTIONAL MATCH (n)-[r3:CATEGORY]->(old_category)
 
+      CREATE (new_category:Category {
+          name: {new_name},
+          introduction: {new_introduction},
+          url: {new_url},
+          revision_id: {new_rev_id}
+        }),
+        (new_category)-[:REVISION]->(old_category),
+        (new_category)-[:CONTRIBUTOR {type: "update"}]->(user)
+
+      REMOVE old_category:Category
+      SET old_category:CategoryRevision
+
+      DELETE r1, r2, r3
+
+      WITH old_category, new_category, COLLECT(ucp) AS ucps, dcp, COLLECT(n) AS ns
+
+      FOREACH (ucp IN ucps |
+        CREATE (new_category)-[:UPDATE]->(ucp)
+      )
+
+      FOREACH (ignored IN CASE dcp WHEN NULL THEN [] ELSE [1] END |
+        CREATE (new_category)-[:DELETE]->(dcp)
+      )
+
+      FOREACH (n IN ns |
+        CREATE (n)-[:CATEGORY]->(new_category)
+      )
+
+      RETURN new_category as category
+    """
+
+    params = %{
+      new_name: new_category["name"],
+      new_introduction: new_category["introduction"],
+      new_url: new_category["url"],
+      new_rev_id: :rand.uniform(100_000_000),
+      old_url: old_category["url"],
+      username: username
+    }
+
+    {:ok, 200, List.first Neo4j.query!(Neo4j.conn, query, params)}
+  end
+
+  def update(old_category, new_category, 1 = _review, username, nil = _patch_revision_id) do
+    query = """
+      MATCH (category:Category {url: {old_url}}),
+        (user:User {username: {username}})
+      CREATE (ucp:UpdateCategoryPatch {
+          name: {name},
+          introduction: {introduction},
+          url: {new_url},
+          revision_id: {rev_id},
+          against_revision: {against_rev}
+        }),
+        (category)-[:UPDATE]->(ucp),
+        (ucp)-[:CONTRIBUTOR {type: "update"}]->(user)
+      RETURN category
+    """
+
+    params = %{
+      name: new_category["name"],
+      introduction: new_category["introduction"],
+      new_url: new_category["url"],
+      rev_id: :rand.uniform(100_000_000),
+      old_url: old_category["url"],
+      against_rev: old_category["revision_id"],
+      username: username
+    }
+
+    {:ok, 202, List.first Neo4j.query!(Neo4j.conn, query, params)}
+  end
+
+  def update(old_category, new_category, 0 = _review, username, patch_revision_id) do
     query = """
       MATCH (category:Category {url: {old_url}}),
         (category)-[:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
@@ -393,8 +471,6 @@ defmodule PhpInternals.Api.Categories.Category do
   end
 
   def update(old_category, new_category, 1 = _review, username, patch_revision_id) do
-    patch_revision_id = String.to_integer(patch_revision_id)
-
     query = """
       MATCH (ucp:UpdateCategoryPatch {revision_id: {patch_revision_id}}),
         (category:Category {url: {old_url}})-[:UPDATE]->(ucp)
@@ -443,90 +519,6 @@ defmodule PhpInternals.Api.Categories.Category do
 
       {:ok, 202, List.first Neo4j.query!(Neo4j.conn, query, params)}
     end
-  end
-
-  def update(_old_category, _new_category, _review, _patch_revision_id, _username) do
-    {:error, 400, "Unknown review parameter value"}
-  end
-
-  def update(old_category, new_category, 0, username) do
-    query = """
-      MATCH (old_category:Category {url: {old_url}}),
-        (user:User {username: {username}})
-      OPTIONAL MATCH (old_category)-[r1:UPDATE]->(ucp:UpdateCategoryPatch)
-      OPTIONAL MATCH (old_category)-[r2:DELETE]->(dcp:DeleteCategoryPatch)
-      OPTIONAL MATCH (n)-[r3:CATEGORY]->(old_category)
-
-      CREATE (new_category:Category {
-          name: {new_name},
-          introduction: {new_introduction},
-          url: {new_url},
-          revision_id: {new_rev_id}
-        }),
-        (new_category)-[:REVISION]->(old_category),
-        (new_category)-[:CONTRIBUTOR {type: "update"}]->(user)
-
-      REMOVE old_category:Category
-      SET old_category:CategoryRevision
-
-      DELETE r1, r2, r3
-
-      WITH old_category, new_category, COLLECT(ucp) AS ucps, dcp, COLLECT(n) AS ns
-
-      FOREACH (ucp IN ucps |
-        CREATE (new_category)-[:UPDATE]->(ucp)
-      )
-
-      FOREACH (ignored IN CASE dcp WHEN NULL THEN [] ELSE [1] END |
-        CREATE (new_category)-[:DELETE]->(dcp)
-      )
-
-      FOREACH (n IN ns |
-        CREATE (n)-[:CATEGORY]->(new_category)
-      )
-
-      RETURN new_category as category
-    """
-
-    params = %{
-      new_name: new_category["name"],
-      new_introduction: new_category["introduction"],
-      new_url: new_category["url"],
-      new_rev_id: :rand.uniform(100_000_000),
-      old_url: old_category["url"],
-      username: username
-    }
-
-    {:ok, 200, List.first Neo4j.query!(Neo4j.conn, query, params)}
-  end
-
-  def update(old_category, new_category, 1, username) do
-    query = """
-      MATCH (category:Category {url: {old_url}}),
-        (user:User {username: {username}})
-      CREATE (ucp:UpdateCategoryPatch {
-          name: {name},
-          introduction: {introduction},
-          url: {new_url},
-          revision_id: {rev_id},
-          against_revision: {against_rev}
-        }),
-        (category)-[:UPDATE]->(ucp),
-        (ucp)-[:CONTRIBUTOR {type: "update"}]->(user)
-      RETURN category
-    """
-
-    params = %{
-      name: new_category["name"],
-      introduction: new_category["introduction"],
-      new_url: new_category["url"],
-      rev_id: :rand.uniform(100_000_000),
-      old_url: old_category["url"],
-      against_rev: old_category["revision_id"],
-      username: username
-    }
-
-    {:ok, 202, List.first Neo4j.query!(Neo4j.conn, query, params)}
   end
 
   def accept_patch(category_url, "insert", username) do
