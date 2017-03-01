@@ -144,12 +144,20 @@ defmodule PhpInternals.Api.Articles.Article do
     end
   end
 
-  def fetch(order_by, ordering, offset, limit, category_filter, view) do
+  def fetch(order_by, ordering, offset, limit, category_filter, author_filter, view) do
     query1 =
       if category_filter === nil do
-        "MATCH (a:Article)"
+        if author_filter === nil do
+          "MATCH (a:Article)"
+        else
+          "MATCH (a:Article)-[:AUTHOR]->(:User {username: {username}})"
+        end
       else
-        "MATCH (a:Article)-[:CATEGORY]->(:Category {url: {category_url}})"
+        if author_filter === nil do
+          "MATCH (a:Article)-[:CATEGORY]->(:Category {url: {category_url}})"
+        else
+          "MATCH (:User {username: {username}})<-[:AUTHOR]-(a:Article)-[:CATEGORY]->(:Category {url: {category_url}})"
+        end
       end
 
     query2 = "MATCH (a)-[arel:AUTHOR]->(u:User), (a)-[crel:CATEGORY]->(category:Category)"
@@ -178,7 +186,7 @@ defmodule PhpInternals.Api.Articles.Article do
 
     query = query1 <> query2 <> query3 <> query4
 
-    params = %{category_url: category_filter}
+    params = %{category_url: category_filter, username: author_filter}
 
     Neo4j.query!(Neo4j.conn, query, params)
     |> Enum.map(fn %{"article" => article, "user" => user} = result ->

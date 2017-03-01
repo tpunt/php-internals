@@ -3,6 +3,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
 
   alias PhpInternals.Api.Categories.Category
   alias PhpInternals.Api.Articles.Article
+  alias PhpInternals.Api.Users.User
   alias PhpInternals.Utilities
 
   def index(conn, params) do
@@ -11,8 +12,10 @@ defmodule PhpInternals.Api.Articles.ArticleController do
          {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]),
          {:ok, _category} <- Category.valid?(params["category"]),
+         {:ok, _user} <- User.valid?(params["author"]),
          {:ok, view} <- Article.valid_view?(params["view"]) do
-      render(conn, "index_#{view}.json", articles: Article.fetch(order_by, ordering, offset, limit, params["category"], view))
+      articles = Article.fetch(order_by, ordering, offset, limit, params["category"], params["author"], view)
+      render(conn, "index_#{view}.json", articles: articles)
     else
       {:error, status_code, error} ->
         conn

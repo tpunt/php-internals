@@ -4,6 +4,10 @@ defmodule PhpInternals.Api.Users.User do
   @valid_fields ["name", "privilege_level"]
   @patch_limit 20
 
+  def valid?(nil = username) do
+    {:ok, username}
+  end
+
   def valid?(username) do
     user = fetch_by_username(username)
 
