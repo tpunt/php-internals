@@ -75,20 +75,6 @@ defmodule PhpInternals.Api.Users.User do
     end
   end
 
-  def fetch_by_id(user_id) do
-    query = """
-      MATCH (user:User {id: {id}})
-      RETURN user
-    """
-
-    params = %{id: user_id}
-
-    case Neo4j.query!(Neo4j.conn, query, params) do
-      [] -> nil
-      [user] -> user
-    end
-  end
-
   def fetch_by_token(access_token) do
     query = """
       MATCH (u:User {access_token: {access_token}})
@@ -96,20 +82,6 @@ defmodule PhpInternals.Api.Users.User do
     """
 
     params = %{access_token: access_token}
-
-    case Neo4j.query!(Neo4j.conn, query, params) do
-      [] -> nil
-      [user] -> user
-    end
-  end
-
-  def fetch_by_secret(client_secret) do
-    query = """
-      MATCH (user:User {client_secret: {client_secret}})
-      RETURN user
-    """
-
-    params = %{client_secret: client_secret}
 
     case Neo4j.query!(Neo4j.conn, query, params) do
       [] -> nil
