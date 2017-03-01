@@ -258,18 +258,12 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   def update(conn, %{"apply_patch" => action, "category_name" => category_url}) do
-    with {:ok} <- Utilities.valid_patch_action?(action) do
-      return = Category.apply_patch(category_url, action, conn.user.username)
-
-      case return do
-        {:ok, status_code} when is_integer(status_code) ->
-          send_resp(conn, status_code, "")
-        {:ok, category} ->
-          render(conn, "show.json", category: category)
-        {:error, status_code, message} ->
-          conn
-          |> put_status(status_code)
-          |> render(PhpInternals.ErrorView, "error.json", error: message)
+    with {:ok, action} <- Utilities.valid_patch_action?(action),
+         {:ok, return} <- Category.apply_patch?(category_url, action, conn.user.username) do
+      if is_integer(return) do
+        send_resp(conn, return, "")
+      else
+        render(conn, "show.json", category: return)
       end
     else
       {:error, status_code, message} ->
@@ -292,17 +286,9 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   def update(conn, %{"discard_patch" => action, "category_name" => category_url}) do
-    with {:ok} <- Utilities.valid_patch_action?(action) do
-      return = Category.discard_patch(category_url, action, conn.user.username)
-
-      case return do
-        {:ok, status_code} ->
-          send_resp(conn, status_code, "")
-        {:error, status_code, message} ->
-          conn
-          |> put_status(status_code)
-          |> render(PhpInternals.ErrorView, "error.json", error: message)
-      end
+    with {:ok, action} <- Utilities.valid_patch_action?(action),
+         {:ok, return} <- Category.discard_patch?(category_url, action, conn.user.username) do
+      send_resp(conn, return, "")
     else
       {:error, status_code, message} ->
         conn

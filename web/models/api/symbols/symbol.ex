@@ -874,7 +874,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     {:ok, 202, %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
   end
 
-  def apply_patch(symbol_id, "insert", username) do
+  def apply_patch?(symbol_id, %{"action" => "insert"}, username) do
     query = """
       MATCH (symbol:InsertSymbolPatch {id: {symbol_id}})-[:CATEGORY]->(c:Category),
         (user:User {username: {username}})
@@ -897,45 +897,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def apply_patch(symbol_id, "delete", username) do
-    query = """
-      MATCH (symbol:Symbol {id: {symbol_id}})-[r:DELETE]->(sd:DeleteSymbolPatch),
-        (user:User {username: {username}})
-      REMOVE symbol:Symbol
-      SET symbol:SymbolDeleted
-      DELETE r, sd
-      CREATE (symbol)-[:CONTRIBUTOR {type: "apply_delete"}]->(user)
-      RETURN symbol
-    """
-
-    params = %{symbol_id: symbol_id, username: username}
-
-    result = Neo4j.query!(Neo4j.conn, query, params)
-
-    if result === [] do
-      {:error, 404, "Delete patch not found"}
-    else
-      {:ok, 204}
-    end
-  end
-
-  def apply_patch(symbol_id, update_or_error, username) do
-    output = String.split(update_or_error, ",")
-
-    if length(output) !== 2 do
-      {:error, 400, "Unknown or malformed patch type"}
-    else
-      [update, for_revision] = output
-
-      if update !== "update" do
-        {:error, 400, "Unknown patch type"}
-      else
-        apply_patch(symbol_id, update, String.to_integer(for_revision), username)
-      end
-    end
-  end
-
-  def apply_patch(symbol_id, "update", patch_revision_id, username) do
+  def apply_patch?(symbol_id, %{"action" => "update", "patch_revision_id" => patch_revision_id}, username) do
     with {:ok, _symbol} <- update_patch_exists?(symbol_id, patch_revision_id),
          {:ok} <- revision_ids_match?(symbol_id, patch_revision_id) do
       query = """
@@ -987,7 +949,29 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def discard_patch(symbol_id, "insert", username) do
+  def apply_patch?(symbol_id, %{"action" => "delete"}, username) do
+    query = """
+      MATCH (symbol:Symbol {id: {symbol_id}})-[r:DELETE]->(sd:DeleteSymbolPatch),
+        (user:User {username: {username}})
+      REMOVE symbol:Symbol
+      SET symbol:SymbolDeleted
+      DELETE r, sd
+      CREATE (symbol)-[:CONTRIBUTOR {type: "apply_delete"}]->(user)
+      RETURN symbol
+    """
+
+    params = %{symbol_id: symbol_id, username: username}
+
+    result = Neo4j.query!(Neo4j.conn, query, params)
+
+    if result === [] do
+      {:error, 404, "Delete patch not found"}
+    else
+      {:ok, 204}
+    end
+  end
+
+  def discard_patch?(symbol_id, %{"action" => "insert"}, username) do
     with {:ok, _symbol} <- is_insert_patch?(symbol_id) do
       query = """
         MATCH (isp:InsertSymbolPatch {id: {symbol_id}}),
@@ -1008,44 +992,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def discard_patch(symbol_id, "delete", username) do
-    with {:ok, _symbol} <- has_delete_patch?(symbol_id) do
-      query = """
-        MATCH (s:Symbol {id: {symbol_id}}),
-          (user:User {username: {username}}),
-          (s)-[r:DELETE]->(sd:DeleteSymbolPatch)
-        DELETE r, sd
-        MERGE (s)-[:CONTRIBUTOR {type: "discard_delete"}]->(user)
-      """
-
-      params = %{symbol_id: symbol_id, username: username}
-
-      Neo4j.query!(Neo4j.conn, query, params)
-
-      {:ok, 200}
-    else
-      error ->
-        error
-    end
-  end
-
-  def discard_patch(symbol_id, update_or_error, username) do
-    output = String.split(update_or_error, ",")
-
-    if length(output) !== 2 do
-      {:error, 400, "Unknown or malformed patch type"}
-    else
-      [update, for_revision] = output
-
-      if update !== "update" do
-        {:error, 400, "Unknown patch type"}
-      else
-        discard_patch(symbol_id, update, String.to_integer(for_revision), username)
-      end
-    end
-  end
-
-  def discard_patch(symbol_id, "update", patch_revision_id, username) do
+  def discard_patch?(symbol_id, %{"action" => "update", "patch_revision_id" => patch_revision_id}, username) do
     with {:ok, _symbol} <- update_patch_exists?(symbol_id, patch_revision_id) do
       query = """
         MATCH (usp:UpdateSymbolPatch {revision_id: {revision_id}}),
@@ -1056,6 +1003,27 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       """
 
       params = %{revision_id: patch_revision_id, username: username}
+
+      Neo4j.query!(Neo4j.conn, query, params)
+
+      {:ok, 200}
+    else
+      error ->
+        error
+    end
+  end
+
+  def discard_patch?(symbol_id, %{"action" => "delete"}, username) do
+    with {:ok, _symbol} <- has_delete_patch?(symbol_id) do
+      query = """
+        MATCH (s:Symbol {id: {symbol_id}}),
+          (user:User {username: {username}}),
+          (s)-[r:DELETE]->(sd:DeleteSymbolPatch)
+        DELETE r, sd
+        MERGE (s)-[:CONTRIBUTOR {type: "discard_delete"}]->(user)
+      """
+
+      params = %{symbol_id: symbol_id, username: username}
 
       Neo4j.query!(Neo4j.conn, query, params)
 
