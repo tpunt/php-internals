@@ -373,53 +373,9 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     params = %{symbol_id: symbol_id}
 
-    result = Neo4j.query!(Neo4j.conn, query, params)
+    [%{"categories" => categories, "symbol" => symbol}] = Neo4j.query!(Neo4j.conn, query, params)
 
-    if result === [] do
-      {:error, 404, "Symbol not found"}
-    else
-      [%{"categories" => categories, "symbol" => symbol}] = result
-
-      {:ok, %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
-    end
-  end
-
-  def fetch(symbol_id, "overview") do
-    query = """
-      MATCH (symbol:Symbol {id: {symbol_id}})
-      RETURN {id: symbol.id, name: symbol.name, url: symbol.url, type: symbol.type} AS symbol
-    """
-
-    params = %{symbol_id: symbol_id}
-
-    result = Neo4j.query!(Neo4j.conn, query, params)
-
-    if result == [] do
-      {:error, 404, "Symbol not found"}
-    else
-      [symbol] = result
-
-      {:ok, symbol}
-    end
-  end
-
-  def fetch(symbol_id, "full") do
-    query = """
-      MATCH (symbol:Symbol {id: {symbol_id}})-[r:CATEGORY]->(category:Category)
-      RETURN symbol, COLLECT({category: category}) AS categories
-    """
-
-    params = %{symbol_id: symbol_id}
-
-    result = Neo4j.query!(Neo4j.conn, query, params)
-
-    if result === [] do
-      {:error, 404, "Symbol not found"}
-    else
-      [%{"categories" => categories, "symbol" => symbol}] = result
-
-      {:ok, %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
-    end
+    %{"symbol" => Map.merge(symbol, %{"categories" => categories})}
   end
 
   def fetch_all_patches_for(symbol_id) do

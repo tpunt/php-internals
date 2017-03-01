@@ -146,10 +146,11 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   def show(conn, %{"symbol_id" => symbol_id} = params) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
          {:ok, view_type} <- Symbol.valid_view_type?(params["view"]),
-         {:ok, symbol} <- Symbol.fetch(symbol_id, view_type) do # why is this this type of method?
-      case view_type do
-        "normal" -> render(conn, "show.json", symbol: symbol)
-        "overview" -> render(conn, "show_overview.json", symbol: symbol)
+         {:ok, symbol} <- Symbol.valid?(symbol_id) do
+      if view_type === "overview" do
+        render(conn, "show_overview.json", symbol: symbol)
+      else
+        render(conn, "show.json", symbol: Symbol.fetch(symbol_id, view_type))
       end
     else
       {:error, status_code, status} ->
