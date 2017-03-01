@@ -215,7 +215,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
   def update(conn, %{"symbol_id" => symbol_id, "apply_patch" => action}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, return} <- Symbol.accept_patch(symbol_id, action, conn.user.username) do
+         {:ok, return} <- Symbol.apply_patch(symbol_id, action, conn.user.username) do
       if is_integer(return) do
         send_resp(conn, return, "")
       else

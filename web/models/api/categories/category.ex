@@ -521,7 +521,7 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def accept_patch(category_url, "insert", username) do
+  def apply_patch(category_url, "insert", username) do
     query = "MATCH (category:InsertCategoryPatch {url: {category_url}}) RETURN category"
     params = %{category_url: category_url, username: username}
 
@@ -548,7 +548,7 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def accept_patch(category_url, "delete", username) do
+  def apply_patch(category_url, "delete", username) do
     query = """
       OPTIONAL MATCH (c:Category {url: {category_url}})
       OPTIONAL MATCH (cp)-[:DELETE]->(:DeleteCategoryPatch)
@@ -580,12 +580,12 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def accept_patch(category_url, update, username) do
+  def apply_patch(category_url, update, username) do
     [update, for_revision] = String.split(update, ",")
-    accept_patch(category_url, update, String.to_integer(for_revision), username)
+    apply_patch(category_url, update, String.to_integer(for_revision), username)
   end
 
-  def accept_patch(category_url, "update", patch_revision_id, username) do
+  def apply_patch(category_url, "update", patch_revision_id, username) do
     query = """
       OPTIONAL MATCH (c:Category {url: {category_url}})
       OPTIONAL MATCH (c)-[:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})

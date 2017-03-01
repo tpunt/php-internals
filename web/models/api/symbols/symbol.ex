@@ -874,7 +874,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     {:ok, 202, %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
   end
 
-  def accept_patch(symbol_id, "insert", username) do
+  def apply_patch(symbol_id, "insert", username) do
     query = """
       MATCH (symbol:InsertSymbolPatch {id: {symbol_id}})-[:CATEGORY]->(c:Category),
         (user:User {username: {username}})
@@ -897,7 +897,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def accept_patch(symbol_id, "delete", username) do
+  def apply_patch(symbol_id, "delete", username) do
     query = """
       MATCH (symbol:Symbol {id: {symbol_id}})-[r:DELETE]->(sd:DeleteSymbolPatch),
         (user:User {username: {username}})
@@ -919,7 +919,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def accept_patch(symbol_id, update_or_error, username) do
+  def apply_patch(symbol_id, update_or_error, username) do
     output = String.split(update_or_error, ",")
 
     if length(output) !== 2 do
@@ -930,12 +930,12 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       if update !== "update" do
         {:error, 400, "Unknown patch type"}
       else
-        accept_patch(symbol_id, update, String.to_integer(for_revision), username)
+        apply_patch(symbol_id, update, String.to_integer(for_revision), username)
       end
     end
   end
 
-  def accept_patch(symbol_id, "update", patch_revision_id, username) do
+  def apply_patch(symbol_id, "update", patch_revision_id, username) do
     with {:ok, _symbol} <- update_patch_exists?(symbol_id, patch_revision_id),
          {:ok} <- revision_ids_match?(symbol_id, patch_revision_id) do
       query = """

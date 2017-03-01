@@ -259,7 +259,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
 
   def update(conn, %{"apply_patch" => action, "category_name" => category_url}) do
     with {:ok} <- Utilities.valid_patch_action?(action) do
-      return = Category.accept_patch(category_url, action, conn.user.username)
+      return = Category.apply_patch(category_url, action, conn.user.username)
 
       case return do
         {:ok, status_code} when is_integer(status_code) ->
