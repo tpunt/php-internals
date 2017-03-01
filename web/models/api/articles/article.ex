@@ -46,7 +46,7 @@ defmodule PhpInternals.Api.Articles.Article do
         (article)-[arel:AUTHOR]->(u:User),
         (article)-[crel:CATEGORY]->(category:Category)
       RETURN article,
-        collect(category) AS categories,
+        collect({category: category}) AS categories,
         {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
     """
 
@@ -57,11 +57,10 @@ defmodule PhpInternals.Api.Articles.Article do
     if result === nil do
       {:error, 404, "Article not found"}
     else
-      categories = Enum.map(result["categories"], &(%{"category" => &1}))
       article =
         result["article"]
         |> Map.merge(%{"user" => result["user"]})
-        |> Map.merge(%{"categories" => categories})
+        |> Map.merge(%{"categories" => result["categories"]})
 
       {:ok, %{"article" => article}}
     end
@@ -80,7 +79,7 @@ defmodule PhpInternals.Api.Articles.Article do
           series_name: a.series_name,
           series_url: a.series_url
         } AS article,
-        collect(category) as categories,
+        collect({category: category}) as categories,
         {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
       ORDER BY article.date ASC
     """
@@ -95,11 +94,10 @@ defmodule PhpInternals.Api.Articles.Article do
       result =
         result
         |> Enum.map(fn %{"article" => article, "user" => user} = result ->
-            categories = Enum.map(result["categories"], &(%{"category" => &1}))
             article =
               article
               |> Map.merge(%{"user" => user})
-              |> Map.merge(%{"categories" => categories})
+              |> Map.merge(%{"categories" => result["categories"]})
 
             %{"article" => article}
           end)
@@ -114,7 +112,7 @@ defmodule PhpInternals.Api.Articles.Article do
         (article)-[arel:AUTHOR]->(u:User),
         (article)-[crel:CATEGORY]->(category:Category)
       RETURN article,
-        collect(category) AS categories,
+        collect({category: category}) AS categories,
         {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
     """
 
@@ -125,11 +123,10 @@ defmodule PhpInternals.Api.Articles.Article do
     if result === nil do
       {:error, 404, "Article not found for given article series"}
     else
-      categories = Enum.map(result["categories"], &(%{"category" => &1}))
       article =
         result["article"]
         |> Map.merge(%{"user" => result["user"]})
-        |> Map.merge(%{"categories" => categories})
+        |> Map.merge(%{"categories" => result["categories"]})
 
       {:ok, %{"article" => article}}
     end
@@ -177,7 +174,7 @@ defmodule PhpInternals.Api.Articles.Article do
       end
 
     query4 = """
-        collect(category) as categories,
+        collect({category: category}) as categories,
         {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
       ORDER BY article.#{order_by} #{ordering}
       SKIP #{offset}
@@ -190,11 +187,10 @@ defmodule PhpInternals.Api.Articles.Article do
 
     Neo4j.query!(Neo4j.conn, query, params)
     |> Enum.map(fn %{"article" => article, "user" => user} = result ->
-        categories = Enum.map(result["categories"], &(%{"category" => &1}))
         article =
           article
           |> Map.merge(%{"user" => user})
-          |> Map.merge(%{"categories" => categories})
+          |> Map.merge(%{"categories" => result["categories"]})
 
         %{"article" => article}
       end)
@@ -229,7 +225,7 @@ defmodule PhpInternals.Api.Articles.Article do
       MATCH (article)-[:CATEGORY]->(c:Category),
         (user:User {username: {username}})
       CREATE (article)-[:AUTHOR]->(user)
-      RETURN article, user, collect({name: c.name, url:c.url}) as categories
+      RETURN article, user, collect({category: {name: c.name, url:c.url}}) as categories
     """
 
     query = query1 <> query2 <> query3
@@ -248,11 +244,10 @@ defmodule PhpInternals.Api.Articles.Article do
 
     [result] = Neo4j.query!(Neo4j.conn, query, params)
 
-    categories = Enum.map(result["categories"], &(%{"category" => &1}))
     article =
       result["article"]
       |> Map.merge(%{"user" => result["user"]})
-      |> Map.merge(%{"categories" => categories})
+      |> Map.merge(%{"categories" => result["categories"]})
 
     %{"article" => article}
   end
@@ -283,7 +278,7 @@ defmodule PhpInternals.Api.Articles.Article do
     query3 = """
       WITH article
       MATCH (user:User)<-[:AUTHOR]-(article)-[:CATEGORY]->(c:Category)
-      RETURN article, user, collect({name: c.name, url:c.url}) as categories
+      RETURN article, user, collect({category: {name: c.name, url: c.url}}) as categories
     """
 
     query = query1 <> query2 <> query3
@@ -302,11 +297,10 @@ defmodule PhpInternals.Api.Articles.Article do
 
     [result] = Neo4j.query!(Neo4j.conn, query, params)
 
-    categories = Enum.map(result["categories"], &(%{"category" => &1}))
     article =
       result["article"]
       |> Map.merge(%{"user" => result["user"]})
-      |> Map.merge(%{"categories" => categories})
+      |> Map.merge(%{"categories" => result["categories"]})
 
     %{"article" => article}
   end
