@@ -11,7 +11,7 @@ defmodule CategoryGetTest do
   GET /api/categories/non-existent
   """
   test "list a non-existent category" do
-    conn = conn(:get, "/api/categories/non-existent")
+    conn = conn(:get, "/api/categories/non-existent", %{})
     response = Router.call(conn, @opts)
 
     assert response.status === 404
@@ -21,7 +21,7 @@ defmodule CategoryGetTest do
   GET /api/categories/existent
   """
   test "list an existing category" do
-    conn = conn(:get, "/api/categories/existent")
+    conn = conn(:get, "/api/categories/existent", %{})
     response = Router.call(conn, @opts)
 
     assert response.status === 200

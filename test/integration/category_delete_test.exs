@@ -103,7 +103,7 @@ defmodule CategoryDeleteTest do
       RETURN c
     """)
 
-    response = Router.call(conn(:get, "/api/categories/#{name}"), @opts)
+    response = Router.call(conn(:get, "/api/categories/#{name}", %{}), @opts)
 
     assert response.status === 404
 

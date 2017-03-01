@@ -7,8 +7,11 @@ defmodule PhpInternals.Api.Categories.Category do
   @valid_ordering_fields ["name"]
   @default_order_by "name"
 
-  @view_types ["normal", "overview"]
-  @default_view_type "normal"
+  @index_view_types ["normal", "overview"]
+  @default_index_view_type "normal"
+
+  @show_view_types ["normal", "overview", "full"]
+  @default_show_view_type "normal"
 
   def contains_required_fields?(category) do
     if @required_fields -- Map.keys(category) == [] do
@@ -39,14 +42,26 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def valid_view_type?(view_type) do
+  def valid_index_view_type?(view_type) do
     if view_type === nil do
-      {:ok, @default_view_type}
+      {:ok, @default_index_view_type}
     else
-      if Enum.member?(@view_types, view_type) do
+      if Enum.member?(@index_view_types, view_type) do
         {:ok, view_type}
       else
-        {:error, 400, "Invalid view type given (expecting: #{Enum.join(@view_types, ", ")})"}
+        {:error, 400, "Invalid view type given (expecting: #{Enum.join(@index_view_types, ", ")})"}
+      end
+    end
+  end
+
+  def valid_show_view_type?(view_type) do
+    if view_type === nil do
+      {:ok, @default_show_view_type}
+    else
+      if Enum.member?(@show_view_types, view_type) do
+        {:ok, view_type}
+      else
+        {:error, 400, "Invalid view type given (expecting: #{Enum.join(@show_view_types, ", ")})"}
       end
     end
   end
@@ -234,29 +249,7 @@ defmodule PhpInternals.Api.Categories.Category do
     List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def fetch(category_url) do
-    query = """
-      MATCH (category:Category {url: {category_url}})
-      RETURN category
-    """
-
-    params = %{category_url: category_url}
-
-    List.first Neo4j.query!(Neo4j.conn, query, params)
-  end
-
-  def fetch_overview(category_url) do
-    query = """
-      MATCH (c:Category {url: {category_url}})
-      RETURN {name: c.name, url: c.name} as category
-    """
-
-    params = %{category_url: category_url}
-
-    Neo4j.query!(Neo4j.conn, query, params)
-  end
-
-  def fetch_full(category_url) do
+  def fetch(category_url, "full") do
     query = """
       MATCH (c:Category {url: {category_url}})
       OPTIONAL MATCH (s:Symbol)-[:CATEGORY]->(c)

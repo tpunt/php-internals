@@ -49,7 +49,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   def index(conn, params) do
-    with {:ok, view_type} <- Category.valid_view_type?(params["view"]),
+    with {:ok, view_type} <- Category.valid_index_view_type?(params["view"]),
          {:ok, order_by} <- Category.valid_order_by?(params["order_by"]),
          {:ok, ordering} <- Utilities.valid_ordering?(params["ordering"]),
          {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
@@ -164,37 +164,14 @@ defmodule PhpInternals.Api.Categories.CategoryController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Invalid patch scope used")
   end
 
-  def show(conn, %{"category_name" => category_url, "view" => "full"}) do
-    with {:ok, _category} <- Category.valid?(category_url) do
-      render(conn, "show_full.json", category: Category.fetch_full(category_url))
-    else
-      {:error, status_code, error} ->
-        conn
-        |> put_status(status_code)
-        |> render(PhpInternals.ErrorView, "error.json", error: error)
-    end
-  end
-
-  def show(conn, %{"category_name" => category_url, "view" => "overview"}) do
-    with {:ok, category} <- Category.valid?(category_url) do
-      render(conn, "show_overview.json", category: category)
-    else
-      {:error, status_code, error} ->
-        conn
-        |> put_status(status_code)
-        |> render(PhpInternals.ErrorView, "error.json", error: error)
-    end
-  end
-
-  def show(conn, %{"category_name" => _category_url, "view" => _view}) do
-    conn
-    |> put_status(400)
-    |> render(PhpInternals.ErrorView, "error.json", error: "Invalid category view used")
-  end
-
-  def show(conn, %{"category_name" => category_url}) do
-    with {:ok, category} <- Category.valid?(category_url) do
-      render(conn, "show.json", category: category)
+  def show(conn, %{"category_name" => category_url} = params) do
+    with {:ok, view_type} <- Category.valid_show_view_type?(params["view"]),
+         {:ok, category} <- Category.valid?(category_url) do
+      case view_type do
+        "overview" -> render(conn, "show_overview.json", category: category)
+        "normal" -> render(conn, "show.json", category: category)
+        "full" -> render(conn, "show_full.json", category: Category.fetch(category_url, "full"))
+      end
     else
       {:error, status_code, error} ->
         conn
