@@ -29,7 +29,12 @@ defmodule ArticlePatchTest do
         }),
         (a)-[:AUTHOR]->(u),
         (a)-[:CATEGORY]->(c),
-        (:Category {name: '#{cat_name}', introduction: '..', url: '#{cat_name}', revision_id: #{cat_rev_id}})
+        (:Category {
+          name: '#{cat_name}',
+          introduction: '..',
+          url: '#{cat_name}',
+          revision_id: #{cat_rev_id}
+        })
     """)
     data = %{"article" => %{"title" => "#{art_name2}", "excerpt" => "...",
       "body" => ".", "categories" => ["#{cat_name}"], "series_name" => "#{ser_name}"}}
@@ -67,7 +72,8 @@ defmodule ArticlePatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 403
-    assert %{"error" => %{"message" => "Unauthorised access attempt"}} = Poison.decode!(response.resp_body)
+    assert %{"error" => %{"message" => "Unauthorised access attempt"}}
+      = Poison.decode!(response.resp_body)
   end
 
   @doc """
@@ -81,7 +87,8 @@ defmodule ArticlePatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 403
-    assert %{"error" => %{"message" => "Unauthorised access attempt"}} = Poison.decode!(response.resp_body)
+    assert %{"error" => %{"message" => "Unauthorised access attempt"}}
+      = Poison.decode!(response.resp_body)
   end
 
   @doc """
@@ -94,6 +101,7 @@ defmodule ArticlePatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 401
-    assert %{"error" => %{"message" => "Unauthenticated access attempt"}} = Poison.decode!(response.resp_body)
+    assert %{"error" => %{"message" => "Unauthenticated access attempt"}}
+      = Poison.decode!(response.resp_body)
   end
 end
