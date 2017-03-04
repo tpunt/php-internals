@@ -2,6 +2,7 @@ defmodule PhpInternals.Api.Users.UserController do
   use PhpInternals.Web, :controller
 
   alias PhpInternals.Api.Users.User
+  alias PhpInternals.Utilities
 
   def index(%{user: %{privilege_level: 3}} = conn, _params) do
     conn
@@ -19,6 +20,27 @@ defmodule PhpInternals.Api.Users.UserController do
     conn
     |> put_status(403)
     |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised access attempt")
+  end
+
+  def show_contributions(conn, %{"username" => username} = params) do
+    with {:ok, user} <- User.valid?(username),
+         {:ok, order_by} <- User.valid_order_by?(params["order_by"]),
+         {:ok, ordering} <- Utilities.valid_ordering?(params["ordering"]),
+         {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
+         {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
+      contributions = User.fetch_contributions_for(username, order_by, ordering, offset, limit)
+
+# IO.inspect contributions
+      conn
+      |> put_status(200)
+      |> render("show_contributions.json", %{user: user, contributions: contributions})
+    else
+      {:error, status_code, error} ->
+        conn
+        |> put_status(status_code)
+        |> render(PhpInternals.ErrorView, "error.json", error: error)
+        IO.inspect conn
+    end
   end
 
   def show(conn, %{"username" => username}) do

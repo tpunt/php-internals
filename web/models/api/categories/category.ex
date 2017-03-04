@@ -284,7 +284,7 @@ defmodule PhpInternals.Api.Categories.Category do
     query = """
       MATCH (user:User {username: {username}})
       CREATE (category:Category {name: {name}, introduction: {introduction}, url: {url}, revision_id: {rev_id}}),
-        (category)-[:CONTRIBUTOR {type: "insert"}]->(user)
+        (category)-[:CONTRIBUTOR {type: "insert", date: timestamp()}]->(user)
       RETURN category
     """
 
@@ -301,7 +301,7 @@ defmodule PhpInternals.Api.Categories.Category do
     query = """
       MATCH (user:User {username: {username}})
       CREATE (category:InsertCategoryPatch {name: {name}, introduction: {introduction}, url: {url}, revision_id: {rev_id}}),
-        (category)-[:CONTRIBUTOR {type: "insert"}]->(user)
+        (category)-[:CONTRIBUTOR {type: "insert", date: timestamp()}]->(user)
       RETURN category
     """
 
@@ -329,7 +329,7 @@ defmodule PhpInternals.Api.Categories.Category do
           revision_id: {new_rev_id}
         }),
         (new_category)-[:REVISION]->(old_category),
-        (new_category)-[:CONTRIBUTOR {type: "update"}]->(user)
+        (new_category)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
 
       REMOVE old_category:Category
       SET old_category:CategoryRevision
@@ -377,7 +377,7 @@ defmodule PhpInternals.Api.Categories.Category do
           against_revision: {against_rev}
         }),
         (category)-[:UPDATE]->(ucp),
-        (ucp)-[:CONTRIBUTOR {type: "update"}]->(user)
+        (ucp)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
       RETURN category
     """
 
@@ -424,7 +424,7 @@ defmodule PhpInternals.Api.Categories.Category do
           }),
           (new_category)-[:REVISION]->(old_category),
           (new_category)-[:UPDATE_REVISION]->(cp),
-          (new_category)-[:CONTRIBUTOR {type: "update"}]->(user)
+          (new_category)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
 
         REMOVE old_category:Category
         SET old_category:CategoryRevision
@@ -488,7 +488,7 @@ defmodule PhpInternals.Api.Categories.Category do
             against_revision: {against_rev}
           }),
           (category)-[:UPDATE]->(new_ucp),
-          (new_ucp)-[:CONTRIBUTOR {type: "update"}]->(user),
+          (new_ucp)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user),
           (new_ucp)-[:UPDATE_REVISION]->(old_ucp)
 
         DELETE r
@@ -531,7 +531,7 @@ defmodule PhpInternals.Api.Categories.Category do
             (user:User {username: {username}})
           REMOVE cp:InsertCategoryPatch
           SET cp:Category
-          CREATE (cp)-[:CONTRIBUTOR {type: "apply_insert"}]->(user)
+          CREATE (cp)-[:CONTRIBUTOR {type: "apply_insert", date: timestamp()}]->(user)
           WITH cp
           RETURN cp as category
         """
@@ -568,7 +568,7 @@ defmodule PhpInternals.Api.Categories.Category do
               (user:User {username: {username}})
 
             CREATE (new_category)-[:REVISION]->(old_category),
-              (new_category)-[:CONTRIBUTOR {type: "apply_update"}]->(user)
+              (new_category)-[:CONTRIBUTOR {type: "apply_update", date: timestamp()}]->(user)
 
             REMOVE new_category:UpdateCategoryPatch
             SET new_category:Category
@@ -625,7 +625,7 @@ defmodule PhpInternals.Api.Categories.Category do
             (user:User {username: {username}})
           REMOVE c:Category
           SET c:CategoryDeleted
-          CREATE (c)-[:CONTRIBUTOR {type: "apply_delete"}]->(user)
+          CREATE (c)-[:CONTRIBUTOR {type: "apply_delete", date: timestamp()}]->(user)
           DELETE r, cd
         """
 
@@ -652,7 +652,7 @@ defmodule PhpInternals.Api.Categories.Category do
           (user:User {username: {username}})
         REMOVE cp:InsertCategoryPatch
         SET cp:InsertCategoryPatchDeleted
-        CREATE (cp)-[:CONTRIBUTOR {type: "discard_insert"}]->(user)
+        CREATE (cp)-[:CONTRIBUTOR {type: "discard_insert", date: timestamp()}]->(user)
       """
 
       Neo4j.query!(Neo4j.conn, query, params)
@@ -683,7 +683,7 @@ defmodule PhpInternals.Api.Categories.Category do
             (c)-[:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
           REMOVE cp:UpdateCategoryPatch
           SET cp:UpdateCategoryPatchDeleted
-          CREATE (cp)-[:CONTRIBUTOR {type: "discard_update"}]->(user)
+          CREATE (cp)-[:CONTRIBUTOR {type: "discard_update", date: timestamp()}]->(user)
         """
         Neo4j.query!(Neo4j.conn, query, params)
 
@@ -713,7 +713,7 @@ defmodule PhpInternals.Api.Categories.Category do
             (user:User {username: {username}}),
             (c)-[r:DELETE]->(cp:DeleteCategoryPatch)
           DELETE r, cp
-          MERGE (c)-[:CONTRIBUTOR {type: "discard_delete"}]->(user)
+          MERGE (c)-[:CONTRIBUTOR {type: "discard_delete", date: timestamp()}]->(user)
         """
 
         Neo4j.query!(Neo4j.conn, query, params)
@@ -733,7 +733,7 @@ defmodule PhpInternals.Api.Categories.Category do
       FOREACH (ignored IN CASE catdel WHEN NULL THEN [] ELSE [1] END |
         DELETE r, catdel
       )
-      CREATE (c)-[:CONTRIBUTOR {type: "delete"}]->(user)
+      CREATE (c)-[:CONTRIBUTOR {type: "delete", date: timestamp()}]->(user)
     """
 
     params = %{url: category_url, username: username}
@@ -746,7 +746,7 @@ defmodule PhpInternals.Api.Categories.Category do
       MATCH (c:Category {url: {url}}),
         (user:User {username: {username}})
       MERGE (c)-[:DELETE]->(catdel:DeleteCategoryPatch)
-      CREATE (c)-[:CONTRIBUTOR {type: "delete"}]->(user)
+      CREATE (c)-[:CONTRIBUTOR {type: "delete", date: timestamp()}]->(user)
     """
 
     params = %{url: category_url, username: username}
@@ -760,7 +760,7 @@ defmodule PhpInternals.Api.Categories.Category do
         (user:User {username: {username}})
       REMOVE c:CategoryDeleted
       SET c:Category
-      CREATE (c)-[:CONTRIBUTOR {type: "undo_delete"}]->(user)
+      CREATE (c)-[:CONTRIBUTOR {type: "undo_delete", date: timestamp()}]->(user)
     """
 
     params = %{url: category_url, username: username}

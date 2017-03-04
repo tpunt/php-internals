@@ -4,6 +4,21 @@ defmodule PhpInternals.Api.Users.User do
   @valid_fields ["name", "privilege_level"]
   @patch_limit 20
 
+  @valid_order_bys ["date", "username"]
+  @default_order_by "date"
+
+  def valid_order_by?(order_by) do
+    if order_by === nil do
+      {:ok, @default_order_by}
+    else
+      if Enum.member?(@valid_order_bys, order_by) do
+        {:ok, order_by}
+      else
+        {:error, 400, "Invalid order by field given (expecting: #{Enum.join(@valid_order_bys, ", ")})"}
+      end
+    end
+  end
+
   def valid?(nil = username) do
     {:ok, username}
   end
@@ -91,6 +106,33 @@ defmodule PhpInternals.Api.Users.User do
       [] -> nil
       [user] -> user
     end
+  end
+
+  def fetch_contributions_for(username, order_by, ordering, offset, limit) do
+    query = """
+      MATCH (u:User {username: {username}}),
+        (u)<-[cr:CONTRIBUTOR]-(cn)
+      RETURN {
+        type: cr.type,
+        date: cr.date,
+        towards: cn,
+        filter: CASE WHEN HEAD(LABELS(cn)) IN [
+            'Category',
+            'InsertCategoryPatch',
+            'UpdateCategoryPatch',
+            'DeleteCategoryPatch',
+            'CategoryDeleted'
+          ] THEN 'category' ELSE 'symbol'
+        END
+      } AS contribution
+      ORDER BY cr.#{order_by} #{ordering}
+      SKIP #{offset}
+      LIMIT #{limit}
+    """
+
+    params = %{username: username, order_by: order_by, ordering: ordering, offset: offset, limit: limit}
+
+    Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def update_token(username, access_token) do
