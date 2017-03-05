@@ -30,7 +30,6 @@ defmodule PhpInternals.Api.Users.UserController do
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
       contributions = User.fetch_contributions_for(username, order_by, ordering, offset, limit)
 
-# IO.inspect contributions
       conn
       |> put_status(200)
       |> render("show_contributions.json", %{user: user, contributions: contributions})
@@ -39,7 +38,6 @@ defmodule PhpInternals.Api.Users.UserController do
         conn
         |> put_status(status_code)
         |> render(PhpInternals.ErrorView, "error.json", error: error)
-        IO.inspect conn
     end
   end
 
