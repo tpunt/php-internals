@@ -580,12 +580,17 @@ defmodule PhpInternals.Api.Categories.Category do
 
             WITH old_category, new_category
 
-            OPTIONAL MATCH (old_category)-[r2:UPDATE]->(ucp:UpdateCategoryPatch)
-            OPTIONAL MATCH (old_category)-[r3:DELETE]->(dcp:DeleteCategoryPatch)
+            OPTIONAL MATCH (n)-[r2:CATEGORY]->(old_category)
+            OPTIONAL MATCH (old_category)-[r3:UPDATE]->(ucp:UpdateCategoryPatch)
+            OPTIONAL MATCH (old_category)-[r4:DELETE]->(dcp:DeleteCategoryPatch)
 
-            DELETE r2, r3
+            DELETE r2, r3, r4
 
-            WITH new_category, dcp, COLLECT(ucp) AS ucps
+            WITH new_category, COLLECT(n) AS ns, COLLECT(ucp) AS ucps, dcp
+
+            FOREACH (n IN ns |
+              CREATE (n)-[:CATEGORY]->(new_category)
+            )
 
             FOREACH (ucp IN ucps |
               CREATE (new_category)-[:UPDATE]->(ucp)
