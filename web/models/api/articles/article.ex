@@ -36,10 +36,6 @@ defmodule PhpInternals.Api.Articles.Article do
     end
   end
 
-  def valid_view?(nil = _view), do: {:ok, "full"}
-  def valid_view?("overview" = view), do: {:ok, view}
-  def valid_view?(_view), do: {:error, 400, "Invalid view field given"}
-
   def valid?(article_url) do
     query = """
       MATCH (article:Article {url: {url}}),
@@ -145,7 +141,7 @@ defmodule PhpInternals.Api.Articles.Article do
     end
   end
 
-  def fetch(order_by, ordering, offset, limit, category_filter, author_filter, view, search_term, full_search) do
+  def fetch_all(order_by, ordering, offset, limit, category_filter, author_filter, search_term, full_search) do
     query1 =
       if category_filter === nil do
         if author_filter === nil do
@@ -181,23 +177,17 @@ defmodule PhpInternals.Api.Articles.Article do
           {"", nil}
         end
 
-    query3 = "MATCH (a)-[arel:AUTHOR]->(u:User), (a)-[crel:CATEGORY]->(category:Category)"
+    query3 = """
+      MATCH (a)-[arel:AUTHOR]->(u:User), (a)-[crel:CATEGORY]->(category:Category)
 
-    query4 =
-      if view === "overview" do
-        "RETURN {
-          title: a.title,
-          url: a.url,
-          date: a.date,
-          excerpt: a.excerpt,
-          series_name: a.series_name,
-          series_url: a.series_url
-        } AS article,"
-      else
-        "RETURN a AS article,"
-      end
-
-    query5 = """
+      RETURN {
+        title: a.title,
+        url: a.url,
+        date: a.date,
+        excerpt: a.excerpt,
+        series_name: a.series_name,
+        series_url: a.series_url
+      } AS article,
         collect({category: category}) as categories,
         {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
       ORDER BY article.#{order_by} #{ordering}
@@ -205,7 +195,7 @@ defmodule PhpInternals.Api.Articles.Article do
       LIMIT #{limit}
     """
 
-    query = query1 <> query2 <> query3 <> query4 <> query5
+    query = query1 <> query2 <> query3
 
     params = %{category_url: category_filter, username: author_filter, search_term: search_term}
 

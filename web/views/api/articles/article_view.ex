@@ -5,11 +5,7 @@ defmodule PhpInternals.Api.Articles.ArticleView do
   alias PhpInternals.Api.Articles.ArticleView
   alias PhpInternals.Api.Users.UserView
 
-  def render("index_full.json", %{articles: articles}) do
-    %{articles: render_many(articles, ArticleView, "show_full.json")}
-  end
-
-  def render("index_overview.json", %{articles: articles}) do
+  def render("index.json", %{articles: articles}) do
     %{articles: render_many(articles, ArticleView, "show_overview.json")}
   end
 
