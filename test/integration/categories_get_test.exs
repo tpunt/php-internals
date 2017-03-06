@@ -18,17 +18,6 @@ defmodule CategoriesGetTest do
   end
 
   @doc """
-  GET /api/categories?view=normal
-  """
-  test "list all categories normal view" do
-    conn = conn(:get, "/api/categories", %{"view" => "normal"})
-    response = Router.call(conn, @opts)
-
-    assert response.status === 200
-    assert %{"categories" => _categories} = Poison.decode!(response.resp_body)
-  end
-
-  @doc """
   GET /api/categories?search=xiSten
   """
   test "search all categories by name" do

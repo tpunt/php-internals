@@ -7,9 +7,6 @@ defmodule PhpInternals.Api.Categories.Category do
   @valid_ordering_fields ["name"]
   @default_order_by "name"
 
-  @index_view_types ["normal", "overview"]
-  @default_index_view_type "overview"
-
   @show_view_types ["normal", "overview", "full"]
   @default_show_view_type "normal"
 
@@ -38,18 +35,6 @@ defmodule PhpInternals.Api.Categories.Category do
         {:ok, order_by}
       else
         {:error, 400, "Invalid order by field given (expecting: #{Enum.join(@valid_ordering_fields, ", ")})"}
-      end
-    end
-  end
-
-  def valid_index_view_type?(view_type) do
-    if view_type === nil do
-      {:ok, @default_index_view_type}
-    else
-      if Enum.member?(@index_view_types, view_type) do
-        {:ok, view_type}
-      else
-        {:error, 400, "Invalid view type given (expecting: #{Enum.join(@index_view_types, ", ")})"}
       end
     end
   end
@@ -130,42 +115,7 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def fetch_all("normal", order_by, ordering, offset, limit, search_term, full_search) do
-    {where_query, search_term} =
-      if search_term !== nil do
-        where_query = "WHERE category."
-
-        {column, search_term} =
-          if full_search do
-            {"introduction", "(?i).*#{search_term}.*"}
-          else
-            if String.first(search_term) === "=" do
-              {"name", "(?i)#{String.slice(search_term, 1..-1)}"}
-            else
-              {"name", "(?i).*#{search_term}.*"}
-            end
-          end
-
-        {where_query <> column <> " =~ {search_term}", search_term}
-      else
-        {"", nil}
-      end
-
-    query = """
-      MATCH (category:Category)
-      #{where_query}
-      RETURN category
-      ORDER BY category.#{order_by} #{ordering}
-      SKIP #{offset}
-      LIMIT #{limit}
-    """
-
-    params = %{search_term: search_term}
-
-    Neo4j.query!(Neo4j.conn, query, params)
-  end
-
-  def fetch_all("overview", order_by, ordering, offset, limit, search_term, full_search) do
+  def fetch_all(order_by, ordering, offset, limit, search_term, full_search) do
     {where_query, search_term} =
       if search_term !== nil do
         where_query = "WHERE c."

@@ -46,13 +46,12 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   def index(conn, params) do
-    with {:ok, view_type} <- Category.valid_index_view_type?(params["view"]),
-         {:ok, order_by} <- Category.valid_order_by?(params["order_by"]),
+    with {:ok, order_by} <- Category.valid_order_by?(params["order_by"]),
          {:ok, ordering} <- Utilities.valid_ordering?(params["ordering"]),
          {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
-      all_categories = Category.fetch_all(view_type, order_by, ordering, offset, limit, params["search"], params["full_search"])
-      render(conn, "index_#{view_type}.json", categories: all_categories)
+      all_categories = Category.fetch_all(order_by, ordering, offset, limit, params["search"], params["full_search"])
+      render(conn, "index_overview.json", categories: all_categories)
     else
       {:error, status_code, error} ->
         conn
