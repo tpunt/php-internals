@@ -113,10 +113,10 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def contains_no_symbols?(category_url) do
+  def contains_nothing?(category_url) do
     query = """
-      MATCH (symbol:Symbol)-[:CATEGORY]->(category:Category {url: {category_url}})
-      RETURN symbol
+      MATCH (n)-[:CATEGORY]->(category:Category {url: {category_url}})
+      RETURN n
     """
 
     params = %{category_url: category_url}
@@ -126,7 +126,7 @@ defmodule PhpInternals.Api.Categories.Category do
     if category == [] do
       {:ok}
     else
-      {:error, 400, "A category cannot be deleted whilst linked to symbols"}
+      {:error, 400, "A category cannot be deleted whilst linked to symbols or articles"}
     end
   end
 

@@ -114,6 +114,33 @@ defmodule CategoryDeleteTest do
   end
 
   @doc """
+  DELETE /api/categories/existent -H 'authorization: at2'
+  """
+  test "Authorised invalid delete for a category (still linked article)" do
+    name = :rand.uniform(100_000_000)
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (a:Article {url: 'existent'})
+      CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}'}),
+        (a)-[:CATEGORY]->(c)
+    """)
+
+    conn =
+      conn(:delete, "/api/categories/#{name}")
+      |> put_req_header("authorization", "at2")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 400
+    assert %{"error" => %{"message" => "A category cannot be deleted whilst linked to symbols or articles"}}
+      = Poison.decode!(response.resp_body)
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {name: '#{name}'})-[r]-()
+      DELETE r, c
+    """)
+  end
+
+  @doc """
   DELETE /api/categories/... -H 'authorization: ...'
   """
   test "Authorised invalid attempt at deleting a category (patch limit reached)" do
