@@ -136,7 +136,7 @@ defmodule SymbolsGetTest do
   end
 
   @doc """
-  GET /api/symbols?search===existing_symbol
+  GET /api/symbols?search==existing_symbol
   """
   test "Search (exact name) all symbols for an existing symbol" do
     conn = conn(:get, "/api/symbols", %{"search" => "=Existent"})
@@ -148,7 +148,7 @@ defmodule SymbolsGetTest do
   end
 
   @doc """
-  GET /api/symbols?search===non-existent
+  GET /api/symbols?search==non-existent
   """
   test "Search (exact name) all symbols for a non-existent symbol" do
     conn = conn(:get, "/api/symbols", %{"search" => "non-existent"})
@@ -158,6 +158,18 @@ defmodule SymbolsGetTest do
     assert response.status === 200
     assert %{"symbols" => symbols} = Poison.decode! response.resp_body
     assert [] === symbols
+  end
+
+  @doc """
+  GET /api/symbols?search=~&full_search=true
+  """
+  test "search all symbols by description" do
+    conn = conn(:get, "/api/symbols", %{"search" => "~", "full_search" => 1})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"symbols" => symbols} = Poison.decode!(response.resp_body)
+    assert %{"symbol" => %{}} = List.first symbols
   end
 
   @doc """

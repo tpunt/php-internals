@@ -204,7 +204,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def fetch_all(order_by, ordering, offset, limit, symbol_type, category_filter, search_term) do
+  def fetch_all(order_by, ordering, offset, limit, symbol_type, category_filter, search_term, full_search) do
     query1 = "MATCH (s:Symbol)"
     query2 = if category_filter === nil, do: "", else: ", (c:Category {url: {category_url}})"
     query3 = ", (s)-[:CATEGORY]->(c)"
@@ -212,11 +212,20 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       if search_term === nil do
         {"", search_term}
       else
-        if String.first(search_term) === "=" do
-          {"WHERE s.name =~ {search_term}", search_term = "(?i)#{String.slice(search_term, 1..-1)}"}
-        else
-          {"WHERE s.name =~ {search_term}", search_term = "(?i).*#{search_term}.*"}
-        end
+        where_query = "WHERE s."
+
+        {column, search_term} =
+          if full_search do
+            {"description", "(?i).*#{search_term}.*"}
+          else
+            if String.first(search_term) === "=" do
+              {"name", "(?i)#{String.slice(search_term, 1..-1)}"}
+            else
+              {"name", "(?i).*#{search_term}.*"}
+            end
+          end
+
+        {where_query <> column <> " =~ {search_term}", search_term}
       end
 
     query5 = if symbol_type === "all", do: "", else: "WHERE s.type = '#{symbol_type}'"
