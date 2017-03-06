@@ -10,7 +10,7 @@ defmodule ArticlesGetTest do
   @doc """
   GET /api/articles
   """
-  test "list all articles" do
+  test "list all articles overview" do
     conn = conn(:get, "/api/articles", %{})
     response = Router.call(conn, @opts)
 
@@ -19,14 +19,50 @@ defmodule ArticlesGetTest do
   end
 
   @doc """
-  GET /api/articles?view=overview
+  GET /api/articles?search=xiSten
   """
-  test "list all articles overview" do
-    conn = conn(:get, "/api/articles", %{"view" => "overview"})
+  test "search all articles by name" do
+    conn = conn(:get, "/api/articles", %{"search" => "xiSten"})
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert %{"articles" => _articles} = Poison.decode!(response.resp_body)
+    assert %{"articles" => articles} = Poison.decode!(response.resp_body)
+    assert %{"article" => %{"title" => "existent"}} = List.first articles
+  end
+
+  @doc """
+  GET /api/articles?search==exiStent
+  """
+  test "search all articles by exact name" do
+    conn = conn(:get, "/api/articles", %{"search" => "=exiStent"})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"articles" => articles} = Poison.decode!(response.resp_body)
+    assert %{"article" => %{"title" => "existent"}} = List.first articles
+  end
+
+  @doc """
+  GET /api/articles?search==xiSten
+  """
+  test "search all articles by exact name (no results)" do
+    conn = conn(:get, "/api/articles", %{"search" => "=xiSten"})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"articles" => []} = Poison.decode!(response.resp_body)
+  end
+
+  @doc """
+  GET /api/articles?search=.&full_search=true
+  """
+  test "search all articles by body" do
+    conn = conn(:get, "/api/articles", %{"search" => ".", "full_search" => 1})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"articles" => articles} = Poison.decode!(response.resp_body)
+    assert %{"article" => %{}} = List.first articles
   end
 
   @doc """

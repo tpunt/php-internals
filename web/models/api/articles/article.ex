@@ -145,7 +145,7 @@ defmodule PhpInternals.Api.Articles.Article do
     end
   end
 
-  def fetch(order_by, ordering, offset, limit, category_filter, author_filter, view) do
+  def fetch(order_by, ordering, offset, limit, category_filter, author_filter, view, search_term, full_search) do
     query1 =
       if category_filter === nil do
         if author_filter === nil do
@@ -161,9 +161,29 @@ defmodule PhpInternals.Api.Articles.Article do
         end
       end
 
-    query2 = "MATCH (a)-[arel:AUTHOR]->(u:User), (a)-[crel:CATEGORY]->(category:Category)"
+      {query2, search_term} =
+        if search_term !== nil do
+          where_query = "WHERE a."
 
-    query3 =
+          {column, search_term} =
+            if full_search do
+              {"body", "(?i).*#{search_term}.*"}
+            else
+              if String.first(search_term) === "=" do
+                {"title", "(?i)#{String.slice(search_term, 1..-1)}"}
+              else
+                {"title", "(?i).*#{search_term}.*"}
+              end
+            end
+
+          {where_query <> column <> " =~ {search_term}", search_term}
+        else
+          {"", nil}
+        end
+
+    query3 = "MATCH (a)-[arel:AUTHOR]->(u:User), (a)-[crel:CATEGORY]->(category:Category)"
+
+    query4 =
       if view === "overview" do
         "RETURN {
           title: a.title,
@@ -177,7 +197,7 @@ defmodule PhpInternals.Api.Articles.Article do
         "RETURN a AS article,"
       end
 
-    query4 = """
+    query5 = """
         collect({category: category}) as categories,
         {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
       ORDER BY article.#{order_by} #{ordering}
@@ -185,9 +205,9 @@ defmodule PhpInternals.Api.Articles.Article do
       LIMIT #{limit}
     """
 
-    query = query1 <> query2 <> query3 <> query4
+    query = query1 <> query2 <> query3 <> query4 <> query5
 
-    params = %{category_url: category_filter, username: author_filter}
+    params = %{category_url: category_filter, username: author_filter, search_term: search_term}
 
     Neo4j.query!(Neo4j.conn, query, params)
     |> Enum.map(fn %{"article" => article, "user" => user} = result ->

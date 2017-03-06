@@ -14,7 +14,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
          {:ok, _category} <- Category.valid?(params["category"]),
          {:ok, _user} <- User.valid?(params["author"]),
          {:ok, view} <- Article.valid_view?(params["view"]) do
-      articles = Article.fetch(order_by, ordering, offset, limit, params["category"], params["author"], view)
+      articles = Article.fetch(order_by, ordering, offset, limit, params["category"], params["author"], view, params["search"], params["full_search"])
       render(conn, "index_#{view}.json", articles: articles)
     else
       {:error, status_code, error} ->
