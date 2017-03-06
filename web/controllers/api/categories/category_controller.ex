@@ -51,7 +51,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
          {:ok, ordering} <- Utilities.valid_ordering?(params["ordering"]),
          {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
-      all_categories = Category.fetch_all(view_type, order_by, ordering, offset, limit)
+      all_categories = Category.fetch_all(view_type, order_by, ordering, offset, limit, params["search"], params["full_search"])
       render(conn, "index_#{view_type}.json", categories: all_categories)
     else
       {:error, status_code, error} ->

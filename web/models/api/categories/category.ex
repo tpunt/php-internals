@@ -8,7 +8,7 @@ defmodule PhpInternals.Api.Categories.Category do
   @default_order_by "name"
 
   @index_view_types ["normal", "overview"]
-  @default_index_view_type "normal"
+  @default_index_view_type "overview"
 
   @show_view_types ["normal", "overview", "full"]
   @default_show_view_type "normal"
@@ -130,28 +130,74 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def fetch_all("normal", order_by, ordering, offset, limit) do
+  def fetch_all("normal", order_by, ordering, offset, limit, search_term, full_search) do
+    {where_query, search_term} =
+      if search_term !== nil do
+        where_query = "WHERE category."
+
+        {column, search_term} =
+          if full_search do
+            {"introduction", "(?i).*#{search_term}.*"}
+          else
+            if String.first(search_term) === "=" do
+              {"name", "(?i)#{String.slice(search_term, 1..-1)}"}
+            else
+              {"name", "(?i).*#{search_term}.*"}
+            end
+          end
+
+        {where_query <> column <> " =~ {search_term}", search_term}
+      else
+        {"", nil}
+      end
+
     query = """
       MATCH (category:Category)
+      #{where_query}
       RETURN category
       ORDER BY category.#{order_by} #{ordering}
       SKIP #{offset}
       LIMIT #{limit}
     """
 
-    Neo4j.query!(Neo4j.conn, query)
+    params = %{search_term: search_term}
+
+    Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def fetch_all("overview", order_by, ordering, offset, limit) do
+  def fetch_all("overview", order_by, ordering, offset, limit, search_term, full_search) do
+    {where_query, search_term} =
+      if search_term !== nil do
+        where_query = "WHERE c."
+
+        {column, search_term} =
+          if full_search do
+            {"introduction", "(?i).*#{search_term}.*"}
+          else
+            if String.first(search_term) === "=" do
+              {"name", "(?i)#{String.slice(search_term, 1..-1)}"}
+            else
+              {"name", "(?i).*#{search_term}.*"}
+            end
+          end
+
+        {where_query <> column <> " =~ {search_term}", search_term}
+      else
+        {"", nil}
+      end
+
     query = """
       MATCH (c:Category)
+      #{where_query}
       RETURN {name: c.name, url: c.url} AS category
       ORDER BY c.#{order_by} #{ordering}
       SKIP #{offset}
       LIMIT #{limit}
     """
 
-    Neo4j.query!(Neo4j.conn, query)
+    params = %{search_term: search_term}
+
+    Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def fetch_all_patches("all") do

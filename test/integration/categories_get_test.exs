@@ -9,7 +9,7 @@ defmodule CategoriesGetTest do
   @doc """
   GET /api/categories
   """
-  test "list all categories" do
+  test "list all categories overview" do
     conn = conn(:get, "/api/categories", %{})
     response = Router.call(conn, @opts)
 
@@ -18,14 +18,61 @@ defmodule CategoriesGetTest do
   end
 
   @doc """
-  GET /api/categories?view=overview
+  GET /api/categories?view=normal
   """
-  test "list all categories overview" do
-    conn = conn(:get, "/api/categories", %{"view" => "overview"})
+  test "list all categories normal view" do
+    conn = conn(:get, "/api/categories", %{"view" => "normal"})
     response = Router.call(conn, @opts)
 
     assert response.status === 200
     assert %{"categories" => _categories} = Poison.decode!(response.resp_body)
+  end
+
+  @doc """
+  GET /api/categories?search=xiSten
+  """
+  test "search all categories by name" do
+    conn = conn(:get, "/api/categories", %{"search" => "xiSten"})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"categories" => categories} = Poison.decode!(response.resp_body)
+    assert %{"category" => %{"name" => "existent"}} = List.first categories
+  end
+
+  @doc """
+  GET /api/categories?search==exiStent
+  """
+  test "search all categories by exact name" do
+    conn = conn(:get, "/api/categories", %{"search" => "=exiStent"})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"categories" => categories} = Poison.decode!(response.resp_body)
+    assert %{"category" => %{"name" => "existent"}} = List.first categories
+  end
+
+  @doc """
+  GET /api/categories?search==xiSten
+  """
+  test "search all categories by exact name (no results)" do
+    conn = conn(:get, "/api/categories", %{"search" => "=xiSten"})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"categories" => []} = Poison.decode!(response.resp_body)
+  end
+
+  @doc """
+  GET /api/categories?search=~&full_search=true
+  """
+  test "search all categories by body" do
+    conn = conn(:get, "/api/categories", %{"search" => "~", "full_search" => 1})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"categories" => categories} = Poison.decode!(response.resp_body)
+    assert %{"category" => %{}} = List.first categories
   end
 
   @doc """
