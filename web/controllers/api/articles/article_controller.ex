@@ -78,7 +78,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
          {:ok} <- Article.contains_only_expected_fields?(article),
          {:ok, article_url_name} <- Utilities.is_url_friendly?(article["title"]),
          {:ok, series_url_name} <- Utilities.is_url_friendly?(article["series_name"]),
-         {:ok} <- Article.not_valid?(article_url_name),
+         {:ok} <- Article.not_valid?("", article_url_name),
          {:ok} <- Category.all_valid?(article["categories"]) do
       article =
         article
@@ -103,7 +103,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
          {:ok} <- Article.contains_only_expected_fields?(article),
          {:ok, article_url_name} <- Utilities.is_url_friendly?(article["title"]),
          {:ok, series_url_name} <- Utilities.is_url_friendly?(article["series_name"]),
-         {:ok} <- Article.not_valid?(article_url_name),
+         {:ok} <- Article.not_valid?(article_url, article_url_name),
          {:ok} <- Category.all_valid?(article["categories"]) do
       article =
         article

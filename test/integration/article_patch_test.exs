@@ -12,7 +12,6 @@ defmodule ArticlePatchTest do
   """
   test "authorised article update" do
     art_name = :rand.uniform(100_000_000)
-    art_name2 = :rand.uniform(100_000_000)
     ser_name = :rand.uniform(100_000_000)
     cat_name = :rand.uniform(100_000_000)
     cat_rev_id = :rand.uniform(100_000_000)
@@ -36,7 +35,7 @@ defmodule ArticlePatchTest do
           revision_id: #{cat_rev_id}
         })
     """)
-    data = %{"article" => %{"title" => "#{art_name2}", "excerpt" => "...",
+    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => "...",
       "body" => ".", "categories" => ["#{cat_name}"], "series_name" => "#{ser_name}"}}
 
     conn =
@@ -52,13 +51,57 @@ defmodule ArticlePatchTest do
         "series_name" => ser_name2}}
           = Poison.decode!(response.resp_body)
     assert [%{"category" => %{"name" => cat_name2a, "url" => cat_name2b}}] = categories
-    assert String.to_integer(art_name2a) === art_name2
-    assert String.to_integer(art_name2b) === art_name2
+    assert String.to_integer(art_name2a) === art_name
+    assert String.to_integer(art_name2b) === art_name
     assert String.to_integer(cat_name2a) === cat_name
     assert String.to_integer(cat_name2b) === cat_name
     assert String.to_integer(ser_name2) === ser_name
 
-    Neo4j.query!(Neo4j.conn, "MATCH (a:Article {title: '#{art_name2}'})-[r]-() DELETE r, a")
+    Neo4j.query!(Neo4j.conn, "MATCH (a:Article {title: '#{art_name}'})-[r]-() DELETE r, a")
+  end
+
+  @doc """
+  PATCH /api/articles/:article_url -H 'authorization:at3'
+  """
+  test "authorised invalid article update (article with the same name already exists)" do
+    art_name = :rand.uniform(100_000_000)
+    ser_name = :rand.uniform(100_000_000)
+    cat_name = :rand.uniform(100_000_000)
+    cat_rev_id = :rand.uniform(100_000_000)
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {id: 3}), (c:Category {url: 'existent'})
+      CREATE (a:Article {
+          title: '#{art_name}',
+          url: '#{art_name}',
+          series_name: '',
+          series_url: '',
+          excerpt: '.',
+          body: '...',
+          date: timestamp()
+        }),
+        (a)-[:AUTHOR]->(u),
+        (a)-[:CATEGORY]->(c),
+        (:Category {
+          name: '#{cat_name}',
+          introduction: '..',
+          url: '#{cat_name}',
+          revision_id: #{cat_rev_id}
+        })
+    """)
+    data = %{"article" => %{"title" => "existent", "excerpt" => "...",
+      "body" => ".", "categories" => ["#{cat_name}"], "series_name" => "#{ser_name}"}}
+
+    conn =
+      conn(:patch, "/api/articles/#{art_name}", data)
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "at3")
+    response = Router.call(conn, @opts)
+
+    assert response.status === 400
+    assert %{"error" => %{"message" => "The article with the specified name already exists"}}
+      = Poison.decode!(response.resp_body)
+
+    Neo4j.query!(Neo4j.conn, "MATCH (a:Article {title: '#{art_name}'})-[r]-() DELETE r, a")
   end
 
   @doc """

@@ -132,12 +132,16 @@ defmodule PhpInternals.Api.Articles.Article do
     end
   end
 
-  def not_valid?(article_url) do
-    case valid?(article_url) do
-      {:ok, _article} ->
-        {:error, 400, "The article with the specified name already exists"}
-      {:error, 404, _status} ->
-        {:ok}
+  def not_valid?(old_article_url, new_article_url) do
+    if old_article_url === new_article_url do
+      {:ok}
+    else
+      case valid?(new_article_url) do
+        {:ok, _article} ->
+          {:error, 400, "The article with the specified name already exists"}
+        {:error, 404, _status} ->
+          {:ok}
+      end
     end
   end
 
