@@ -5,9 +5,6 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   alias PhpInternals.Utilities
   alias PhpInternals.Api.Users.User
 
-  @default_limit 20
-  @default_order_by "name"
-
   def index(%{user: %{privilege_level: 0}} = conn, %{"patches" => _scope}) do
     conn
     |> put_status(401)
