@@ -114,7 +114,7 @@ defmodule SymbolsGetTest do
   GET /api/symbols?search=existing_symbol
   """
   test "Search (regex) all symbols for an existing symbol" do
-    conn = conn(:get, "/api/symbols", %{"search" => "xisten"})
+    conn = conn(:get, "/api/symbols", %{"search" => "xisTen"})
 
     response = Router.call(conn, @opts)
 
@@ -139,7 +139,7 @@ defmodule SymbolsGetTest do
   GET /api/symbols?search===existing_symbol
   """
   test "Search (exact name) all symbols for an existing symbol" do
-    conn = conn(:get, "/api/symbols", %{"search" => "=existent"})
+    conn = conn(:get, "/api/symbols", %{"search" => "=Existent"})
 
     response = Router.call(conn, @opts)
 

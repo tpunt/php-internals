@@ -213,9 +213,9 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         {"", search_term}
       else
         if String.first(search_term) === "=" do
-          {"WHERE s.name = {search_term}", search_term = String.slice(search_term, 1..-1)}
+          {"WHERE s.name =~ {search_term}", search_term = "(?i)#{String.slice(search_term, 1..-1)}"}
         else
-          {"WHERE s.name =~ {search_term}", search_term = ".*#{search_term}.*"}
+          {"WHERE s.name =~ {search_term}", search_term = "(?i).*#{search_term}.*"}
         end
       end
 
