@@ -32,7 +32,12 @@ defmodule PhpInternals.Api.Users.UserView do
   end
 
   def render("user_overview.json", %{user: %{"user" => user}}) do
-    %{username: user["username"], name: user["name"], privilege_level: user["privilege_level"]}
+    %{
+      username: user["username"],
+      name: user["name"],
+      privilege_level: user["privilege_level"],
+      avatar_url: user["avatar_url"]
+    }
   end
 
   def render("user_full.json", %{user: %{"user" => user}}) do

@@ -102,7 +102,12 @@ defmodule PhpInternals.Api.Users.User do
   def fetch_by_token(access_token) do
     query = """
       MATCH (u:User {access_token: {access_token}})
-      RETURN {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
+      RETURN {
+        username: u.username,
+        name: u.name,
+        privilege_level: u.privilege_level,
+        avatar_url: u.avatar_url
+      } AS user
     """
 
     params = %{access_token: access_token}

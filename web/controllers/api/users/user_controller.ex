@@ -56,7 +56,7 @@ defmodule PhpInternals.Api.Users.UserController do
 
   def self(%{user: user} = conn, _params) do
     user_data = %{"user" => %{"username" => user.username, "name" => user.name,
-      "privilege_level" => user.privilege_level}}
+      "privilege_level" => user.privilege_level, "avatar_url" => user.avatar_url}}
 
     conn
     |> put_status(200)

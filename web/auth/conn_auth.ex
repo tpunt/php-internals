@@ -8,24 +8,17 @@ defmodule PhpInternals.Auth.ConnAuth do
       header === "authorization"
     end)
 
-    user_data =
-      if auth_header == nil do
-        {0, "", ""}
-      else
-        {_header, token} = auth_header
-        user = User.fetch_by_token(token)
-
-        if user === nil do
-          {0, "", ""}
-        else
-          {user["user"]["privilege_level"], user["user"]["username"], user["user"]["name"]}
-        end
+    {privilege_level, username, name, avatar_url} =
+      case auth_header do
+        nil -> {0, "", "", ""}
+        {_header, token} ->
+          case User.fetch_by_token(token) do
+            nil -> {0, "", "", ""}
+            %{"user" => u} -> {u["privilege_level"], u["username"], u["name"], u["avatar_url"]}
+          end
       end
 
-    {privilege_level, username, name} = user_data
-
-    insert_user = %{privilege_level: privilege_level, username: username, name: name}
-
-    Map.put(conn, :user, insert_user)
+    conn
+    |> Map.put(:user, %{privilege_level: privilege_level, username: username, name: name, avatar_url: avatar_url})
   end
 end

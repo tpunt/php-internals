@@ -41,4 +41,19 @@ defmodule UserGetTest do
     assert %{"user" => %{"username" => "user1", "name" => "u1", "privilege_level" => 1},
       "contributions" => _c} = Poison.decode!(response.resp_body)
   end
+
+  @doc """
+  GET /api/users/non-existent
+  """
+  test "list a user by their token" do
+    conn =
+      conn(:get, "/api/user", %{})
+      |> put_req_header("authorization", "at1")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"user" => %{"username" => "user1", "name" => "u1", "privilege_level" => 1,
+      "avatar_url" => "~1"}} = Poison.decode!(response.resp_body)
+  end
 end
