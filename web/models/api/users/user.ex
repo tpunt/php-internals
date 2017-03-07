@@ -1,7 +1,8 @@
 defmodule PhpInternals.Api.Users.User do
   use PhpInternals.Web, :model
 
-  @valid_fields ["name", "privilege_level"]
+  @valid_fields ["name", "avatar_url", "blog_url", "email", "bio", "location", "github_url"]
+  @admin_valid_fields ["privilege_level", "access_token"] # "username" ?
   @patch_limit 20
 
   @valid_order_bys ["date", "username"]
@@ -33,11 +34,18 @@ defmodule PhpInternals.Api.Users.User do
     end
   end
 
-  def valid_params?(params) do
-    if params !== %{} and Map.keys(params) -- @valid_fields === [] do
+  def contains_only_expected_fields?(privilege_level, params) do
+    all_fields =
+      if privilege_level === 3 do
+        @valid_fields ++ @admin_valid_fields
+      else
+        @valid_fields
+      end
+
+    if Map.keys(params) -- all_fields === [] do
       {:ok}
     else
-      {:error, 400, "Unknown fields provided"}
+      {:error, 400, "Unknown fields given (expecting: #{Enum.join(all_fields, ", ")})"}
     end
   end
 
@@ -88,10 +96,7 @@ defmodule PhpInternals.Api.Users.User do
 
     params = %{username: username}
 
-    case Neo4j.query!(Neo4j.conn, query, params) do
-      [] -> nil
-      [user] -> user
-    end
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def fetch_by_token(access_token) do
@@ -102,10 +107,7 @@ defmodule PhpInternals.Api.Users.User do
 
     params = %{access_token: access_token}
 
-    case Neo4j.query!(Neo4j.conn, query, params) do
-      [] -> nil
-      [user] -> user
-    end
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def fetch_contributions_for(username, order_by, ordering, offset, limit) do
@@ -154,6 +156,12 @@ defmodule PhpInternals.Api.Users.User do
         username: {username},
         provider: {provider},
         access_token: {access_token},
+        avatar_url: {avatar_url},
+        blog_url: {blog_url},
+        email: {email},
+        bio: {bio},
+        location: {location},
+        github_url: {github_url},
         privilege_level: 1
       })
       RETURN user
@@ -164,23 +172,24 @@ defmodule PhpInternals.Api.Users.User do
 
   def update(username, user) do
     query1 = """
-      MATCH (u:User {username: {username}})
+      MATCH (user:User {username: {username}})
       SET
     """
 
     query2 =
       Enum.reduce(user, [], fn {key, _value}, acc ->
-        acc ++ ["u.#{key} = {#{key}}"]
+        acc ++ ["user.#{key} = {#{key}}"]
       end)
       |> Enum.join(",")
 
     query3 = """
-      RETURN {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
+      RETURN user
     """
 
     query = query1 <> query2 <> query3
+    params = Map.put(user, :username, username)
 
-    List.first Neo4j.query!(Neo4j.conn, query, Map.put(user, :username, username))
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def delete_token(username) do

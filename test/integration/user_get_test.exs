@@ -14,8 +14,10 @@ defmodule UserGetTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert %{"user" => %{"username" => "user1", "name" => "u1", "privilege_level" => 1}}
-      = Poison.decode!(response.resp_body)
+    assert %{"user" => %{"username" => "user1", "name" => "u1", "privilege_level" => 1,
+      "bio" => _, "github_url" => _, "email" => _, "avatar_url" => _, "location" => _,
+      "blog_url" => _}}
+        = Poison.decode!(response.resp_body)
   end
 
   @doc """

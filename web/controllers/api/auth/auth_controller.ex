@@ -40,7 +40,13 @@ defmodule PhpInternals.Api.Auth.AuthController do
             auth_info = %{access_token: client.token.access_token,
               provider: provider,
               name: user.name,
-              username: user_data["login"]}
+              username: user_data["login"],
+              avatar_url: user_data["avatar_url"],
+              blog_url: user_data["blog"],
+              email: user_data["email"],
+              bio: user_data["bio"],
+              location: user_data["location"],
+              github_url: user_data["html_url"]}
 
             User.insert(auth_info)
         end

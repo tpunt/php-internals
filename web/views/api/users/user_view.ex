@@ -6,11 +6,15 @@ defmodule PhpInternals.Api.Users.UserView do
   alias PhpInternals.Api.Symbols.SymbolView
 
   def render("index.json", %{users: users}) do
-    %{users: render_many(users, UserView, "user.json")}
+    %{users: render_many(users, UserView, "show_overview.json")}
   end
 
-  def render("show.json", %{user: user}) do
-    %{user: render_one(user, UserView, "user.json")}
+  def render("show_overview.json", %{user: user}) do
+    %{user: render_one(user, UserView, "user_overview.json")}
+  end
+
+  def render("show_full.json", %{user: user}) do
+    %{user: render_one(user, UserView, "user_full.json")}
   end
 
   def render("show_contributions.json", %{user: user, contributions: contributions}) do
@@ -24,10 +28,24 @@ defmodule PhpInternals.Api.Users.UserView do
           end
         end)
 
-    Map.merge(render("show.json", user: user), %{"contributions" => contributions})
+    Map.merge(render("show_overview.json", user: user), %{"contributions" => contributions})
   end
 
-  def render("user.json", %{user: %{"user" => user}}) do
+  def render("user_overview.json", %{user: %{"user" => user}}) do
     %{username: user["username"], name: user["name"], privilege_level: user["privilege_level"]}
+  end
+
+  def render("user_full.json", %{user: %{"user" => user}}) do
+    %{
+      username: user["username"],
+      name: user["name"],
+      privilege_level: user["privilege_level"],
+      avatar_url: user["avatar_url"],
+      blog_url: user["blog_url"],
+      email: user["email"],
+      bio: user["bio"],
+      location: user["location"],
+      github_url: user["github_url"]
+    }
   end
 end

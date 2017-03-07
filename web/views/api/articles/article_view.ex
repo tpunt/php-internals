@@ -21,14 +21,14 @@ defmodule PhpInternals.Api.Articles.ArticleView do
     %{title: article["title"], url: article["url"], excerpt: article["excerpt"],
       body: article["body"], date: article["date"], series_name: article["series_name"],
       series_url: article["series_url"]}
-    |> Map.merge(%{author: UserView.render("user.json", %{user: %{"user" => article["user"]}})})
+    |> Map.merge(%{author: UserView.render("user_overview.json", %{user: %{"user" => article["user"]}})})
     |> Map.merge(CategoryView.render("index_overview.json", %{categories: article["categories"]}))
   end
 
   def render("article_overview.json", %{article: %{"article" => article}}) do
     %{title: article["title"], url: article["url"], excerpt: article["excerpt"],
       date: article["date"], series_name: article["series_name"], series_url: article["series_url"]}
-    |> Map.merge(%{author: UserView.render("user.json", %{user: %{"user" => article["user"]}})})
+    |> Map.merge(%{author: UserView.render("user_overview.json", %{user: %{"user" => article["user"]}})})
     |> Map.merge(CategoryView.render("index_overview.json", %{categories: article["categories"]}))
   end
 end

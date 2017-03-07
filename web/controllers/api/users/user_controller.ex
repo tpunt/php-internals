@@ -45,7 +45,7 @@ defmodule PhpInternals.Api.Users.UserController do
     with {:ok, user} <- User.valid?(username) do
       conn
       |> put_status(200)
-      |> render("show.json", user: user)
+      |> render("show_full.json", user: user)
     else
       {:error, status_code, error} ->
         conn
@@ -60,7 +60,7 @@ defmodule PhpInternals.Api.Users.UserController do
 
     conn
     |> put_status(200)
-    |> render("show.json", user: user_data)
+    |> render("show_overview.json", user: user_data)
   end
 
   def update(%{user: %{privilege_level: 0}} = conn, _params) do
@@ -69,36 +69,17 @@ defmodule PhpInternals.Api.Users.UserController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Unauthenticated access attempt")
   end
 
-  def update(%{user: %{privilege_level: 3}} = conn, %{"username" => username, "user" => %{} = user}) do
-    with {:ok} <- User.valid_params?(user),
+  def update(%{user: %{privilege_level: pl}} = conn, %{"username" => username, "user" => %{} = user}) do
+    with {:ok} <- User.contains_only_expected_fields?(pl, user),
          {:ok, _user_old} <- User.valid?(username) do
-      conn
-      |> put_status(200)
-      |> render("show.json", user: User.update(username, user))
-   else
-     {:error, status_code, error} ->
-       conn
-       |> put_status(status_code)
-       |> render(PhpInternals.ErrorView, "error.json", error: error)
-   end
-  end
-
-  def update(conn, %{"username" => username, "user" => %{} = user}) do
-    with {:ok} <- User.valid_params?(user) do
-      if conn.user.username !== username do
+      if pl !== 3 and conn.user.username !== username do
         conn
         |> put_status(400)
         |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorized attempt at updating another user")
       else
-        if Map.has_key?(user, "privilege_level") and conn.user.privilege_level !== user["privilege_level"] do
-          conn
-          |> put_status(400)
-          |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorized attempt at privilege level escalation")
-        else
-          conn
-          |> put_status(200)
-          |> render("show.json", user: User.update(username, user))
-        end
+        conn
+        |> put_status(200)
+        |> render("show_full.json", user: User.update(username, user))
       end
     else
       {:error, status_code, error} ->
