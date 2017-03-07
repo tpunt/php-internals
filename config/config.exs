@@ -21,7 +21,7 @@ config :logger, :console,
 config :oauth2, PhpInternals.Auth.GitHub,
   client_id: "dc8b1aaa5cf9d8d9d8ff",#System.get_env("GITHUB_CLIENT_ID"),
   client_secret: "83c8847145dd100230bdae006d1c8212d4c3cd74",#System.get_env("GITHUB_CLIENT_SECRET"),
-  redirect_uri: "http://php-internals.herokuapp.com/api/auth/github/callback"
+  redirect_uri: "http://phpinternals.net/api/auth/github/callback"
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

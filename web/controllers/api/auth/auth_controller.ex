@@ -53,7 +53,7 @@ defmodule PhpInternals.Api.Auth.AuthController do
       end
 
       conn
-      |> put_resp_header("location", "http://php-internals.herokuapp.com?access_token=#{client.token.access_token}")
+      |> put_resp_header("location", "http://phpinternals.net?access_token=#{client.token.access_token}")
       |> send_resp(301, "")
     end
   end
