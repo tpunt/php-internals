@@ -152,8 +152,15 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def fetch_all_patches("all") do
     query = """
-      MATCH (category:Category)-[:UPDATE|:DELETE]->(cp)
-      RETURN category, collect(cp) as patches
+      MATCH (c:Category)
+      OPTIONAL MATCH (c)-[:UPDATE]->(ucp:UpdateCategoryPatch)
+      OPTIONAL MATCH (c)-[:DELETE]->(dcp:DeleteCategoryPatch)
+      WITH c, COLLECT(ucp) AS ucps, dcp
+      RETURN {
+        category: c,
+        updates: CASE ucps WHEN NULL THEN [] ELSE ucps END,
+        delete: CASE dcp WHEN NULL THEN FALSE ELSE TRUE END
+      } AS patches
     """
 
     %{inserts: fetch_all_patches("insert"),
@@ -190,8 +197,15 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def fetch_patches_for(category_url) do
     query = """
-      MATCH (category:Category {url: {category_url}})-[:UPDATE|:DELETE]->(cp)
-      RETURN category, collect(cp) as patches
+      MATCH (c:Category {url: {category_url}})
+      OPTIONAL MATCH (c)-[:UPDATE]->(ucp:UpdateCategoryPatch)
+      OPTIONAL MATCH (c)-[:DELETE]->(dcp:DeleteCategoryPatch)
+      WITH c, COLLECT(ucp) AS ucps, dcp
+      RETURN {
+        category: c,
+        updates: CASE ucps WHEN NULL THEN [] ELSE ucps END,
+        delete: CASE dcp WHEN NULL THEN FALSE ELSE TRUE END
+      } AS patches
     """
 
     params = %{category_url: category_url}

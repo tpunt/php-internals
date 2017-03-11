@@ -18,16 +18,10 @@ defmodule PhpInternals.Api.Categories.CategoryView do
       categories_patches: render_many(patches, CategoryView, "index_patches_changes.json")}
   end
 
-  def render("index_patches_changes.json", %{category: %{"category" => category, "patches" => patches}}) do
-    updates = Enum.filter(patches, fn e -> e != %{} end)
-
-    %{category: render_one(category, CategoryView, "category.json"),
-      category_updates: render_many(updates, CategoryView, "show_updates2.json"),
-      category_delete: Enum.member?(patches, %{})}
-  end
-
-  def render("show_updates2.json", %{category: category_update}) do
-    render_one(category_update, CategoryView, "category_update.json")
+  def render("index_patches_changes.json", %{category: %{"patches" => patches}}) do
+    %{category: render_one(patches["category"], CategoryView, "category.json"),
+      category_updates: render_many(patches["updates"], CategoryView, "category_update.json"),
+      category_delete: patches["delete"]}
   end
 
   def render("index_patches_insert.json", %{categories_patches: categories_patches}) do

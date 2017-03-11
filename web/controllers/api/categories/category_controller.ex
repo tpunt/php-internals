@@ -74,8 +74,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
 
   def show(conn, %{"category_name" => category_url, "patches" => "all"}) do
     with {:ok, _category} <- Category.valid?(category_url) do
-      category_patches = Category.fetch_patches_for(category_url)
-      render(conn, "index_patches_changes.json", category: category_patches)
+      render(conn, "index_patches_changes.json", category: Category.fetch_patches_for(category_url))
     else
       {:error, status_code, error} ->
         conn
