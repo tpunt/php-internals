@@ -153,12 +153,24 @@ defmodule PhpInternals.Api.Categories.Category do
   def fetch_all_patches("all") do
     query = """
       MATCH (c:Category)
-      OPTIONAL MATCH (c)-[:UPDATE]->(ucp:UpdateCategoryPatch)
+      OPTIONAL MATCH (c)-[:UPDATE]->(ucp:UpdateCategoryPatch),
+        (ucp)-[r:CONTRIBUTOR]->(u:User)
       OPTIONAL MATCH (c)-[:DELETE]->(dcp:DeleteCategoryPatch)
-      WITH c, COLLECT(ucp) AS ucps, dcp
+      WITH c, CASE ucp WHEN NULL THEN [] ELSE COLLECT({
+          update: ucp,
+          user: {
+            username: u.username,
+            name: u.name,
+            privilege_level: u.privilege_level,
+            avatar_url: u.avatar_url
+          },
+          date: r.date
+        }) END AS ucps,
+        dcp
+      WHERE dcp <> FALSE OR ucps <> []
       RETURN {
         category: c,
-        updates: CASE ucps WHEN NULL THEN [] ELSE ucps END,
+        updates: ucps,
         delete: CASE dcp WHEN NULL THEN FALSE ELSE TRUE END
       } AS patches
     """
@@ -169,17 +181,42 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def fetch_all_patches("insert") do
     query = """
-      MATCH (category_insert:InsertCategoryPatch)
-      RETURN category_insert
+      MATCH (c:InsertCategoryPatch),
+        (c)-[r:CONTRIBUTOR]->(u:User)
+      RETURN {
+        category: c,
+        user: {
+          username: u.username,
+          name: u.name,
+          privilege_level: u.privilege_level,
+          avatar_url: u.avatar_url
+        },
+        date: r.date
+      } AS category_insert
     """
+
     Neo4j.query!(Neo4j.conn, query)
   end
 
   def fetch_all_patches("update") do
     query = """
-      MATCH (category:Category)-[:UPDATE]->(update_category:UpdateCategoryPatch)
-      RETURN {category: category, updates: collect(update_category)} as category_update
+      MATCH (c:Category)-[:UPDATE]->(ucp:UpdateCategoryPatch),
+        (ucp)-[r:CONTRIBUTOR]->(u:User)
+      RETURN {
+        category: c,
+        updates: COLLECT({
+            update: ucp,
+            user: {
+              username: u.username,
+              name: u.name,
+              privilege_level: u.privilege_level,
+              avatar_url: u.avatar_url
+            },
+            date: r.date
+          })
+      } AS category_update
     """
+
     Neo4j.query!(Neo4j.conn, query)
   end
 
@@ -198,12 +235,21 @@ defmodule PhpInternals.Api.Categories.Category do
   def fetch_patches_for(category_url) do
     query = """
       MATCH (c:Category {url: {category_url}})
-      OPTIONAL MATCH (c)-[:UPDATE]->(ucp:UpdateCategoryPatch)
+      OPTIONAL MATCH (c)-[:UPDATE]->(ucp:UpdateCategoryPatch),
+        (ucp)-[r:CONTRIBUTOR]->(u:User)
       OPTIONAL MATCH (c)-[:DELETE]->(dcp:DeleteCategoryPatch)
-      WITH c, COLLECT(ucp) AS ucps, dcp
       RETURN {
         category: c,
-        updates: CASE ucps WHEN NULL THEN [] ELSE ucps END,
+        updates: CASE ucp WHEN NULL THEN [] ELSE COLLECT({
+            update: ucp,
+            user: {
+              username: u.username,
+              name: u.name,
+              privilege_level: u.privilege_level,
+              avatar_url: u.avatar_url
+            },
+            date: r.date
+          }) END,
         delete: CASE dcp WHEN NULL THEN FALSE ELSE TRUE END
       } AS patches
     """
@@ -215,8 +261,18 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def fetch_insert_patch_for(category_url) do
     query = """
-      MATCH (category_insert:InsertCategoryPatch {url: {category_url}})
-      RETURN category_insert
+      MATCH (c:InsertCategoryPatch {url: {category_url}}),
+        (c)-[r:CONTRIBUTOR]->(u:User)
+      RETURN {
+        category: c,
+        user: {
+          username: u.username,
+          name: u.name,
+          privilege_level: u.privilege_level,
+          avatar_url: u.avatar_url
+        },
+        date: r.date
+      } AS category_insert
     """
 
     params = %{category_url: category_url}
@@ -226,8 +282,23 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def fetch_update_patch_for(category_url, patch_id) do
     query = """
-      MATCH (category:Category {url: {category_url}})-[:UPDATE]->(update_category:UpdateCategoryPatch {revision_id: {patch_id}})
-      RETURN {category: category, update: update_category} as category_update
+      MATCH (c:Category {url: {category_url}}),
+        (ucp:UpdateCategoryPatch {revision_id: {patch_id}}),
+        (c)-[:UPDATE]->(ucp),
+        (ucp)-[r:CONTRIBUTOR]->(u:User)
+      RETURN {
+        category: c,
+        update: {
+          update: ucp,
+          user: {
+            username: u.username,
+            name: u.name,
+            privilege_level: u.privilege_level,
+            avatar_url: u.avatar_url
+          },
+          date: r.date
+        }
+      } AS category_update
     """
 
     params = %{category_url: category_url, patch_id: patch_id}
@@ -237,8 +308,21 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def fetch_update_patches_for(category_url) do
     query = """
-      MATCH (category:Category {url: {category_url}})-[:UPDATE]->(update_category:UpdateCategoryPatch)
-      RETURN {category: category, updates: collect(update_category)} as category_update
+      MATCH (c:Category {url: {category_url}})-[:UPDATE]->(ucp:UpdateCategoryPatch),
+        (ucp)-[r:CONTRIBUTOR]->(u:User)
+      RETURN {
+        category: c,
+        updates: COLLECT({
+            update: ucp,
+            user: {
+              username: u.username,
+              name: u.name,
+              privilege_level: u.privilege_level,
+              avatar_url: u.avatar_url
+            },
+            date: r.date
+          })
+      } AS category_update
     """
 
     params = %{category_url: category_url}

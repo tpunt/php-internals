@@ -81,12 +81,13 @@ defmodule CategoryGetTest do
     name = :rand.uniform(100_000_000)
     rev_id = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {id: 3})
       CREATE (:InsertCategoryPatch {
           name: '#{name}',
           introduction: '...',
           url: '#{name}',
           revision_id: #{rev_id}
-        })
+        })-[:CONTRIBUTOR {type: 'insert', date: timestamp()}]->(u)
     """)
 
     conn =
@@ -98,7 +99,10 @@ defmodule CategoryGetTest do
     assert response.status === 200
     assert %{"category_insert" => %{"category" => %{"introduction" => "..."}}} = Poison.decode! response.resp_body
 
-    Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatch {revision_id: #{rev_id}}) DELETE c")
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:InsertCategoryPatch {revision_id: #{rev_id}})-[r]-()
+      DELETE r, c
+    """)
   end
 
   @doc """
@@ -109,6 +113,7 @@ defmodule CategoryGetTest do
     rev_id = :rand.uniform(100_000_000)
     rev_id2 = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {id: 3})
       CREATE (c:Category {
           name: '#{name}',
           introduction: '...',
@@ -122,7 +127,8 @@ defmodule CategoryGetTest do
           revision_id: #{rev_id2},
           against_revision: #{rev_id}
         }),
-        (c)-[:UPDATE]->(ucp)
+        (c)-[:UPDATE]->(ucp),
+        (ucp)-[:CONTRIBUTOR {type: 'insert', date: timestamp()}]->(u)
     """)
 
     conn =
@@ -136,9 +142,9 @@ defmodule CategoryGetTest do
       = Poison.decode! response.resp_body
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {revision_id: #{rev_id}})-[r]-(),
-        (ucp:UpdateCategoryPatch {revision_id: #{rev_id2}})
-      DELETE r, c, ucp
+      MATCH (c:Category {revision_id: #{rev_id}})-[r1]-(),
+        (ucp:UpdateCategoryPatch {revision_id: #{rev_id2}})-[r2]-()
+      DELETE r1, r2, c, ucp
     """)
   end
 
@@ -170,6 +176,7 @@ defmodule CategoryGetTest do
     rev_id = :rand.uniform(100_000_000)
     rev_id2 = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {id: 3})
       CREATE (c:Category {
           name: '#{name}',
           introduction: '...',
@@ -183,7 +190,8 @@ defmodule CategoryGetTest do
           revision_id: #{rev_id2},
           against_revision: #{rev_id}
         }),
-        (c)-[:UPDATE]->(ucp)
+        (c)-[:UPDATE]->(ucp),
+        (ucp)-[:CONTRIBUTOR {type: 'insert', date: timestamp()}]->(u)
     """)
 
     conn =
@@ -194,13 +202,13 @@ defmodule CategoryGetTest do
 
     assert response.status === 200
     assert %{"category_update" => %{"category" => %{"introduction" => "..."}, "update" =>
-      %{"category_update" => %{"category" => %{"introduction" => "."}}}}}
+      %{"category" => %{"introduction" => "."}, "date" => _date, "user" => _user}}}
         = Poison.decode! response.resp_body
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {revision_id: #{rev_id}})-[r]-(),
-        (ucp:UpdateCategoryPatch {revision_id: #{rev_id2}})
-      DELETE r, c, ucp
+      MATCH (c:Category {revision_id: #{rev_id}})-[r1]-(),
+        (ucp:UpdateCategoryPatch {revision_id: #{rev_id2}})-[r2]-()
+      DELETE r1, r2, c, ucp
     """)
   end
 

@@ -4,6 +4,7 @@ defmodule PhpInternals.Api.Categories.CategoryView do
   alias PhpInternals.Api.Categories.CategoryView
   alias PhpInternals.Api.Symbols.SymbolView
   alias PhpInternals.Api.Articles.ArticleView
+  alias PhpInternals.Api.Users.UserView
 
   def render("index_normal.json", %{categories: categories}) do
     %{categories: render_many(categories, CategoryView, "show.json")}
@@ -41,7 +42,13 @@ defmodule PhpInternals.Api.Categories.CategoryView do
   end
 
   def render("show_insert.json", %{category: %{"category_insert" => category_insert}}) do
-    %{category_insert: %{category: render_one(category_insert, CategoryView, "category.json")}}
+    %{
+      category_insert: %{
+        category: render_one(category_insert["category"], CategoryView, "category.json"),
+        user: UserView.render("user_overview.json", %{user: %{"user" => category_insert["user"]}}),
+        date: category_insert["date"]
+      }
+    }
   end
 
   def render("show_insert.json", %{category: %{"category_delete" => category_delete}}) do
@@ -49,9 +56,17 @@ defmodule PhpInternals.Api.Categories.CategoryView do
   end
 
   def render("show_update.json", %{category: %{"category_update" => category_update}}) do
-    %{category_update:
-      %{category: render_one(category_update["category"], CategoryView, "category.json"),
-        update: render_one(category_update["update"], CategoryView, "category_update.json")}}
+    update = render_one(category_update["update"], CategoryView, "category_update.json")
+    %{
+      category_update: %{
+        category: render_one(category_update["category"], CategoryView, "category.json"),
+        update: %{
+          category: update.category_update.category,
+          user: update.category_update.user,
+          date: update.category_update.date,
+        }
+      }
+    }
   end
 
   def render("show_updates.json", %{category: %{"category_update" => category_update}}) do
@@ -90,14 +105,20 @@ defmodule PhpInternals.Api.Categories.CategoryView do
       revision_id: category["revision_id"]}
   end
 
-  def render("category_update.json", %{category: category_update}) do
-    %{category_update:
-      %{category:
-        %{name: category_update["name"],
-          introduction: category_update["introduction"],
-          url: category_update["url"],
-          revision_id: category_update["revision_id"],
-          against_revision: category_update["against_revision"]}}}
+  def render("category_update.json", %{category: %{"update" => update, "user" => user, "date" => date}}) do
+    %{
+      category_update: %{
+        category: %{
+          name: update["name"],
+          introduction: update["introduction"],
+          url: update["url"],
+          revision_id: update["revision_id"],
+          against_revision: update["against_revision"]
+        },
+        user: UserView.render("user_overview.json", %{user: %{"user" => user}}),
+        date: date
+      }
+    }
   end
 
   def render("category_overview.json", %{category: %{"category" => category}}) do
