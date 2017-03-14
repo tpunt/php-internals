@@ -3,28 +3,15 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
 
   alias PhpInternals.Api.Symbols.SymbolView
   alias PhpInternals.Api.Categories.CategoryView
+  alias PhpInternals.Api.Users.UserView
 
   def render("index.json", %{symbols: symbols}) do
     %{symbols: render_many(symbols, SymbolView, "show_overview_index.json")}
   end
 
-  def render("index_deleted.json", %{symbols: symbols}) do
-    %{symbols_deleted: render_many(symbols, SymbolView, "show.json")}
-  end
-
   def render("index_patches_all.json", %{symbols_patches: %{inserts: inserts, patches: patches}}) do
     %{symbols_inserts: render_many(inserts, SymbolView, "show_insert.json"),
       symbols_patches: render_many(patches, SymbolView, "show_patches_changes.json")}
-  end
-
-  def render("show_patches_changes.json", %{symbol: %{"symbol_patches" => %{"symbol" => symbol, "patches" => %{"updates" => updates, "delete" => delete}}}}) do
-    %{symbol_patches:
-      %{symbol: render_one(symbol, SymbolView, "symbol.json"), patches:
-        %{updates: render_many(updates, SymbolView, "show_updates2.json"), delete: delete}}}
-  end
-
-  def render("show_updates2.json", %{symbol: symbol_update}) do
-    render_one(symbol_update, SymbolView, "symbol_update.json")
   end
 
   def render("index_patches_insert.json", %{symbols_patches: symbols_patches}) do
@@ -39,66 +26,66 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
     %{symbols_deletes: render_many(symbols_patches, SymbolView, "show_delete.json")}
   end
 
+  def render("index_deleted.json", %{symbols: symbols}) do
+    %{symbols_deleted: render_many(symbols, SymbolView, "show.json")}
+  end
+
+  def render("show.json", %{symbol: %{"symbol" => symbol}}) do
+    %{symbol: render_one(symbol, SymbolView, "symbol.json")}
+  end
+
   def render("show_overview.json", %{symbol: symbol}) do
     %{symbol: render_one(symbol, SymbolView, "symbol_overview.json")}
   end
 
-  def render("show_overview_index.json", %{symbol: symbol}) do
-    %{symbol: render_one(symbol, SymbolView, "symbol_overview_index.json")}
+  def render("show_overview_index.json", %{symbol: %{"symbol" => symbol}}) do
+    %{symbol: render_one(symbol, SymbolView, "symbol_overview.json")}
   end
 
-  def render("show.json", %{symbol: symbol}) do
-    %{symbol: render_one(symbol, SymbolView, "symbol.json")}
+  def render("show_patches_changes.json", %{symbol: %{"symbol_patches" => symbol_updates}}) do
+    %{
+      symbol_patches: %{
+        symbol: render_one(symbol_updates, SymbolView, "symbol.json"),
+        patches: %{
+          updates: render_many(symbol_updates["updates"], SymbolView, "show_update.json"),
+          delete: symbol_updates["delete"]
+        }
+      }
+    }
   end
 
   def render("show_insert.json", %{symbol: %{"symbol_insert" => symbol_insert}}) do
-    %{symbol_insert: %{symbol: render_one(symbol_insert, SymbolView, "symbol.json")}}
+    %{symbol_insert: render_one(symbol_insert, SymbolView, "symbol_insert.json")}
   end
 
-  def render("show_update.json", %{symbol: %{"symbol_update" => %{"symbol" => symbol, "update" => update}}}) do
-    %{symbol_update:
-      %{symbol: render_one(symbol, SymbolView, "symbol.json"),
-        update: render_one(update, SymbolView, "symbol.json")}}
+  def render("show_updates.json", %{symbol: %{"symbol_updates" => symbol_updates}}) do
+    %{
+      symbol_updates: %{
+        symbol: render_one(symbol_updates, SymbolView, "symbol.json"),
+        updates: render_many(symbol_updates["updates"], SymbolView, "symbol_update.json")
+      }
+    }
   end
 
-  def render("show_updates.json", %{symbol: %{"symbol_updates" => %{"symbol" => symbol, "updates" => updates}}}) do
-    %{symbol_updates:
-      %{symbol: render_one(symbol, SymbolView, "symbol.json"),
-        updates: render_many(updates, SymbolView, "symbol_update.json")}}
+  def render("show_update.json", %{symbol: %{"symbol_update" => symbol_update}}) do
+    %{symbol_update: render_one(symbol_update, SymbolView, "symbol_update.json")}
   end
 
-  def render("show_delete.json", %{symbol: %{"symbol_delete" => %{"symbol" => symbol}}}) do
+  def render("show_specific_update.json", %{symbol: %{"symbol_update" => symbol_update}}) do
+    %{
+      symbol_update: %{
+        symbol: render_one(symbol_update, SymbolView, "symbol.json"),
+        update: render_one(symbol_update, SymbolView, "symbol_update.json")
+      }
+    }
+  end
+
+  def render("show_delete.json", %{symbol: %{"symbol_delete" => symbol}}) do
     %{symbol_delete: %{symbol: render_one(symbol, SymbolView, "symbol.json")}}
   end
 
-  def render("show_patches.json", %{symbol_patches: symbol_patches}) do
-    render_one(symbol_patches, SymbolView, "show_updates.json")
-    |> Map.merge(render_one(symbol_patches, SymbolView, "show_delete.json"))
-  end
 
-  def render("symbol_overview_index.json", %{symbol: %{"symbol" => symbol}}) do
-    %{id: symbol["id"], name: symbol["name"], url: symbol["url"], type: symbol["type"]}
-    |> Map.merge(CategoryView.render("index_overview.json", %{categories: symbol["categories"]}))
-  end
-
-  def render("symbol_overview.json", %{symbol: %{"symbol" => symbol}}) do
-    %{id: symbol["id"], name: symbol["name"], url: symbol["url"], type: symbol["type"]}
-  end
-
-  # for fetch_all_symbols_full
-  def render("symbol_overview.json", %{symbol: symbol}) do
-    render_one(%{"symbol" => symbol}, SymbolView, "symbol_overview.json")
-  end
-
-  def render("symbol_update.json", %{symbol: %{"update" => %{"symbol" => symbol}}}) do
-    %{update: render_one(symbol, SymbolView, "symbol.json")}
-  end
-
-  def render("symbol_update.json", %{symbol: symbol}) do
-    %{update: render_one(symbol, SymbolView, "symbol.json")}
-  end
-
-  def render("symbol.json", %{symbol: %{"symbol" => symbol}}) do
+  def render("symbol.json", %{symbol: %{"symbol" => symbol, "categories" => categories}}) do
     return_symbol = %{
       id: symbol["id"],
       name: symbol["name"],
@@ -116,25 +103,47 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
 
     return_symbol
     |> Map.merge(render_type(symbol))
-    |> Map.merge(CategoryView.render("index_overview.json", %{categories: symbol["categories"]}))
+    |> Map.merge(CategoryView.render("index_overview.json", %{categories: categories}))
   end
 
-  # for fetch_all_symbols_patches
-  def render("symbol.json", %{symbol: symbol}) do
-    render_one(%{"symbol" => symbol}, SymbolView, "symbol.json")
+  def render("symbol_overview.json", %{symbol: %{"symbol" => symbol, "categories" => categories}}) do
+    %{id: symbol["id"], name: symbol["name"], url: symbol["url"], type: symbol["type"]}
+    |> Map.merge(CategoryView.render("index_overview.json", %{categories: categories}))
   end
 
-  def render_type(%{"type" => "function"} = symbol) do
+  def render("symbol_overview.json", %{symbol: %{"symbol" => symbol}}) do
+    %{id: symbol["id"], name: symbol["name"], url: symbol["url"], type: symbol["type"]}
+  end
+
+  def render("symbol_insert.json", %{symbol: symbol_update}) do
+    %{
+      symbol: render_one(symbol_update, SymbolView, "symbol.json"),
+      user: UserView.render("user_overview.json", %{user: %{"user" => symbol_update["user"]}}),
+      date: symbol_update["date"]
+    }
+  end
+
+  def render("symbol_update.json", %{symbol: %{"date" => date, "update" => update, "user" => user}}) do
+    %{
+      symbol: render_one(update, SymbolView, "symbol.json")
+        |> Map.put(:against_revision, update["symbol"]["against_revision"]),
+      user: UserView.render("user_overview.json", %{user: %{"user" => user}}),
+      date: date
+    }
+  end
+
+
+  defp render_type(%{"type" => "function"} = symbol) do
     %{parameters: symbol["parameters"],
       return_type: symbol["return_type"],
       return_description: symbol["return_description"]}
   end
 
-  def render_type(%{"type" => "macro"} = symbol) do
+  defp render_type(%{"type" => "macro"} = symbol) do
     %{parameters: symbol["parameters"]}
   end
 
-  def render_type(%{"type" => type}) when type in ["type", "variable"] do
+  defp render_type(%{"type" => type}) when type in ["type", "variable"] do
     %{}
   end
 end

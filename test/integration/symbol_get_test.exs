@@ -160,7 +160,8 @@ defmodule SymbolGetTest do
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {url: 'existent'})
+      MATCH (c:Category {url: 'existent'}),
+        (u:User {id: 3})
       CREATE (s:InsertSymbolPatch {
           id: #{sym_id},
           name: "...",
@@ -171,7 +172,8 @@ defmodule SymbolGetTest do
           type: 'macro',
           revision_id: #{sym_rev}
         }),
-        (s)-[:CATEGORY]->(c)
+        (s)-[:CATEGORY]->(c),
+        (s)-[:CONTRIBUTOR]->(u)
     """)
 
     conn =
@@ -216,7 +218,8 @@ defmodule SymbolGetTest do
     sym_rev = :rand.uniform(100_000_000)
     sym_rev_b = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {url: 'existent'})
+      MATCH (c:Category {url: 'existent'}),
+        (u:User {id: 3})
       CREATE (s:Symbol {
           id: #{sym_id},
           name: '...',
@@ -238,6 +241,7 @@ defmodule SymbolGetTest do
           revision_id: #{sym_rev_b}
         }),
         (s2)-[:CATEGORY]->(c),
+        (s2)-[:CONTRIBUTOR]->(u),
         (s)-[:CATEGORY]->(c),
         (s)-[:UPDATE]->(s2)
     """)
@@ -255,10 +259,12 @@ defmodule SymbolGetTest do
           = Poison.decode! response.resp_body
     assert sym_id2 === sym_id
     assert sym_rev2 === sym_rev
-    assert [%{"update" => %{"id" => sym_id2, "name" => "...2", "description" => ".2",
-      "url" => "...2", "definition" => ".2", "definition_location" => "..2", "type" => "macro",
-      "revision_id" => sym_rev2, "categories" => [%{"category" => %{"name" => "existent",
-      "url" => "existent"}}]}}] = updates
+    assert [%{"user" => %{"username" => "user3", "privilege_level" => 3,
+      "name" => "u3", "avatar_url" => "~3"}, "date" => _date, "symbol" => %{"id" => sym_id2,
+      "name" => "...2", "description" => ".2", "url" => "...2", "definition" => ".2",
+      "definition_location" => "..2", "type" => "macro", "revision_id" => sym_rev2,
+      "categories" => [%{"category" => %{"name" => "existent", "url" => "existent"}}]}}]
+        = updates
     assert sym_id2 === sym_id
     assert sym_rev2 === sym_rev_b
 
@@ -291,7 +297,8 @@ defmodule SymbolGetTest do
     sym_rev = :rand.uniform(100_000_000)
     sym_rev_b = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {url: 'existent'})
+      MATCH (c:Category {url: 'existent'}),
+        (u:User {id: 3})
       CREATE (s:Symbol {
           id: #{sym_id},
           name: '...',
@@ -313,6 +320,7 @@ defmodule SymbolGetTest do
           revision_id: #{sym_rev_b}
         }),
         (s2)-[:CATEGORY]->(c),
+        (s2)-[:CONTRIBUTOR]->(u),
         (s)-[:CATEGORY]->(c),
         (s)-[:UPDATE]->(s2)
     """)
@@ -330,10 +338,13 @@ defmodule SymbolGetTest do
         = Poison.decode! response.resp_body
     assert sym_id2 === sym_id
     assert sym_rev2 === sym_rev
-    assert %{"name" => "...2", "description" => ".2", "url" => "...2", "definition" => ".2",
+    assert %{"user" => %{"username" => "user3", "privilege_level" => 3,
+      "name" => "u3", "avatar_url" => "~3"}, "date" => _date, "symbol" => %{"id" => sym_id2,
+      "name" => "...2", "description" => ".2", "url" => "...2", "definition" => ".2",
       "definition_location" => "..2", "type" => "macro", "revision_id" => sym_rev2,
-      "categories" => [%{"category" => %{"name" => "existent", "url" => "existent"}}]} = update
+      "categories" => [%{"category" => %{"name" => "existent", "url" => "existent"}}]}} = update
     assert sym_rev2 === sym_rev_b
+    assert sym_id2 === sym_id
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (su:UpdateSymbolPatch {revision_id: #{sym_rev_b}})-[r1]-(),
@@ -352,7 +363,7 @@ defmodule SymbolGetTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert %{"symbol_patches" => %{"patches" => %{"updates" => [], "delete" => 0},
+    assert %{"symbol_patches" => %{"patches" => %{"updates" => [], "delete" => false},
       "symbol" => %{"id" => 0, "name" => "existent", "description" => "~",
       "url" => "existent", "definition" => "~", "definition_location" => "~",
       "type" => "macro", "revision_id" => 123, "categories" => [%{"category" =>
@@ -368,7 +379,8 @@ defmodule SymbolGetTest do
     sym_rev = :rand.uniform(100_000_000)
     sym_rev_b = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {url: 'existent'})
+      MATCH (c:Category {url: 'existent'}),
+        (u:User {id: 3})
       CREATE (s:Symbol {
           id: #{sym_id},
           name: '...',
@@ -390,6 +402,7 @@ defmodule SymbolGetTest do
           revision_id: #{sym_rev_b}
         }),
         (s2)-[:CATEGORY]->(c),
+        (s2)-[:CONTRIBUTOR]->(u),
         (s)-[:CATEGORY]->(c),
         (s)-[:UPDATE]->(s2)
     """)
@@ -400,18 +413,19 @@ defmodule SymbolGetTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert %{"symbol_patches" => %{"patches" => %{"updates" => updates, "delete" => 0},
-      "symbol" => %{"id" => sym_id2, "name" => "...", "description" => ".", "url" => "...",
-      "definition" => ".", "definition_location" => "..", "type" => "macro",
-      "revision_id" => sym_rev2, "categories" => [%{"category" => %{"name" => "existent",
-      "url" => "existent"}}]}}}
-        = Poison.decode! response.resp_body
+    assert %{"symbol_patches" => %{"symbol" => %{"id" => sym_id2, "name" => "...",
+      "description" => ".", "url" => "...", "definition" => ".", "definition_location" => "..",
+      "type" => "macro", "revision_id" => sym_rev2, "categories" => [%{"category" =>
+      %{"name" => "existent", "url" => "existent"}}]}, "patches" => %{"updates" => updates,
+      "delete" => false}}} = Poison.decode! response.resp_body
     assert sym_id2 === sym_id
     assert sym_rev2 === sym_rev
-    assert [%{"update" => %{"id" => sym_id2, "name" => "...2", "description" => ".2",
-      "url" => "...2", "definition" => ".2", "definition_location" => "..2",
-      "type" => "macro", "revision_id" => sym_rev2, "categories" => [%{"category" =>
-      %{"name" => "existent", "url" => "existent"}}]}}] = updates
+    assert [%{"symbol_update" => %{"user" => %{"username" => "user3", "privilege_level" => 3,
+      "name" => "u3", "avatar_url" => "~3"}, "date" => _date, "symbol" => %{"id" => sym_id2,
+      "name" => "...2", "description" => ".2", "url" => "...2", "definition" => ".2",
+      "definition_location" => "..2", "type" => "macro", "revision_id" => sym_rev2,
+      "categories" => [%{"category" => %{"name" => "existent", "url" => "existent"}}]}}}]
+        = updates
     assert sym_id2 === sym_id
     assert sym_rev2 === sym_rev_b
 
@@ -450,12 +464,11 @@ defmodule SymbolGetTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert %{"symbol_patches" => %{"patches" => %{"updates" => [], "delete" => 1},
-      "symbol" => %{"id" => sym_id2, "name" => "...", "description" => ".", "url" => "...",
-      "definition" => ".", "definition_location" => "..", "type" => "macro",
-      "revision_id" => sym_rev2, "categories" => [%{"category" => %{"name" => "existent",
-      "url" => "existent"}}]}}}
-        = Poison.decode! response.resp_body
+    assert %{"symbol_patches" => %{"symbol" => %{"id" => sym_id2, "name" => "...",
+      "description" => ".", "url" => "...", "definition" => ".", "definition_location" => "..",
+      "type" => "macro", "revision_id" => sym_rev2, "categories" => [%{"category" =>
+      %{"name" => "existent", "url" => "existent"}}]}, "patches" => %{"updates" => [],
+      "delete" => true}}} = Poison.decode! response.resp_body
     assert sym_id2 === sym_id
     assert sym_rev2 === sym_rev
 
@@ -474,7 +487,8 @@ defmodule SymbolGetTest do
     sym_rev = :rand.uniform(100_000_000)
     sym_rev_b = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {url: 'existent'})
+      MATCH (c:Category {url: 'existent'}),
+        (u:User {id: 3})
       CREATE (s:Symbol {
           id: #{sym_id},
           name: '...',
@@ -496,6 +510,7 @@ defmodule SymbolGetTest do
           revision_id: #{sym_rev_b}
         }),
         (s2)-[:CATEGORY]->(c),
+        (s2)-[:CONTRIBUTOR]->(u),
         (s)-[:CATEGORY]->(c),
         (s)-[:UPDATE]->(s2),
         (s)-[:DELETE]->(:DeleteSymbolPatch)
@@ -507,18 +522,19 @@ defmodule SymbolGetTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert %{"symbol_patches" => %{"patches" => %{"updates" => updates, "delete" => 1},
-      "symbol" => %{"id" => sym_id2, "name" => "...", "description" => ".", "url" => "...",
-      "definition" => ".", "definition_location" => "..", "type" => "macro",
-      "revision_id" => sym_rev2, "categories" => [%{"category" => %{"name" => "existent",
-      "url" => "existent"}}]}}}
-        = Poison.decode! response.resp_body
+    assert %{"symbol_patches" => %{"symbol" => %{"id" => sym_id2, "name" => "...",
+      "description" => ".", "url" => "...", "definition" => ".", "definition_location" => "..",
+      "type" => "macro", "revision_id" => sym_rev2, "categories" => [%{"category" =>
+      %{"name" => "existent", "url" => "existent"}}]}, "patches" => %{"updates" => updates,
+      "delete" => true}}} = Poison.decode! response.resp_body
     assert sym_id2 === sym_id
     assert sym_rev2 === sym_rev
-    assert [%{"update" => %{"id" => sym_id2, "name" => "...2", "description" => ".2",
-      "url" => "...2", "definition" => ".2", "definition_location" => "..2",
-      "type" => "macro", "revision_id" => sym_rev2, "categories" => [%{"category" =>
-      %{"name" => "existent", "url" => "existent"}}]}}] = updates
+    assert [%{"symbol_update" => %{"user" => %{"username" => "user3", "privilege_level" => 3,
+      "name" => "u3", "avatar_url" => "~3"}, "date" => _date, "symbol" => %{"id" => sym_id2,
+      "name" => "...2", "description" => ".2", "url" => "...2", "definition" => ".2",
+      "definition_location" => "..2", "type" => "macro", "revision_id" => sym_rev2,
+      "categories" => [%{"category" => %{"name" => "existent", "url" => "existent"}}]}}}]
+        = updates
     assert sym_id2 === sym_id
     assert sym_rev2 === sym_rev_b
 

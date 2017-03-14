@@ -100,27 +100,21 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def is_deleted?(symbol_id) do
-    query = """
-      MATCH (symbol:SymbolDeleted {id: {symbol_id}})-[:CATEGORY]->(c:Category)
-      RETURN symbol, collect({category: {name: c.name, url: c.url}}) AS categories
-    """
-
-    params = %{symbol_id: symbol_id}
-
-    result = List.first Neo4j.query!(Neo4j.conn, query, params)
-
-    if result === nil do
-      {:error, 404, "The specified deleted symbol could not be found"}
-    else
-      {:ok, %{"symbol_deleted" => Map.merge(result["symbol"], %{"categories" => result["categories"]})}}
-    end
-  end
-
   def is_insert_patch?(symbol_id) do
     query = """
-      MATCH (symbol:InsertSymbolPatch {id: {symbol_id}})-[:CATEGORY]->(c:Category)
-      RETURN symbol, COLLECT({category: {name: c.name, url: c.url}}) AS categories
+      MATCH (isp:InsertSymbolPatch {id: {symbol_id}})-[:CATEGORY]->(c:Category),
+        (isp)-[r:CONTRIBUTOR]->(u:User)
+      RETURN CASE isp WHEN NULL THEN NULL ELSE {
+        symbol: isp,
+        categories: collect({category: {name: c.name, url: c.url}}),
+        user: {
+          username: u.username,
+          name: u.name,
+          privilege_level: u.privilege_level,
+          avatar_url: u.avatar_url
+        },
+        date: r.date
+      } END AS symbol_insert
     """
 
     params = %{symbol_id: symbol_id}
@@ -130,14 +124,19 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     if result === nil do
       {:error, 404, "The specified symbol insert patch could not be found"}
     else
-      {:ok, %{"symbol_insert" => Map.merge(result["symbol"], %{"categories" => result["categories"]})}}
+      {:ok, result}
     end
   end
 
   def has_delete_patch?(symbol_id) do
     query = """
-      MATCH (c:Category)<-[:CATEGORY]-(symbol:Symbol {id: {symbol_id}})-[:DELETE]->(:DeleteSymbolPatch)
-      RETURN symbol, COLLECT({category: {name: c.name, url: c.url}}) AS categories
+      MATCH (s:Symbol {id: {symbol_id}}),
+        (s)-[:DELETE]->(:DeleteSymbolPatch),
+        (s)-[:CATEGORY]->(c:Category)
+      RETURN {
+        symbol: s,
+        categories: COLLECT({category: {name: c.name, url: c.url}})
+      } AS symbol_delete
     """
 
     params = %{symbol_id: symbol_id}
@@ -147,11 +146,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     if result === nil do
       {:error, 404, "The specified symbol delete patch could not be found"}
     else
-      %{"symbol" => symbol, "categories" => categories} = result
-
-      symbol = Map.merge(symbol, %{"categories" => categories})
-
-      {:ok, %{"symbol_delete" => %{"symbol" => symbol}}}
+      {:ok, result}
     end
   end
 
@@ -160,12 +155,26 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       MATCH (s:Symbol {id: {symbol_id}}),
         (usp:UpdateSymbolPatch {revision_id: {patch_id}}),
         (s)-[:UPDATE]->(usp),
-        (s)-[:CATEGORY]->(c1:Category),
-        (usp)-[:CATEGORY]->(c2:Category)
+        (s)-[:CATEGORY]->(c:Category),
+        (usp)-[:CATEGORY]->(uspc:Category),
+        (usp)-[r:CONTRIBUTOR]->(u:User)
+      WITH s,
+        CASE c WHEN NULL THEN [] ELSE COLLECT({category: {name: c.name, url: c.url}}) END AS cs,
+        CASE uspc WHEN NULL THEN [] ELSE COLLECT({category: {name: uspc.name, url: uspc.url}}) END AS uspcs,
+        usp,
+        r,
+        u
       RETURN {
         symbol: s,
-        categories: COLLECT({category: c1}),
-        update: {symbol: usp, categories: COLLECT({category: c2})}
+        categories: cs,
+        update: {categories: uspcs, symbol: usp},
+        user: {
+          username: u.username,
+          name: u.name,
+          privilege_level: u.privilege_level,
+          avatar_url: u.avatar_url
+        },
+        date: r.date
       } AS symbol_update
     """
 
@@ -176,13 +185,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     if result === nil do
       {:error, 404, "The specified symbol update patch could not be found"}
     else
-      %{"symbol_update" =>
-        %{"symbol" => symbol1, "categories" => categories1, "update" =>
-          %{"symbol" => symbol2, "categories" => categories2}}}  = result
-
-      {:ok, %{"symbol_update" =>
-        %{"symbol" => Map.merge(symbol1, %{"categories" => categories1}), "update" =>
-          %{"symbol" => Map.merge(symbol2, %{"categories" => categories2})}}}}
+      {:ok, result}
     end
   end
 
@@ -231,13 +234,15 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     query5 = if symbol_type === "all", do: "", else: "WHERE s.type = '#{symbol_type}'"
     query6 = """
       RETURN {
-        id: s.id,
-        name: s.name,
-        url: s.url,
-        type: s.type,
-        categories: collect({name: c.name, url: c.url})
+        symbol: {
+          id: s.id,
+          name: s.name,
+          url: s.url,
+          type: s.type
+        },
+        categories: collect({category: {name: c.name, url: c.url}})
       } AS symbol
-      ORDER BY symbol.#{order_by} #{ordering}
+      ORDER BY symbol.symbol.#{order_by} #{ordering}
       SKIP #{offset}
       LIMIT #{limit}
     """
@@ -251,97 +256,96 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def fetch_all_patches("all") do
     query = """
-      MATCH (c1:Category)<-[:CATEGORY]-(symbol:Symbol)-[:UPDATE]->(su:UpdateSymbolPatch)-[:CATEGORY]->(c2:Category)
-      OPTIONAL MATCH (symbol)-[:DELETE]->(sd:DeleteSymbolPatch)
-      WITH c1, symbol, sd, {categories: collect({name: c2.name, url: c2.url}), update: su} AS sus
+      MATCH (s:Symbol)-[:CATEGORY]->(c:Category)
+      OPTIONAL MATCH (s)-[:UPDATE]->(usp:UpdateSymbolPatch),
+        (usp)-[r:CONTRIBUTOR]->(u:User),
+        (usp)-[:CATEGORY]->(uspc:Category)
+      OPTIONAL MATCH (s)-[:DELETE]->(dsp:DeleteSymbolPatch)
+      WITH s,
+        CASE c WHEN NULL THEN [] ELSE COLLECT({category: {name: c.name, url: c.url}}) END AS cs,
+        CASE uspc WHEN NULL THEN [] ELSE COLLECT({category: {name: uspc.name, url: uspc.url}}) END AS uspcs,
+        dsp,
+        usp,
+        r,
+        u
+      WITH s,
+        cs,
+        dsp,
+        CASE usp WHEN NULL THEN [] ELSE COLLECT({symbol_update: {
+            update: {categories: uspcs, symbol: usp},
+            user: {
+              username: u.username,
+              name: u.name,
+              privilege_level: u.privilege_level,
+              avatar_url: u.avatar_url
+            },
+            date: r.date
+          }}) END AS usps
+      WHERE dsp <> FALSE OR usps <> []
       RETURN {
-        symbol: symbol,
-        categories: collect({name: c1.name, url: c1.url}),
-        patches: {
-          updates: collect(sus),
-          delete: CASE sd WHEN NULL THEN 0 ELSE 1 END
-        }
-      } AS symbol_patches
-      UNION
-      MATCH (c:Category)<-[:CATEGORY]-(symbol:Symbol)-[:DELETE]->(sd:DeleteSymbolPatch)
-      OPTIONAL MATCH (symbol)-[:UPDATE]->(su:UpdateSymbolPatch)-[:CATEGORY]->(c:Category)
-      WHERE su = NULL
-      RETURN {
-        symbol: symbol,
-        categories: collect({name: c.name, url: c.url}),
-        patches: {updates: [], delete: 1}
+        symbol: s,
+        categories: cs,
+        updates: usps,
+        delete: CASE dsp WHEN NULL THEN FALSE ELSE TRUE END
       } AS symbol_patches
     """
 
-    patches =
-      Neo4j.query!(Neo4j.conn, query)
-      |> Enum.map(fn result ->
-          case result do
-            %{"symbol_patches" => %{"categories" => categories, "symbol" => symbol, "patches" => patches}} ->
-              %{"symbol_patches" => %{"patches" => patches, "symbol" => Map.merge(symbol, %{"categories" => categories})}}
-            _ ->
-              result
-          end
-        end)
-      |> Enum.map(fn result ->
-          case result do
-            %{"symbol_patches" => %{"symbol" => symbol, "patches" => %{"delete" => delete, "updates" => updates}}} when updates != [] ->
-              updates =
-                updates
-                |> Enum.map(fn %{"categories" => categories, "update" => update} ->
-                    %{"update" => %{"symbol" => Map.merge(update, %{"categories" => categories})}}
-                  end)
-              %{"symbol_patches" => %{"symbol" => symbol, "patches" => %{"delete" => delete, "updates" => updates}}}
-            _ ->
-              result
-          end
-        end)
-
-    %{inserts: fetch_all_patches("insert"),
-      patches: patches}
+    %{patches: Neo4j.query!(Neo4j.conn, query),
+      inserts: fetch_all_patches("insert")}
   end
 
   def fetch_all_patches("insert") do
     query = """
-      MATCH (symbol:InsertSymbolPatch)-[:CATEGORY]->(c:Category)
-      RETURN {symbol: symbol, categories: collect({name: c.name, url: c.url})} as symbol_insert
+      MATCH (isp:InsertSymbolPatch)-[:CATEGORY]->(c:Category),
+        (isp)-[r:CONTRIBUTOR]->(u:User)
+      RETURN {
+        symbol: isp,
+        categories: collect({category: {name: c.name, url: c.url}}),
+        user: {
+          username: u.username,
+          name: u.name,
+          privilege_level: u.privilege_level,
+          avatar_url: u.avatar_url
+        },
+        date: r.date
+      } as symbol_insert
     """
 
     Neo4j.query!(Neo4j.conn, query)
-    |> Enum.map(fn %{"symbol_insert" => %{"categories" => cats, "symbol" => s}} ->
-      cats = Enum.map(cats, fn cat -> %{"category" => cat} end)
-      %{"symbol_insert" => Map.merge(s, %{"categories" => cats})}
-    end)
   end
 
   def fetch_all_patches("update") do
     query = """
-      MATCH (c1:Category)<-[:CATEGORY]-(symbol:Symbol)-[:UPDATE]->(su:UpdateSymbolPatch)-[:CATEGORY]->(c2:Category)
-      WITH c1, symbol, {categories: collect({name: c2.name, url: c2.url}), update: su} AS sus
+      MATCH (s:Symbol)-[:UPDATE]->(usp:UpdateSymbolPatch),
+        (s)-[:CATEGORY]->(c:Category),
+        (usp)-[r:CONTRIBUTOR]->(u:User),
+        (usp)-[:CATEGORY]->(uspc:Category)
+      WITH s,
+        CASE c WHEN NULL THEN [] ELSE COLLECT({category: {name: c.name, url: c.url}}) END AS cs,
+        CASE uspc WHEN NULL THEN [] ELSE COLLECT({category: {name: uspc.name, url: uspc.url}}) END AS uspcs,
+        usp,
+        r,
+        u
+      WITH s,
+        cs,
+        CASE usp WHEN NULL THEN [] ELSE COLLECT({
+            update: {categories: uspcs, symbol: usp},
+            user: {
+              username: u.username,
+              name: u.name,
+              privilege_level: u.privilege_level,
+              avatar_url: u.avatar_url
+            },
+            date: r.date
+          }) END AS usps
       RETURN {
-        symbol: symbol,
-        categories: collect({name: c1.name, url: c1.url}),
-        updates: collect(sus)
-      } AS symbol_update
+        symbol: s,
+        categories: cs,
+        updates: usps
+      } AS symbol_updates
     """
 
     Neo4j.query!(Neo4j.conn, query)
-    |> Enum.map(fn %{"symbol_update" => %{"categories" => categories, "symbol" => symbol, "updates" => updates}} ->
-        %{"symbol_updates" => %{"updates" => updates, "symbol" => Map.merge(symbol, %{"categories" => categories})}}
-      end)
-    |> Enum.map(fn result ->
-        case result do
-          %{"symbol_updates" => %{"symbol" => symbol, "updates" => updates}} ->
-            updates =
-              updates
-              |> Enum.map(fn %{"categories" => categories, "update" => update} ->
-                  %{"update" => %{"symbol" => Map.merge(update, %{"categories" => categories})}}
-                end)
-            %{"symbol_updates" => %{"symbol" => symbol, "updates" => updates}}
-          _ ->
-            result
-        end
-      end)
   end
 
   def fetch_all_patches("delete") do
@@ -354,9 +358,6 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     """
 
     Neo4j.query!(Neo4j.conn, query)
-    |> Enum.map(fn %{"symbol_delete" => %{"categories" => categories, "symbol" => symbol}} ->
-        %{"symbol_delete" => %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
-      end)
   end
 
   def fetch_all_deleted do
@@ -369,91 +370,103 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     """
 
     Neo4j.query!(Neo4j.conn, query)
-    |> Enum.map(fn %{"symbol" => %{"categories" => categories, "symbol" => symbol}} ->
-        %{"symbol" => Map.merge(symbol, %{"categories" => categories})}
-      end)
   end
 
   def fetch(symbol_id, "normal") do
     query = """
-      MATCH (symbol:Symbol {id: {symbol_id}})-[r:CATEGORY]->(category:Category)
-      RETURN symbol, COLLECT({category: {name: category.name, url: category.url}}) AS categories
+      MATCH (s:Symbol {id: {symbol_id}})-[r:CATEGORY]->(category:Category)
+      RETURN {
+        symbol: s,
+        categories: COLLECT({category: {name: category.name, url: category.url}})
+      } AS symbol
     """
 
     params = %{symbol_id: symbol_id}
 
-    [%{"categories" => categories, "symbol" => symbol}] = Neo4j.query!(Neo4j.conn, query, params)
-
-    %{"symbol" => Map.merge(symbol, %{"categories" => categories})}
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def fetch_all_patches_for(symbol_id) do
     query = """
-      MATCH (c1:Category)<-[:CATEGORY]-(s:Symbol {id: {symbol_id}})
-      OPTIONAL MATCH (s)-[:UPDATE]->(su:UpdateSymbolPatch)-[:CATEGORY]->(c2:Category)
-      OPTIONAL MATCH (s)-[:DELETE]->(sd:DeleteSymbolPatch)
-      WITH c1, s, sd, {categories: CASE c2 WHEN NULL THEN [] ELSE collect({name: c2.name, url: c2.url}) END, update: su} AS sus
+      MATCH (s:Symbol {id: {symbol_id}})-[:CATEGORY]->(c:Category)
+      OPTIONAL MATCH (s)-[:UPDATE]->(usp:UpdateSymbolPatch),
+        (usp)-[r:CONTRIBUTOR]->(u:User),
+        (usp)-[:CATEGORY]->(uspc:Category)
+      OPTIONAL MATCH (s)-[:DELETE]->(dsp:DeleteSymbolPatch)
+      WITH s,
+        CASE c WHEN NULL THEN [] ELSE COLLECT({category: {name: c.name, url: c.url}}) END AS cs,
+        CASE uspc WHEN NULL THEN [] ELSE COLLECT({category: {name: uspc.name, url: uspc.url}}) END AS uspcs,
+        dsp,
+        usp,
+        r,
+        u
+      WITH s,
+        cs,
+        dsp,
+        CASE usp WHEN NULL THEN [] ELSE COLLECT({symbol_update: {
+            update: {categories: uspcs, symbol: usp},
+            user: {
+              username: u.username,
+              name: u.name,
+              privilege_level: u.privilege_level,
+              avatar_url: u.avatar_url
+            },
+            date: r.date
+          }}) END AS usps
       RETURN {
         symbol: s,
-        categories: collect({name: c1.name, url: c1.url}),
-        patches: {
-          updates: collect(CASE sus.update WHEN NULL THEN NULL ELSE sus END),
-          delete: CASE sd WHEN NULL THEN 0 ELSE 1 END
-        }
+        categories: cs,
+        updates: usps,
+        delete: CASE dsp WHEN NULL THEN FALSE ELSE TRUE END
       } AS symbol_patches
     """
 
     params = %{symbol_id: symbol_id}
 
-    result = List.first Neo4j.query!(Neo4j.conn, query, params)
-
-    %{"symbol_patches" =>
-      %{"categories" => categories, "symbol" => symbol, "patches" =>
-        %{"delete" => delete, "updates" => updates}}} = result
-
-    updates =
-      Enum.map(updates, fn %{"categories" => categories, "update" => update} ->
-        %{"update" => %{"symbol" => Map.merge(update, %{"categories" => categories})}}
-      end)
-
-    symbol = Map.merge(symbol, %{"categories" => categories})
-
-    %{"symbol_patches" => %{"symbol" => symbol, "patches" => %{"delete" => delete, "updates" => updates}}}
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def fetch_update_patches_for(symbol_id) do
     query = """
-      MATCH (c1:Category)<-[:CATEGORY]-(s1:Symbol {id: {symbol_id}})
-      OPTIONAL MATCH (s1)-[:UPDATE]->(s2:UpdateSymbolPatch)-[:CATEGORY]->(c2:Category)
-      WITH c1, s1, s2, collect({category: {name: c2.name, url: c2.url}}) AS c2s
+      MATCH (s:Symbol {id: {symbol_id}})-[:CATEGORY]->(c:Category)
+      OPTIONAL MATCH (s)-[:UPDATE]->(usp:UpdateSymbolPatch),
+        (usp)-[r:CONTRIBUTOR]->(u:User),
+        (usp)-[:CATEGORY]->(uspc:Category)
+      WITH s,
+        CASE c WHEN NULL THEN [] ELSE COLLECT({category: {name: c.name, url: c.url}}) END AS cs,
+        CASE uspc WHEN NULL THEN [] ELSE COLLECT({category: {name: uspc.name, url: uspc.url}}) END AS uspcs,
+        usp,
+        r,
+        u
+      WITH s,
+        cs,
+        CASE usp WHEN NULL THEN [] ELSE COLLECT({
+            update: {categories: uspcs, symbol: usp},
+            user: {
+              username: u.username,
+              name: u.name,
+              privilege_level: u.privilege_level,
+              avatar_url: u.avatar_url
+            },
+            date: r.date
+          }) END AS usps
       RETURN {
-        symbol: s1,
-        categories: collect({category: {name: c1.name, url: c1.url}}),
-        updates: CASE s2 WHEN NULL THEN [] ELSE collect({symbol: s2, categories: c2s}) END
+        symbol: s,
+        categories: cs,
+        updates: usps
       } AS symbol_updates
     """
 
     params = %{symbol_id: symbol_id}
 
-    result = List.first Neo4j.query!(Neo4j.conn, query, params)
-
-    %{"symbol_updates" => %{"symbol" => symbol, "categories" => categories, "updates" => updates}} = result
-
-    updates =
-      Enum.map(updates, fn %{"symbol" => symbol, "categories" => categories} ->
-        %{"symbol" => Map.merge(symbol, %{"categories" => categories})}
-      end)
-
-    symbol = Map.merge(symbol, %{"categories" => categories})
-
-    %{"symbol_updates" => %{"symbol" => symbol, "updates" => updates}}
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def insert(symbol, review, username) do
     query1 =
       case review do
-        0 -> "CREATE (symbol:Symbol "
-        1 -> "CREATE (symbol:InsertSymbolPatch "
+        0 -> "CREATE (s:Symbol "
+        1 -> "CREATE (s:InsertSymbolPatch "
       end
 
     query2 =
@@ -468,19 +481,22 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       symbol["categories"]
       |> Enum.reduce({"", %{}, 0}, fn (cat, {queries, params, n}) ->
         query = """
-          WITH symbol
+          WITH s
           MATCH (cat#{n}:Category {url: {cat#{n}_url}})
-          CREATE (symbol)-[:CATEGORY]->(cat#{n})
+          CREATE (s)-[:CATEGORY]->(cat#{n})
         """
         {queries <> query, Map.put(params, "cat#{n}_url", cat), n + 1}
       end)
 
     query4 = """
-      WITH symbol
-      MATCH (symbol)-[crel:CATEGORY]->(category:Category),
+      WITH s
+      MATCH (s)-[crel:CATEGORY]->(category:Category),
         (user:User {username: {username}})
-      CREATE (symbol)-[:CONTRIBUTOR {type: "insert", date: timestamp()}]->(user)
-      RETURN symbol, COLLECT({category: category}) as categories
+      CREATE (s)-[:CONTRIBUTOR {type: "insert", date: timestamp()}]->(user)
+      RETURN {
+        symbol: s,
+        categories: COLLECT({category: {name: category.name, url: category.url}})
+      } AS symbol
     """
 
     query = query1 <> query2 <> query3 <> query4
@@ -506,9 +522,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     params = Map.merge(params1, params2)
 
-    [%{"categories" => categories, "symbol" => symbol}] = Neo4j.query!(Neo4j.conn, query, params)
-
-    %{"symbol" => Map.merge(symbol, %{"categories" => categories})}
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def update(old_symbol, new_symbol, 0 = _review, username, nil = _patch_revision_id) do
@@ -561,7 +575,10 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
       WITH new_symbol
       MATCH (new_symbol)-[:CATEGORY]->(category:Category)
-      RETURN new_symbol as symbol, COLLECT({category: category}) as categories
+      RETURN {
+        symbol: new_symbol,
+        categories: COLLECT({category: {name: category.name, url: category.url}})
+      } AS symbol
     """
 
     query = query1 <> query2 <> query3 <> query4
@@ -588,9 +605,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     params = Map.merge(params1, params2)
 
-    [%{"categories" => categories, "symbol" => symbol}] = Neo4j.query!(Neo4j.conn, query, params)
-
-    {:ok, 200, %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
+    {:ok, 200, List.first Neo4j.query!(Neo4j.conn, query, params)}
   end
 
   def update(old_symbol, new_symbol, 1, username, nil = _patch_revision_id) do
@@ -627,7 +642,10 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     query4 = """
       WITH old_symbol
       MATCH (old_symbol)-[:CATEGORY]->(category:Category)
-      RETURN old_symbol as symbol, COLLECT({category: category}) as categories
+      RETURN {
+        symbol: old_symbol,
+        categories: COLLECT({category: {name: category.name, url: category.url}})
+      } AS symbol
     """
 
     query = query1 <> query2 <> query3 <> query4
@@ -655,9 +673,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     params = Map.merge(params1, params2)
 
-    [%{"categories" => categories, "symbol" => symbol}] = Neo4j.query!(Neo4j.conn, query, params)
-
-    {:ok, 202, %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
+    {:ok, 202, List.first Neo4j.query!(Neo4j.conn, query, params)}
   end
 
   def update(old_symbol, new_symbol, 0 = _review, username, patch_revision_id) do
@@ -729,7 +745,10 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         WITH new_symbol
 
         MATCH (new_symbol)-[:CATEGORY]->(category:Category)
-        RETURN new_symbol as symbol, COLLECT({category: category}) as categories
+        RETURN {
+          symbol: new_symbol,
+          categories: COLLECT({category: {name: category.name, url: category.url}})
+        } AS symbol
       """
 
       query = query1 <> query2 <> query3 <> query4
@@ -757,9 +776,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
       params = Map.merge(params1, params2)
 
-      [%{"categories" => categories, "symbol" => symbol}] = Neo4j.query!(Neo4j.conn, query, params)
-
-      {:ok, 200, %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
+      {:ok, 200, List.first Neo4j.query!(Neo4j.conn, query, params)}
     end
   end
 
@@ -805,7 +822,10 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     query4 = """
       WITH old_symbol
       MATCH (old_symbol)-[:CATEGORY]->(category:Category)
-      RETURN old_symbol as symbol, COLLECT({category: category}) as categories
+      RETURN {
+        symbol: old_symbol,
+        categories: COLLECT({category: {name: category.name, url: category.url}})
+      } AS symbol
     """
 
     query = query1 <> query2 <> query3 <> query4
@@ -834,19 +854,20 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     params = Map.merge(params1, params2)
 
-    [%{"categories" => categories, "symbol" => symbol}] = Neo4j.query!(Neo4j.conn, query, params)
-
-    {:ok, 202, %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
+    {:ok, 202, List.first Neo4j.query!(Neo4j.conn, query, params)}
   end
 
   def apply_patch?(symbol_id, %{"action" => "insert"}, username) do
     query = """
-      MATCH (symbol:InsertSymbolPatch {id: {symbol_id}})-[:CATEGORY]->(c:Category),
+      MATCH (s:InsertSymbolPatch {id: {symbol_id}})-[:CATEGORY]->(category:Category),
         (user:User {username: {username}})
-      REMOVE symbol:InsertSymbolPatch
-      SET symbol:Symbol
-      CREATE (symbol)-[:CONTRIBUTOR {type: "apply_insert", date: timestamp()}]->(user)
-      RETURN symbol, collect({name: c.name, url: c.url}) AS categories
+      REMOVE s:InsertSymbolPatch
+      SET s:Symbol
+      CREATE (s)-[:CONTRIBUTOR {type: "apply_insert", date: timestamp()}]->(user)
+      RETURN {
+        symbol: s,
+        categories: COLLECT({category: {name: category.name, url: category.url}})
+      } AS symbol
     """
 
     params = %{symbol_id: symbol_id, username: username}
@@ -856,9 +877,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     if result === nil do
       {:error, 404, "Insert patch not found"}
     else
-      %{"symbol" => symbol, "categories" => categories} = result
-
-      {:ok, %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
+      {:ok, result}
     end
   end
 
@@ -896,7 +915,10 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         MATCH (new_symbol)-[:CATEGORY]->(category:Category),
           (user:User {username: {username}})
         CREATE (new_symbol)-[:CONTRIBUTOR {type: "apply_update", date: timestamp()}]->(user)
-        RETURN new_symbol AS symbol, COLLECT({category: category}) AS categories
+        RETURN {
+          symbol: new_symbol,
+          categories: COLLECT({category: {name: category.name, url: category.url}})
+        } AS symbol
       """
 
       params = %{
@@ -905,9 +927,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         username: username
       }
 
-      [%{"categories" => categories, "symbol" => symbol}] = Neo4j.query!(Neo4j.conn, query, params)
-
-      {:ok, %{"symbol" => Map.merge(symbol, %{"categories" => categories})}}
+      {:ok, List.first Neo4j.query!(Neo4j.conn, query, params)}
     else
       error ->
         error

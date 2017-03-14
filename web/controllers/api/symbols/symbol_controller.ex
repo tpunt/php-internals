@@ -104,7 +104,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
          {:ok, patch_id} <- Utilities.valid_id?(patch_id),
          {:ok, _symbol} <- Symbol.valid?(symbol_id),
          {:ok, symbol} <- Symbol.update_patch_exists?(symbol_id, patch_id) do
-      render(conn, "show_update.json", symbol: symbol)
+      render(conn, "show_specific_update.json", symbol: symbol)
     else
       {:error, status_code, error} ->
         conn
@@ -314,7 +314,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
       conn
       |> put_status(status_code)
-      |> render("symbol.json", symbol: symbol)
+      |> render("show.json", symbol: symbol)
     else
       {:error, status_code, status} ->
         conn

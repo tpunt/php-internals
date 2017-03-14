@@ -254,7 +254,8 @@ defmodule SymbolPatchTest do
     sym_rev = :rand.uniform(100_000_000)
     sym_rev_b = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {url: 'existent'})
+      MATCH (c:Category {url: 'existent'}),
+        (u:User {id: 3})
       CREATE (s:Symbol {
           id: #{sym_id},
           name: '...',
@@ -278,7 +279,8 @@ defmodule SymbolPatchTest do
         }),
         (s)-[:CATEGORY]->(c),
         (s)-[:UPDATE]->(su),
-        (su)-[:CATEGORY]->(c)
+        (su)-[:CATEGORY]->(c),
+        (su)-[:CONTRIBUTOR]->(u)
     """)
 
     conn =
@@ -315,7 +317,8 @@ defmodule SymbolPatchTest do
     sym_rev = :rand.uniform(100_000_000)
     sym_rev_b = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {url: 'existent'})
+      MATCH (c:Category {url: 'existent'}),
+        (u:User {id: 3})
       CREATE (s:Symbol {
           id: #{sym_id},
           name: '...',
@@ -339,7 +342,8 @@ defmodule SymbolPatchTest do
         }),
         (s)-[:CATEGORY]->(c),
         (s)-[:UPDATE]->(su),
-        (su)-[:CATEGORY]->(c)
+        (su)-[:CATEGORY]->(c),
+        (su)-[:CONTRIBUTOR]->(u)
     """)
 
     conn =
@@ -374,7 +378,8 @@ defmodule SymbolPatchTest do
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {url: 'existent'})
+      MATCH (c:Category {url: 'existent'}),
+        (u:User {id: 3})
       CREATE (s:InsertSymbolPatch {
           id: #{sym_id},
           name: '...',
@@ -385,7 +390,8 @@ defmodule SymbolPatchTest do
           type: 'macro',
           revision_id: #{sym_rev}
         }),
-        (s)-[:CATEGORY]->(c)
+        (s)-[:CATEGORY]->(c),
+        (s)-[:CONTRIBUTOR]->(u)
     """)
 
     conn =
@@ -417,7 +423,8 @@ defmodule SymbolPatchTest do
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {url: 'existent'})
+      MATCH (c:Category {url: 'existent'}),
+        (u:User {id: 3})
       CREATE (s:InsertSymbolPatch {
           id: #{sym_id},
           name: '...',
@@ -428,7 +435,8 @@ defmodule SymbolPatchTest do
           type: 'macro',
           revision_id: #{sym_rev}
         }),
-        (s)-[:CATEGORY]->(c)
+        (s)-[:CATEGORY]->(c),
+        (s)-[:CONTRIBUTOR]->(u)
     """)
 
     conn =
