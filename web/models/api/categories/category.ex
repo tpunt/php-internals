@@ -155,8 +155,11 @@ defmodule PhpInternals.Api.Categories.Category do
       MATCH (c:Category)
       OPTIONAL MATCH (c)-[:UPDATE]->(ucp:UpdateCategoryPatch),
         (ucp)-[r:CONTRIBUTOR]->(u:User)
-      OPTIONAL MATCH (c)-[:DELETE]->(dcp:DeleteCategoryPatch)
-      WITH c, CASE ucp WHEN NULL THEN [] ELSE COLLECT({
+      WITH c, ucp, r, u, EXISTS((c)-[:DELETE]->(:DeleteCategoryPatch)) AS delete
+      WHERE ucp IS NOT NULL OR delete
+      RETURN {
+        category: c,
+        updates: COLLECT(CASE ucp WHEN NULL THEN NULL ELSE {
           update: ucp,
           user: {
             username: u.username,
@@ -165,13 +168,8 @@ defmodule PhpInternals.Api.Categories.Category do
             avatar_url: u.avatar_url
           },
           date: r.date
-        }) END AS ucps,
-        dcp
-      WHERE dcp <> FALSE OR ucps <> []
-      RETURN {
-        category: c,
-        updates: ucps,
-        delete: CASE dcp WHEN NULL THEN FALSE ELSE TRUE END
+        } END),
+        delete: delete
       } AS patches
     """
 

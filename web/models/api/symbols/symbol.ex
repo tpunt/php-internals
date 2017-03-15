@@ -271,7 +271,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       WITH s,
         cs,
         dsp,
-        CASE usp WHEN NULL THEN [] ELSE COLLECT({symbol_update: {
+        COLLECT(CASE usp WHEN NULL THEN NULL ELSE {symbol_update: {
             update: {categories: uspcs, symbol: usp},
             user: {
               username: u.username,
@@ -280,7 +280,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
               avatar_url: u.avatar_url
             },
             date: r.date
-          }}) END AS usps
+          }} END) AS usps
       WHERE dsp <> FALSE OR usps <> []
       RETURN {
         symbol: s,
