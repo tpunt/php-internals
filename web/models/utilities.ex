@@ -4,11 +4,21 @@ defmodule PhpInternals.Utilities do
   @default_ordering "ASC"
 
   def is_url_friendly?(name) do
-    if String.length(name) < 50 do
-      {:ok, String.downcase(String.replace(name, " ", "_"))}
+    with true <- String.length(name) < 50,
+         new_name <- make_url_friendly(name),
+         true <- String.length(new_name) > 0 do
+      {:ok, new_name}
     else
-      {:error, 400, "Bad URL-friendly name"}
+      _ ->
+        {:error, 400, "Bad URL-friendly name"}
     end
+  end
+
+  defp make_url_friendly(name) do
+    name
+    |> String.replace(~r/([^a-zA-Z0-9 ._-])/, "")
+    |> String.replace(" ", "_")
+    |> String.downcase
   end
 
   def valid_review_param?(review) do
