@@ -410,9 +410,6 @@ defmodule PhpInternals.Api.Categories.Category do
     query = """
       MATCH (old_category:Category {url: {old_url}}),
         (user:User {username: {username}})
-      OPTIONAL MATCH (old_category)-[r1:UPDATE]->(ucp:UpdateCategoryPatch)
-      OPTIONAL MATCH (old_category)-[r2:DELETE]->(dcp:DeleteCategoryPatch)
-      OPTIONAL MATCH (n)-[r3:CATEGORY]->(old_category)
 
       CREATE (new_category:Category {
           name: {new_name},
@@ -423,23 +420,29 @@ defmodule PhpInternals.Api.Categories.Category do
         (new_category)-[:REVISION]->(old_category),
         (new_category)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
 
+      WITH old_category, user, new_category
+
+      OPTIONAL MATCH (old_category)-[r1:UPDATE]->(ucp:UpdateCategoryPatch)
+      OPTIONAL MATCH (old_category)-[r2:DELETE]->(dcp:DeleteCategoryPatch)
+      OPTIONAL MATCH (n)-[r3:CATEGORY]->(old_category)
+
       REMOVE old_category:Category
       SET old_category:CategoryRevision
 
       DELETE r1, r2, r3
 
-      WITH old_category, new_category, COLLECT(ucp) AS ucps, dcp, COLLECT(n) AS ns
+      WITH new_category, COLLECT(ucp) AS ucps, dcp, COLLECT(n) AS ns
 
       FOREACH (ucp IN ucps |
-        CREATE (new_category)-[:UPDATE]->(ucp)
+        MERGE (new_category)-[:UPDATE]->(ucp)
       )
 
       FOREACH (ignored IN CASE dcp WHEN NULL THEN [] ELSE [1] END |
-        CREATE (new_category)-[:DELETE]->(dcp)
+        MERGE (new_category)-[:DELETE]->(dcp)
       )
 
       FOREACH (n IN ns |
-        CREATE (n)-[:CATEGORY]->(new_category)
+        MERGE (n)-[:CATEGORY]->(new_category)
       )
 
       RETURN new_category as category
@@ -537,15 +540,15 @@ defmodule PhpInternals.Api.Categories.Category do
         WITH new_category, COLLECT(n) AS ns, COLLECT(ucp) AS ucps, dcp
 
         FOREACH (n IN ns |
-          CREATE (n)-[:CATEGORY]->(new_category)
+          MERGE (n)-[:CATEGORY]->(new_category)
         )
 
         FOREACH (ucp IN ucps |
-          CREATE (new_category)-[:UPDATE]->(ucp)
+          MERGE (new_category)-[:UPDATE]->(ucp)
         )
 
         FOREACH (ignored IN CASE dcp WHEN NULL THEN [] ELSE [1] END |
-          CREATE (new_category)-[:DELETE]->(cdp)
+          MERGE (new_category)-[:DELETE]->(cdp)
         )
 
         return new_category as category
@@ -681,15 +684,15 @@ defmodule PhpInternals.Api.Categories.Category do
             WITH new_category, COLLECT(n) AS ns, COLLECT(ucp) AS ucps, dcp
 
             FOREACH (n IN ns |
-              CREATE (n)-[:CATEGORY]->(new_category)
+              MERGE (n)-[:CATEGORY]->(new_category)
             )
 
             FOREACH (ucp IN ucps |
-              CREATE (new_category)-[:UPDATE]->(ucp)
+              MERGE (new_category)-[:UPDATE]->(ucp)
             )
 
             FOREACH (ignored IN CASE dcp WHEN NULL THEN [] ELSE [1] END |
-              CREATE (new_category)-[:DELETE]->(dcp)
+              MERGE (new_category)-[:DELETE]->(dcp)
             )
 
             RETURN new_category as category

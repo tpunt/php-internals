@@ -666,4 +666,56 @@ defmodule CategoryPatchTest do
 
     Neo4j.query!(Neo4j.conn, "MATCH (user:User {username: '#{name}'})<-[r:CONTRIBUTOR]-(c) DELETE r, user, c")
   end
+
+  test "Authorised update existing category with patches waiting" do
+    name = :rand.uniform(100_000_000)
+    rev_id = :rand.uniform(100_000_000)
+    rev_id2 = :rand.uniform(100_000_000)
+    Neo4j.query!(Neo4j.conn, """
+      CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}}),
+        (ucp1:UpdateCategoryPatch {
+          name: '#{name}.#{name}',
+          introduction: '.',
+          url: '#{name}.#{name}',
+          revision_id: #{rev_id2 + 1},
+          against_revision: #{rev_id}
+        }),
+        (ucp2:UpdateCategoryPatch {
+          name: '#{name}..#{name}',
+          introduction: '.',
+          url: '#{name}..#{name}',
+          revision_id: #{rev_id2 + 2},
+          against_revision: #{rev_id}
+        }),
+        (c)-[:UPDATE]->(ucp1),
+        (c)-[:UPDATE]->(ucp2)
+    """)
+
+    conn =
+      conn(:patch, "/api/categories/#{name}", %{"category" => %{"name" => "#{name}...#{name}", "introduction" => "."}})
+      |> put_req_header("authorization", "at3")
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"category" => %{"name" => catname, "introduction" => ".", "url" => _, "revision_id" => _}}
+      = Poison.decode! response.resp_body
+    assert catname === "#{name}...#{name}"
+    refute [] === Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {name: '#{name}...#{name}'}),
+        (c)-[:UPDATE]->(:UpdateCategoryPatch {name: '#{name}..#{name}'}),
+        (c)-[:UPDATE]->(:UpdateCategoryPatch {name: '#{name}.#{name}'}),
+        (c)-[:REVISION]->(:CategoryRevision {name: '#{name}'}),
+        (c)-[:CONTRIBUTOR]->(:User {access_token: 'at3'})
+      RETURN c
+    """)
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {name: '#{name}...#{name}'})-[r]-(),
+        (c)-[:UPDATE]->(ucp1:UpdateCategoryPatch {name: '#{name}..#{name}'}),
+        (c)-[:UPDATE]->(ucp2:UpdateCategoryPatch {name: '#{name}.#{name}'}),
+        (c)-[:REVISION]->(cr:CategoryRevision {name: '#{name}'}),
+        (c)-[:CONTRIBUTOR]->(u:User {access_token: 'at3'})
+      DELETE r, c, ucp1, ucp2, cr
+    """)
+  end
 end
