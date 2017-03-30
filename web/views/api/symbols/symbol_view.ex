@@ -115,6 +115,11 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
     %{id: symbol["id"], name: symbol["name"], url: symbol["url"], type: symbol["type"]}
   end
 
+  # for user contributions
+  def render("symbol_overview.json", %{symbol: symbol}) do
+    %{id: symbol["id"], name: symbol["name"], url: symbol["url"], type: symbol["type"]}
+  end
+
   def render("symbol_insert.json", %{symbol: symbol_update}) do
     %{
       symbol: render_one(symbol_update, SymbolView, "symbol.json"),
