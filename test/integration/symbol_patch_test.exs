@@ -24,7 +24,8 @@ defmodule SymbolPatchTest do
   """
   test "authorised invalid update patch submission for a non-existent symbol" do
     data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
-      "definition_location" => "..","type" => "macro","categories" => ["existent"]}}
+      "definition_location" => "..","type" => "macro","categories" => ["existent"],
+      "declaration" => ".."}}
 
     conn =
       conn(:patch, "/api/symbols/0123", data)
@@ -53,7 +54,7 @@ defmodule SymbolPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "Required fields are missing (expecting: name, description, definition, definition_location, type, categories(as well as parameters and declaration for functions))"}}
+    assert %{"error" => %{"message" => "Required fields are missing (expecting: name, declaration, description, definition, definition_location, type, categories(as well as parameters and declaration for functions))"}}
       = Poison.decode!(response.resp_body)
   end
 
@@ -62,7 +63,8 @@ defmodule SymbolPatchTest do
   """
   test "authorised invalid update patch submission from an invalid category" do
     data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
-      "definition_location" => "..","type" => "macro","categories" => ["invalid"]}}
+      "definition_location" => "..","type" => "macro","categories" => ["invalid"],
+      "declaration" => ".."}}
 
     conn =
       conn(:patch, "/api/symbols/0123", data)
@@ -81,7 +83,7 @@ defmodule SymbolPatchTest do
   """
   test "authorised invalid update patch submission from no categories" do
     data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
-      "definition_location" => "..","type" => "macro","categories" => []}}
+      "definition_location" => "..","type" => "macro","categories" => [], "declaration" => ".."}}
 
     conn =
       conn(:patch, "/api/symbols/0123", data)
@@ -117,7 +119,8 @@ defmodule SymbolPatchTest do
         (s)-[:CATEGORY]->(c)
     """)
     data = %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..",
-      "definition" => "..","definition_location" => "..","type" => "macro","categories" => ["existent"]}}
+      "definition" => "..","definition_location" => "..","type" => "macro",
+      "categories" => ["existent"], "declaration" => ".."}}
 
     conn =
       conn(:patch, "/api/symbols/#{sym_id}", data)
@@ -166,7 +169,8 @@ defmodule SymbolPatchTest do
         (s)-[:CATEGORY]->(c)
     """)
     data = %{"review" => "1", "symbol" => %{"name" => "#{new_sym_name}","description" => "..",
-      "definition" => "..","definition_location" => "..","type" => "macro","categories" => ["existent"]}}
+      "definition" => "..","definition_location" => "..","type" => "macro",
+      "categories" => ["existent"], "declaration" => ".."}}
 
     conn =
       conn(:patch, "/api/symbols/#{sym_id}", data)
@@ -216,7 +220,8 @@ defmodule SymbolPatchTest do
         (s)-[:CATEGORY]->(c)
     """)
     data = %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..",
-      "definition_location" => "..","type" => "macro","categories" => ["existent"]}}
+      "definition_location" => "..","type" => "macro","categories" => ["existent"],
+      "declaration" => ".."}}
 
     conn =
       conn(:patch, "/api/symbols/#{sym_id}", data)
@@ -577,7 +582,8 @@ defmodule SymbolPatchTest do
     """)
     data = %{"review" => "1", "references_patch" => "#{rev_id2}", "symbol" =>
       %{"name" => "...","description" => "...","definition" => "...",
-      "definition_location" => "...","type" => "macro","categories" => ["existent"]}}
+      "definition_location" => "...","type" => "macro","categories" => ["existent"],
+      "declaration" => ".."}}
 
     conn =
       conn(:patch, "/api/symbols/#{rev_id}", data)
@@ -632,7 +638,7 @@ defmodule SymbolPatchTest do
     """)
     data = %{"references_patch" => "#{rev_id2}", "symbol" => %{"name" => "...",
       "description" => "...","definition" => "...", "definition_location" => "...",
-      "type" => "macro","categories" => ["existent"]}}
+      "type" => "macro","categories" => ["existent"], "declaration" => ".."}}
 
     conn =
       conn(:patch, "/api/symbols/#{rev_id}", data)

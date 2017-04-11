@@ -12,6 +12,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   @required_fields [
     "name",
+    "declaration",
     "description",
     "definition",
     "definition_location",
@@ -19,7 +20,6 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     "categories"
   ]
   @optional_fields [
-    "declaration",
     "parameters",
     "example",
     "example_explanation",
@@ -38,7 +38,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   end
 
   defp special_required_fields?(%{"type" => "function"} = symbol) do
-    ["parameters", "declaration"] -- Map.keys(symbol) === []
+    ["return_type", "return_description"] -- Map.keys(symbol) === []
   end
 
   defp special_required_fields?(_symbol), do: true

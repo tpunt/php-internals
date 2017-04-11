@@ -42,7 +42,7 @@ defmodule SymbolsPostTest do
     sym_name = :rand.uniform(100_000_000)
     data = %{"symbol" => %{"name" => "#{sym_name}", "description" => ".",
       "definition" => ".", "definition_location" => ".", "type" => "macro",
-      "categories" => ["existent"]}}
+      "categories" => ["existent"], "declaration" => ".."}}
 
     conn =
       conn(:post, "/api/symbols", data)
@@ -69,7 +69,7 @@ defmodule SymbolsPostTest do
     sym_name = :rand.uniform(100_000_000)
     data = %{"review" => "1", "symbol" => %{"name" => "#{sym_name}", "description" => ".",
       "definition" => ".", "definition_location" => ".", "type" => "macro",
-      "categories" => ["existent"]}}
+      "categories" => ["existent"], "declaration" => ".."}}
 
     conn =
       conn(:post, "/api/symbols", data)
@@ -96,7 +96,7 @@ defmodule SymbolsPostTest do
     sym_name = :rand.uniform(100_000_000)
     data = %{"review" => "1", "symbol" => %{"name" => "#{sym_name}", "description" => ".",
       "definition" => ".", "definition_location" => ".", "type" => "macro",
-      "categories" => ["existent"]}}
+      "categories" => ["existent"], "declaration" => ".."}}
 
     conn =
       conn(:post, "/api/symbols", data)
@@ -122,7 +122,8 @@ defmodule SymbolsPostTest do
   test "Authenticated attempt at inserting a new symbol 1" do
     sym_name = :rand.uniform(100_000_000)
     data = %{"symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".",
-      "definition_location" => ".", "type" => "macro", "categories" => ["existent"]}}
+      "definition_location" => ".", "type" => "macro", "categories" => ["existent"],
+      "declaration" => ".."}}
 
     conn =
       conn(:post, "/api/symbols", data)
@@ -148,7 +149,8 @@ defmodule SymbolsPostTest do
   test "Authenticated attempt at inserting a new symbol 2" do
     sym_name = :rand.uniform(100_000_000)
     data = %{"symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".",
-      "definition_location" => ".", "type" => "macro", "categories" => ["existent"]}}
+      "definition_location" => ".", "type" => "macro", "categories" => ["existent"],
+      "declaration" => ".."}}
 
     conn =
       conn(:post, "/api/symbols/", data)
