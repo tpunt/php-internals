@@ -16,6 +16,7 @@ defmodule PhpInternals.Utilities do
 
   defp make_url_friendly(name) do
     name
+    |> String.trim
     |> String.replace(~r/([^a-zA-Z0-9 ._-])/, "")
     |> String.replace(" ", "_")
     |> String.downcase
