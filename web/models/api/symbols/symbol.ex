@@ -492,7 +492,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       WITH s
       MATCH (s)-[crel:CATEGORY]->(category:Category),
         (user:User {username: {username}})
-      CREATE (s)-[:CONTRIBUTOR {type: "insert", date: timestamp()}]->(user)
+      MERGE (s)-[:CONTRIBUTOR {type: "insert", date: timestamp()}]->(user)
       RETURN {
         symbol: s,
         categories: COLLECT({category: {name: category.name, url: category.url}})
