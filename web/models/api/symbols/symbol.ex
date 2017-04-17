@@ -257,13 +257,15 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   def fetch_all_patches("all") do
     query = """
       MATCH (s:Symbol)-[:CATEGORY]->(c:Category)
+      WITH s,
+        COLLECT({category: {name: c.name, url: c.url}}) AS cs
       OPTIONAL MATCH (s)-[:UPDATE]->(usp:UpdateSymbolPatch),
         (usp)-[r:CONTRIBUTOR]->(u:User),
         (usp)-[:CATEGORY]->(uspc:Category)
       OPTIONAL MATCH (s)-[:DELETE]->(dsp:DeleteSymbolPatch)
       WITH s,
-        CASE c WHEN NULL THEN [] ELSE COLLECT({category: {name: c.name, url: c.url}}) END AS cs,
-        CASE uspc WHEN NULL THEN [] ELSE COLLECT({category: {name: uspc.name, url: uspc.url}}) END AS uspcs,
+        cs,
+        COLLECT(CASE uspc WHEN NULL THEN [] ELSE {category: {name: uspc.name, url: uspc.url}} END) AS uspcs,
         dsp,
         usp,
         r,
@@ -317,18 +319,21 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   def fetch_all_patches("update") do
     query = """
       MATCH (s:Symbol)-[:UPDATE]->(usp:UpdateSymbolPatch),
-        (s)-[:CATEGORY]->(c:Category),
-        (usp)-[r:CONTRIBUTOR]->(u:User),
+        (s)-[:CATEGORY]->(c:Category)
+      WITH s,
+        usp,
+        COLLECT({category: {name: c.name, url: c.url}}) AS cs
+      MATCH (usp)-[r:CONTRIBUTOR]->(u:User),
         (usp)-[:CATEGORY]->(uspc:Category)
       WITH s,
-        CASE c WHEN NULL THEN [] ELSE COLLECT({category: {name: c.name, url: c.url}}) END AS cs,
-        CASE uspc WHEN NULL THEN [] ELSE COLLECT({category: {name: uspc.name, url: uspc.url}}) END AS uspcs,
         usp,
+        cs,
+        COLLECT({category: {name: uspc.name, url: uspc.url}}) AS uspcs,
         r,
         u
       WITH s,
         cs,
-        CASE usp WHEN NULL THEN [] ELSE COLLECT({
+        COLLECT({
             update: {categories: uspcs, symbol: usp},
             user: {
               username: u.username,
@@ -337,7 +342,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
               avatar_url: u.avatar_url
             },
             date: r.date
-          }) END AS usps
+          }) AS usps
       RETURN {
         symbol: s,
         categories: cs,
@@ -732,6 +737,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         OPTIONAL MATCH (old_symbol)-[r1:UPDATE]->(su:UpdateSymbolPatch)
         OPTIONAL MATCH (old_symbol)-[r2:DELETE]->(sd:DeleteSymbolPatch)
 
+        DELETE r1, r2
+
         WITH old_symbol, new_symbol, COLLECT(su) as sus, sd
 
         FOREACH (su IN sus |
@@ -863,7 +870,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         (user:User {username: {username}})
       REMOVE s:InsertSymbolPatch
       SET s:Symbol
-      CREATE (s)-[:CONTRIBUTOR {type: "apply_insert", date: timestamp()}]->(user)
+      MERGE (s)-[:CONTRIBUTOR {type: "apply_insert", date: timestamp()}]->(user)
       RETURN {
         symbol: s,
         categories: COLLECT({category: {name: category.name, url: category.url}})
@@ -914,7 +921,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
         MATCH (new_symbol)-[:CATEGORY]->(category:Category),
           (user:User {username: {username}})
-        CREATE (new_symbol)-[:CONTRIBUTOR {type: "apply_update", date: timestamp()}]->(user)
+        MERGE (new_symbol)-[:CONTRIBUTOR {type: "apply_update", date: timestamp()}]->(user)
         RETURN {
           symbol: new_symbol,
           categories: COLLECT({category: {name: category.name, url: category.url}})
@@ -941,7 +948,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       REMOVE symbol:Symbol
       SET symbol:SymbolDeleted
       DELETE r, sd
-      CREATE (symbol)-[:CONTRIBUTOR {type: "apply_delete", date: timestamp()}]->(user)
+      MERGE (symbol)-[:CONTRIBUTOR {type: "apply_delete", date: timestamp()}]->(user)
       RETURN symbol
     """
 
@@ -963,7 +970,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
           (user:User {username: {username}})
         REMOVE isp:InsertSymbolPatch
         SET isp:InsertSymbolPatchDeleted
-        CREATE (isp)-[:CONTRIBUTOR {type: "discard_insert", date: timestamp()}]->(user)
+        MERGE (isp)-[:CONTRIBUTOR {type: "discard_insert", date: timestamp()}]->(user)
       """
 
       params = %{symbol_id: symbol_id, username: username}
@@ -984,7 +991,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
           (user:User {username: {username}})
         REMOVE usp:UpdateSymbolPatch
         SET usp:UpdateSymbolPatchDeleted
-        CREATE (usp)-[:CONTRIBUTOR {type: "discard_update", date: timestamp()}]->(user)
+        MERGE (usp)-[:CONTRIBUTOR {type: "discard_update", date: timestamp()}]->(user)
       """
 
       params = %{revision_id: patch_revision_id, username: username}
