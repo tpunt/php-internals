@@ -238,7 +238,7 @@ defmodule PhpInternals.Api.Articles.Article do
       WITH article
       MATCH (article)-[:CATEGORY]->(c:Category),
         (user:User {username: {username}})
-      CREATE (article)-[:AUTHOR]->(user)
+      MERGE (article)-[:AUTHOR]->(user)
       RETURN article, user, collect({category: {name: c.name, url:c.url}}) as categories
     """
 
@@ -284,7 +284,7 @@ defmodule PhpInternals.Api.Articles.Article do
           query = """
             WITH article
             MATCH (c#{c}:Category {url: {cat_#{c}}})
-            CREATE UNIQUE (article)-[:CATEGORY]->(c#{c})
+            MERGE (article)-[:CATEGORY]->(c#{c})
           """
           {q <> query, Map.put(p, "cat_#{c}", cat), c + 1}
         end)
