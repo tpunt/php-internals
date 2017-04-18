@@ -408,7 +408,8 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   defp remove(conn, %{"category_name" => category_url, "review" => review}) do
     with {:ok} <- User.within_patch_limit?(conn.user),
          {:ok, _category} <- Category.valid?(category_url),
-         {:ok} <- Category.contains_nothing?(category_url) do
+         {:ok} <- Category.contains_nothing?(category_url),
+         {:ok} <- Category.has_no_delete_patch?(category_url) do
       Category.soft_delete(category_url, review, conn.user.username)
 
       status_code = if review == 0, do: 204, else: 202

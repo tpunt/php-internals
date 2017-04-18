@@ -60,6 +60,24 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
+  def has_no_delete_patch?(category_url) do
+    query = """
+      MATCH (c:Category {url: {category_url}}),
+        (c)<-[:DELETE]-(:User)
+      RETURN c
+    """
+
+    params = %{category_url: category_url}
+
+    result = List.first Neo4j.query!(Neo4j.conn, query, params)
+
+    if result === nil do
+      {:ok}
+    else
+      {:error, 400, "The specified category already has a delete patch"}
+    end
+  end
+
   def valid?(nil = _category_url), do: {:ok, nil}
 
   def valid?(category_url) do
@@ -155,7 +173,7 @@ defmodule PhpInternals.Api.Categories.Category do
       MATCH (c:Category)
       OPTIONAL MATCH (c)-[:UPDATE]->(ucp:UpdateCategoryPatch),
         (ucp)-[r:CONTRIBUTOR]->(u:User)
-      WITH c, ucp, r, u, EXISTS((c)-[:DELETE]->(:DeleteCategoryPatch)) AS delete
+      WITH c, ucp, r, u, EXISTS((c)<-[:DELETE]-(:User)) AS delete
       WHERE ucp IS NOT NULL OR delete
       RETURN {
         category: c,
@@ -220,7 +238,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def fetch_all_patches("delete") do
     query = """
-      MATCH (category_delete:Category)-[:DELETE]->(:DeleteCategoryPatch)
+      MATCH (category_delete:Category)<-[:DELETE]-(:User)
       RETURN category_delete
     """
     Neo4j.query!(Neo4j.conn, query)
@@ -235,7 +253,7 @@ defmodule PhpInternals.Api.Categories.Category do
       MATCH (c:Category {url: {category_url}})
       OPTIONAL MATCH (c)-[:UPDATE]->(ucp:UpdateCategoryPatch),
         (ucp)-[r:CONTRIBUTOR]->(u:User)
-      OPTIONAL MATCH (c)-[:DELETE]->(dcp:DeleteCategoryPatch)
+      OPTIONAL MATCH (c)<-[rd:DELETE]->(:User)
       RETURN {
         category: c,
         updates: CASE ucp WHEN NULL THEN [] ELSE COLLECT({
@@ -248,7 +266,7 @@ defmodule PhpInternals.Api.Categories.Category do
             },
             date: r.date
           }) END,
-        delete: CASE dcp WHEN NULL THEN FALSE ELSE TRUE END
+        delete: CASE rd WHEN NULL THEN FALSE ELSE TRUE END
       } AS patches
     """
 
@@ -331,9 +349,9 @@ defmodule PhpInternals.Api.Categories.Category do
   def fetch_delete_patch_for(category_url) do
     query = """
       MATCH (category_delete:Category {url: {category_url}})
-      OPTIONAL MATCH (category_delete)-[:DELETE]->(cd:DeleteCategoryPatch)
+      OPTIONAL MATCH (category_delete)<-[rd:DELETE]-(:User)
 
-      RETURN category_delete, cd
+      RETURN category_delete, rd
     """
 
     params = %{category_url: category_url}
@@ -423,7 +441,7 @@ defmodule PhpInternals.Api.Categories.Category do
       WITH old_category, user, new_category
 
       OPTIONAL MATCH (old_category)-[r1:UPDATE]->(ucp:UpdateCategoryPatch)
-      OPTIONAL MATCH (old_category)-[r2:DELETE]->(dcp:DeleteCategoryPatch)
+      OPTIONAL MATCH (old_category)<-[r2:DELETE]-(user2:User)
       OPTIONAL MATCH (n)-[r3:CATEGORY]->(old_category)
 
       REMOVE old_category:Category
@@ -431,14 +449,14 @@ defmodule PhpInternals.Api.Categories.Category do
 
       DELETE r1, r2, r3
 
-      WITH new_category, COLLECT(ucp) AS ucps, dcp, COLLECT(n) AS ns
+      WITH new_category, COLLECT(ucp) AS ucps, user2, COLLECT(n) AS ns
 
       FOREACH (ucp IN ucps |
         MERGE (new_category)-[:UPDATE]->(ucp)
       )
 
-      FOREACH (ignored IN CASE dcp WHEN NULL THEN [] ELSE [1] END |
-        MERGE (new_category)-[:DELETE]->(dcp)
+      FOREACH (ignored IN CASE user2 WHEN NULL THEN [] ELSE [1] END |
+        MERGE (new_category)<-[:DELETE]-(user2)
       )
 
       FOREACH (n IN ns |
@@ -533,11 +551,11 @@ defmodule PhpInternals.Api.Categories.Category do
 
         OPTIONAL MATCH (n)-[r2:CATEGORY]->(old_category)
         OPTIONAL MATCH (old_category)-[r3:UPDATE]->(ucp:UpdateCategoryPatch)
-        OPTIONAL MATCH (old_category)-[r4:DELETE]->(dcp:DeleteCategoryPatch)
+        OPTIONAL MATCH (old_category)<-[r4:DELETE]-(user2:User)
 
         DELETE r2, r3, r4
 
-        WITH new_category, COLLECT(n) AS ns, COLLECT(ucp) AS ucps, dcp
+        WITH new_category, COLLECT(n) AS ns, COLLECT(ucp) AS ucps, user2
 
         FOREACH (n IN ns |
           MERGE (n)-[:CATEGORY]->(new_category)
@@ -547,8 +565,8 @@ defmodule PhpInternals.Api.Categories.Category do
           MERGE (new_category)-[:UPDATE]->(ucp)
         )
 
-        FOREACH (ignored IN CASE dcp WHEN NULL THEN [] ELSE [1] END |
-          MERGE (new_category)-[:DELETE]->(cdp)
+        FOREACH (ignored IN CASE user2 WHEN NULL THEN [] ELSE [1] END |
+          MERGE (new_category)-[:DELETE]->(user2)
         )
 
         return new_category as category
@@ -677,11 +695,11 @@ defmodule PhpInternals.Api.Categories.Category do
 
             OPTIONAL MATCH (n)-[r2:CATEGORY]->(old_category)
             OPTIONAL MATCH (old_category)-[r3:UPDATE]->(ucp:UpdateCategoryPatch)
-            OPTIONAL MATCH (old_category)-[r4:DELETE]->(dcp:DeleteCategoryPatch)
+            OPTIONAL MATCH (old_category)<-[r4:DELETE]-(user2:User)
 
             DELETE r2, r3, r4
 
-            WITH new_category, COLLECT(n) AS ns, COLLECT(ucp) AS ucps, dcp
+            WITH new_category, COLLECT(n) AS ns, COLLECT(ucp) AS ucps, user2
 
             FOREACH (n IN ns |
               MERGE (n)-[:CATEGORY]->(new_category)
@@ -691,8 +709,8 @@ defmodule PhpInternals.Api.Categories.Category do
               MERGE (new_category)-[:UPDATE]->(ucp)
             )
 
-            FOREACH (ignored IN CASE dcp WHEN NULL THEN [] ELSE [1] END |
-              MERGE (new_category)-[:DELETE]->(dcp)
+            FOREACH (ignored IN CASE user2 WHEN NULL THEN [] ELSE [1] END |
+              MERGE (new_category)<-[:DELETE]-(user2)
             )
 
             RETURN new_category as category
@@ -707,7 +725,7 @@ defmodule PhpInternals.Api.Categories.Category do
   def apply_patch?(category_url, %{"action" => "delete"}, username) do
     query = """
       OPTIONAL MATCH (c:Category {url: {category_url}})
-      OPTIONAL MATCH (cp)-[:DELETE]->(:DeleteCategoryPatch)
+      OPTIONAL MATCH (c)<-[cp:DELETE]-(:User)
       RETURN c, cp
     """
     params = %{category_url: category_url, username: username}
@@ -721,12 +739,13 @@ defmodule PhpInternals.Api.Categories.Category do
         {:error, 404, "Delete patch not found for the specified category"}
       else
         query = """
-          MATCH (c:Category {url: {category_url}})-[r:DELETE]->(cd:DeleteCategoryPatch),
+          MATCH (c:Category {url: {category_url}})<-[r:DELETE]-(user2:User),
             (user:User {username: {username}})
           REMOVE c:Category
           SET c:CategoryDeleted
-          CREATE (c)-[:CONTRIBUTOR {type: "apply_delete", date: timestamp()}]->(user)
-          DELETE r, cd
+          CREATE (c)-[:CONTRIBUTOR {type: "delete", date: timestamp()}]->(user2),
+            (c)-[:CONTRIBUTOR {type: "apply_delete", date: timestamp()}]->(user)
+          DELETE r
         """
 
         Neo4j.query!(Neo4j.conn, query, params)
@@ -795,12 +814,12 @@ defmodule PhpInternals.Api.Categories.Category do
   def discard_patch?(category_url, %{"action" => "delete"}, username) do
     query = """
       OPTIONAL MATCH (c:Category {url: {category_url}})
-      OPTIONAL MATCH (cp)-[:DELETE]->(:DeleteCategoryPatch)
+      OPTIONAL MATCH (cp)<-[:DELETE]-(:User)
       RETURN c, cp
     """
     params = %{category_url: category_url, username: username}
 
-    category = Neo4j.query!(Neo4j.conn, query, params) |> List.first
+    category = List.first Neo4j.query!(Neo4j.conn, query, params)
 
     if category["c"] == nil do
       {:error, 404, "Category not found"}
@@ -811,9 +830,10 @@ defmodule PhpInternals.Api.Categories.Category do
         query = """
           MATCH (c:Category {url: {category_url}}),
             (user:User {username: {username}}),
-            (c)-[r:DELETE]->(cp:DeleteCategoryPatch)
-          DELETE r, cp
-          MERGE (c)-[:CONTRIBUTOR {type: "discard_delete", date: timestamp()}]->(user)
+            (c)<-[r:DELETE]-(:User)
+          DELETE r
+          MERGE (c)-[r2:CONTRIBUTOR {type: "discard_delete"}]->(user)
+          SET r2.date = timestamp()
         """
 
         Neo4j.query!(Neo4j.conn, query, params)
@@ -827,12 +847,8 @@ defmodule PhpInternals.Api.Categories.Category do
     query = """
       MATCH (c:Category {url: {url}}),
         (user:User {username: {username}})
-      OPTIONAL MATCH (c)-[r:DELETE]->(catdel:DeleteCategoryPatch)
       REMOVE c:Category
       SET c:CategoryDeleted
-      FOREACH (ignored IN CASE catdel WHEN NULL THEN [] ELSE [1] END |
-        DELETE r, catdel
-      )
       CREATE (c)-[:CONTRIBUTOR {type: "delete", date: timestamp()}]->(user)
     """
 
@@ -845,8 +861,7 @@ defmodule PhpInternals.Api.Categories.Category do
     query = """
       MATCH (c:Category {url: {url}}),
         (user:User {username: {username}})
-      MERGE (c)-[:DELETE]->(catdel:DeleteCategoryPatch)
-      CREATE (c)-[:CONTRIBUTOR {type: "delete", date: timestamp()}]->(user)
+      CREATE (c)<-[:DELETE]-(user)
     """
 
     params = %{url: category_url, username: username}
@@ -856,11 +871,16 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def soft_delete_undo(category_url, 0, username) do
     query = """
-      MATCH (c:CategoryDeleted {url: {url}}),
-        (user:User {username: {username}})
-      REMOVE c:CategoryDeleted
-      SET c:Category
-      CREATE (c)-[:CONTRIBUTOR {type: "undo_delete", date: timestamp()}]->(user)
+      MATCH (cd:CategoryDeleted {url: {url}}),
+        (u:User {username: {username}})
+        (cd)-[r1:CONTRIBUTOR {type: "delete"}]->(u)
+      OPTIONAL MATCH (cd)-[r2:CONTRIBUTOR {type: "apply_delete"}]->(u)
+
+      REMOVE sd:CategoryDeleted
+      SET sd:Category
+      DELETE r1, r2
+
+      CREATE (s)-[:CONTRIBUTOR {type: "undo_delete", date: timestamp()}]->(u)
     """
 
     params = %{url: category_url, username: username}

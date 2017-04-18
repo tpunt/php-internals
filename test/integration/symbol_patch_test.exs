@@ -472,7 +472,8 @@ defmodule SymbolPatchTest do
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {url: 'existent'})
+      MATCH (c:Category {url: 'existent'}),
+        (u:User {access_token: 'at1'})
       CREATE (s:Symbol {
           id: #{sym_id},
           name: '...',
@@ -484,7 +485,7 @@ defmodule SymbolPatchTest do
           revision_id: #{sym_rev}
         }),
         (s)-[:CATEGORY]->(c),
-        (s)-[:DELETE]->(:DeleteSymbolPatch)
+        (s)<-[:DELETE]-(u)
     """)
 
     conn =
@@ -498,6 +499,7 @@ defmodule SymbolPatchTest do
       MATCH (sd:SymbolDeleted {revision_id: #{sym_rev}}),
         (c:Category {url: 'existent'}),
         (sd)-[:CATEGORY]->(c),
+        (sd)-[:CONTRIBUTOR {type: 'delete'}]->(:User {access_token: 'at1'}),
         (sd)-[:CONTRIBUTOR {type: 'apply_delete'}]->(:User {access_token: 'at3'})
       RETURN sd
     """)
@@ -516,7 +518,8 @@ defmodule SymbolPatchTest do
     sym_rev = :rand.uniform(100_000_000)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {url: 'existent'})
+      MATCH (c:Category {url: 'existent'}),
+        (u:User {access_token: 'at3'})
       CREATE (s:Symbol {
           id: #{sym_id},
           name: '...',
@@ -528,7 +531,7 @@ defmodule SymbolPatchTest do
           revision_id: #{sym_rev}
         }),
         (s)-[:CATEGORY]->(c),
-        (s)-[:DELETE]->(:DeleteSymbolPatch)
+        (s)<-[:DELETE]-(u)
     """)
 
     conn =

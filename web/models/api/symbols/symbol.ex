@@ -131,7 +131,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   def has_delete_patch?(symbol_id) do
     query = """
       MATCH (s:Symbol {id: {symbol_id}}),
-        (s)-[:DELETE]->(:DeleteSymbolPatch),
+        (:User)-[:DELETE]->(s),
         (s)-[:CATEGORY]->(c:Category)
       RETURN {
         symbol: s,
@@ -147,6 +147,15 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       {:error, 404, "The specified symbol delete patch could not be found"}
     else
       {:ok, result}
+    end
+  end
+
+  def has_no_delete_patch?(symbol_id) do
+    case has_delete_patch?(symbol_id) do
+      {:error, 404, _} ->
+        {:ok}
+      {:ok, _} ->
+        {:error, 400, "The specified symbol already has a delete patch"}
     end
   end
 
@@ -262,17 +271,17 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       OPTIONAL MATCH (s)-[:UPDATE]->(usp:UpdateSymbolPatch),
         (usp)-[r:CONTRIBUTOR]->(u:User),
         (usp)-[:CATEGORY]->(uspc:Category)
-      OPTIONAL MATCH (s)-[:DELETE]->(dsp:DeleteSymbolPatch)
+      OPTIONAL MATCH (s)<-[rd:DELETE]->(:User)
       WITH s,
         cs,
         COLLECT(CASE uspc WHEN NULL THEN [] ELSE {category: {name: uspc.name, url: uspc.url}} END) AS uspcs,
-        dsp,
+        rd,
         usp,
         r,
         u
       WITH s,
         cs,
-        dsp,
+        rd,
         COLLECT(CASE usp WHEN NULL THEN NULL ELSE {symbol_update: {
             update: {categories: uspcs, symbol: usp},
             user: {
@@ -283,12 +292,12 @@ defmodule PhpInternals.Api.Symbols.Symbol do
             },
             date: r.date
           }} END) AS usps
-      WHERE dsp <> FALSE OR usps <> []
+      WHERE rd <> FALSE OR usps <> []
       RETURN {
         symbol: s,
         categories: cs,
         updates: usps,
-        delete: CASE dsp WHEN NULL THEN FALSE ELSE TRUE END
+        delete: CASE rd WHEN NULL THEN FALSE ELSE TRUE END
       } AS symbol_patches
     """
 
@@ -355,7 +364,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def fetch_all_patches("delete") do
     query = """
-      MATCH (c:Category)<-[:CATEGORY]-(symbol:Symbol)-[:DELETE]->(:DeleteSymbolPatch)
+      MATCH (c:Category)<-[:CATEGORY]-(symbol:Symbol)<-[:DELETE]-(:User)
       RETURN {
         symbol: symbol,
         categories: collect({name: c.name, url: c.url})
@@ -397,17 +406,17 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       OPTIONAL MATCH (s)-[:UPDATE]->(usp:UpdateSymbolPatch),
         (usp)-[r:CONTRIBUTOR]->(u:User),
         (usp)-[:CATEGORY]->(uspc:Category)
-      OPTIONAL MATCH (s)-[:DELETE]->(dsp:DeleteSymbolPatch)
+      OPTIONAL MATCH (s)<-[rd:DELETE]->(:User)
       WITH s,
         CASE c WHEN NULL THEN [] ELSE COLLECT({category: {name: c.name, url: c.url}}) END AS cs,
         CASE uspc WHEN NULL THEN [] ELSE COLLECT({category: {name: uspc.name, url: uspc.url}}) END AS uspcs,
-        dsp,
+        rd,
         usp,
         r,
         u
       WITH s,
         cs,
-        dsp,
+        rd,
         CASE usp WHEN NULL THEN [] ELSE COLLECT({symbol_update: {
             update: {categories: uspcs, symbol: usp},
             user: {
@@ -422,7 +431,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         symbol: s,
         categories: cs,
         updates: usps,
-        delete: CASE dsp WHEN NULL THEN FALSE ELSE TRUE END
+        delete: CASE rd WHEN NULL THEN FALSE ELSE TRUE END
       } AS symbol_patches
     """
 
@@ -535,11 +544,11 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       MATCH (old_symbol:Symbol {id: {symbol_id}}),
         (user:User {username: {username}})
       OPTIONAL MATCH (old_symbol)-[r1:UPDATE]->(su:UpdateSymbolPatch)
-      OPTIONAL MATCH (old_symbol)-[r2:DELETE]->(sd:DeleteSymbolPatch)
+      OPTIONAL MATCH (old_symbol)<-[r2:DELETE]-(user2:User)
       REMOVE old_symbol:Symbol
       SET old_symbol:SymbolRevision
       DELETE r1, r2
-      WITH old_symbol, user, COLLECT(su) as sus, sd
+      WITH old_symbol, user, COLLECT(su) as sus, user2
     """
 
     query2 =
@@ -559,7 +568,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       |> Enum.reduce({[], %{}, 0},
         fn cat, {queries, params, n} ->
           {queries ++ ["""
-            WITH new_symbol, sus, sd
+            WITH new_symbol, sus, user2
             MATCH (cat#{n}:Category {url: {cat#{n}_url}})
             CREATE (new_symbol)-[:CATEGORY]->(cat#{n})
           """], Map.put(params, "cat#{n}_url", cat), n + 1}
@@ -568,14 +577,14 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     query3 = Enum.join(queries, " ")
 
     query4 = """
-      WITH new_symbol, sus, sd
+      WITH new_symbol, sus, user2
 
       FOREACH (su IN sus |
         CREATE (new_symbol)-[:UPDATE]->(su)
       )
 
-      FOREACH (unused IN CASE sd WHEN NULL THEN [] ELSE [1] END |
-        CREATE (new_symbol)-[:DELETE]->(sd)
+      FOREACH (unused IN CASE user2 WHEN NULL THEN [] ELSE [1] END |
+        CREATE (new_symbol)<-[:DELETE]-(user2)
       )
 
       WITH new_symbol
@@ -735,18 +744,18 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         WITH old_symbol, new_symbol
 
         OPTIONAL MATCH (old_symbol)-[r1:UPDATE]->(su:UpdateSymbolPatch)
-        OPTIONAL MATCH (old_symbol)-[r2:DELETE]->(sd:DeleteSymbolPatch)
+        OPTIONAL MATCH (old_symbol)<-[r2:DELETE]-(user2:User)
 
         DELETE r1, r2
 
-        WITH old_symbol, new_symbol, COLLECT(su) as sus, sd
+        WITH old_symbol, new_symbol, COLLECT(su) as sus, user2
 
         FOREACH (su IN sus |
           CREATE (new_symbol)-[:UPDATE]->(su)
         )
 
-        FOREACH (unused IN CASE sd WHEN NULL THEN [] ELSE [1] END |
-          CREATE (new_symbol)-[:DELETE]->(sd)
+        FOREACH (unused IN CASE user2 WHEN NULL THEN [] ELSE [1] END |
+          CREATE (new_symbol)<-[:DELETE]-(user2)
         )
 
         WITH new_symbol
@@ -899,7 +908,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         WITH old_symbol, new_symbol
 
         OPTIONAL MATCH (old_symbol)-[r2:UPDATE]->(su:UpdateSymbolPatch)
-        OPTIONAL MATCH (old_symbol)-[r3:DELETE]->(sd:DeleteSymbolPatch)
+        OPTIONAL MATCH (old_symbol)<-[r3:DELETE]-(user2:User)
         REMOVE old_symbol:Symbol
         REMOVE new_symbol:UpdateSymbolPatch
         REMOVE new_symbol.against_revision
@@ -907,14 +916,14 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         SET new_symbol:Symbol
         DELETE r2, r3
 
-        WITH old_symbol, new_symbol, collect(su) as sus, sd
+        WITH old_symbol, new_symbol, collect(su) as sus, user2
 
         CREATE (new_symbol)-[:REVISION]->(old_symbol)
         FOREACH (su IN sus |
           CREATE (new_symbol)-[:UPDATE]->(su)
         )
-        FOREACH (unused IN CASE sd WHEN NULL THEN [] ELSE [1] END |
-          CREATE (new_symbol)-[:DELETE]->(sd)
+        FOREACH (unused IN CASE user2 WHEN NULL THEN [] ELSE [1] END |
+          CREATE (new_symbol)<-[:DELETE]-(user2)
         )
 
         WITH new_symbol
@@ -943,13 +952,18 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def apply_patch?(symbol_id, %{"action" => "delete"}, username) do
     query = """
-      MATCH (symbol:Symbol {id: {symbol_id}})-[r:DELETE]->(sd:DeleteSymbolPatch),
-        (user:User {username: {username}})
-      REMOVE symbol:Symbol
-      SET symbol:SymbolDeleted
-      DELETE r, sd
-      MERGE (symbol)-[:CONTRIBUTOR {type: "apply_delete", date: timestamp()}]->(user)
-      RETURN symbol
+      MATCH (s:Symbol {id: {symbol_id}}),
+        (u:User)-[r:DELETE]->(s),
+        (u2:User {username: {username}})
+
+      REMOVE s:Symbol
+      SET s:SymbolDeleted
+
+      DELETE r
+      CREATE (s)-[:CONTRIBUTOR {type: "delete", date: timestamp()}]->(u),
+        (s)-[:CONTRIBUTOR {type: "apply_delete", date: timestamp()}]->(u2)
+
+      RETURN s
     """
 
     params = %{symbol_id: symbol_id, username: username}
@@ -1009,10 +1023,11 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     with {:ok, _symbol} <- has_delete_patch?(symbol_id) do
       query = """
         MATCH (s:Symbol {id: {symbol_id}}),
-          (user:User {username: {username}}),
-          (s)-[r:DELETE]->(sd:DeleteSymbolPatch)
-        DELETE r, sd
-        MERGE (s)-[:CONTRIBUTOR {type: "discard_delete", date: timestamp()}]->(user)
+          (:User)-[r:DELETE]->(s),
+          (u2:User {username: {username}})
+        DELETE r
+        MERGE (s)-[r2:CONTRIBUTOR {type: "discard_delete"}]->(u2)
+        SET r2.date = timestamp()
       """
 
       params = %{symbol_id: symbol_id, username: username}
@@ -1028,15 +1043,11 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def soft_delete(symbol_id, 0 = _review, username) do
     query = """
-      MATCH (symbol:Symbol {id: {symbol_id}}),
-        (user:User {username: {username}})
-      OPTIONAL MATCH (symbol)-[r:DELETE]->(sym_del:DeleteSymbolPatch)
-      REMOVE symbol:Symbol
-      SET symbol:SymbolDeleted
-      FOREACH (ignored IN CASE sym_del WHEN NULL THEN [] ELSE [1] END |
-        DELETE r, sym_del
-      )
-      CREATE (symbol)-[:CONTRIBUTOR {type: "delete", date: timestamp()}]->(user)
+      MATCH (s:Symbol {id: {symbol_id}}),
+        (u:User {username: {username}})
+      REMOVE s:Symbol
+      SET s:SymbolDeleted
+      CREATE (s)-[:CONTRIBUTOR {type: "delete", date: timestamp()}]->(u)
     """
 
     params = %{symbol_id: symbol_id, username: username}
@@ -1046,10 +1057,9 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def soft_delete(symbol_id, 1 = _review, username) do
     query = """
-      MATCH (symbol:Symbol {id: {symbol_id}}),
-        (user:User {username: {username}})
-      MERGE (symbol)-[:DELETE]->(:DeleteSymbolPatch)
-      CREATE (symbol)-[:CONTRIBUTOR {type: "delete", date: timestamp()}]->(user)
+      MATCH (s:Symbol {id: {symbol_id}}),
+        (u:User {username: {username}})
+      CREATE (u)-[:DELETE]->(s)
     """
 
     params = %{symbol_id: symbol_id, username: username}
@@ -1059,11 +1069,16 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def soft_delete_undo(symbol_id, 0 = _review, username) do
     query = """
-      MATCH (symbol:SymbolDeleted {id: {symbol_id}}),
-        (user:User {username: {username}})
-      REMOVE symbol:SymbolDeleted
-      SET symbol:Symbol
-      CREATE (symbol)-[:CONTRIBUTOR {type: "undo_delete", date: timestamp()}]->(user)
+      MATCH (sd:SymbolDeleted {id: {symbol_id}}),
+        (u:User {username: {username}}),
+        (sd)-[r1:CONTRIBUTOR {type: "delete"}]->(u)
+      OPTIONAL MATCH (sd)-[r2:CONTRIBUTOR {type: "apply_delete"}]->(u)
+
+      REMOVE sd:SymbolDeleted
+      SET sd:Symbol
+      DELETE r1, r2
+
+      CREATE (s)-[:CONTRIBUTOR {type: "undo_delete", date: timestamp()}]->(u)
     """
 
     params = %{symbol_id: symbol_id, username: username}

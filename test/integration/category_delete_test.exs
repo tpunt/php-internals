@@ -58,15 +58,13 @@ defmodule CategoryDeleteTest do
     assert response.status === 202
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}'}),
-        (c)-[:DELETE]->(dcp:DeleteCategoryPatch),
-        (c)-[:CONTRIBUTOR {type: 'delete'}]->(:User {access_token: 'at1'})
+        (c)<-[:DELETE]-(:User {access_token: 'at1'})
       RETURN c
     """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {name: '#{name}'})-[r1]-(),
-        (c)-[r2:DELETE]->(dcp:DeleteCategoryPatch)
-      DELETE r1, r2, c, dcp
+      MATCH (c:Category {name: '#{name}'})-[r]-()
+      DELETE r, c
     """)
   end
 
@@ -164,5 +162,32 @@ defmodule CategoryDeleteTest do
       = Poison.decode!(response.resp_body)
 
     Neo4j.query!(Neo4j.conn, "MATCH (u:User {username: '#{name}'})<-[r]-(c) DELETE r, u, c")
+  end
+
+  @doc """
+  DELETE /api/categories/existent -H 'authorization: at1'
+  """
+  test "Authorised invalid delete request a category with a delete patch" do
+    name = :rand.uniform(100_000_000)
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {access_token: 'at1'})
+      CREATE (c:Category {url: '#{name}'}),
+        (c)<-[:DELETE]-(u)
+    """)
+
+    conn =
+      conn(:delete, "/api/categories/#{name}")
+      |> put_req_header("authorization", "at1")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 400
+    assert %{"error" => %{"message" => "The specified category already has a delete patch"}}
+      = Poison.decode!(response.resp_body)
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {url: '#{name}'})-[r]-()
+      DELETE r, c
+    """)
   end
 end

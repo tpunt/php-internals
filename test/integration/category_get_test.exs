@@ -234,13 +234,14 @@ defmodule CategoryGetTest do
     name = :rand.uniform(100_000_000)
     rev_id = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {access_token: 'at1'})
       CREATE (c:Category {
           name: '#{name}',
           introduction: '...',
           url: '#{name}',
           revision_id: #{rev_id}
         }),
-        (c)-[:DELETE]->(:DeleteCategoryPatch)
+        (c)<-[:DELETE]-(u)
     """)
 
     conn =
@@ -253,7 +254,7 @@ defmodule CategoryGetTest do
     assert %{"category_delete" => %{"category" => %{"introduction" => "..."}}}
       = Poison.decode! response.resp_body
 
-    Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'})-[r:DELETE]->(c2) DELETE r, c, c2")
+    Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'})-[r]->() DELETE r, c")
   end
 
   @doc """

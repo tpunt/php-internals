@@ -108,7 +108,8 @@ defmodule SymbolGetTest do
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {url: 'existent'})
+      MATCH (c:Category {url: 'existent'}),
+        (u:User {access_token: 'at2'})
       CREATE (s:Symbol {
           id: #{sym_id},
           name: '...',
@@ -120,7 +121,7 @@ defmodule SymbolGetTest do
           revision_id: #{sym_rev}
         }),
         (s)-[:CATEGORY]->(c),
-        (s)-[:DELETE]->(:DeleteSymbolPatch)
+        (s)<-[:DELETE]-(u)
     """)
 
     conn =
@@ -443,7 +444,8 @@ defmodule SymbolGetTest do
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {url: 'existent'})
+      MATCH (c:Category {url: 'existent'}),
+        (u:User {access_token: 'at1'})
       CREATE (s:Symbol {
           id: #{sym_id},
           name: '...',
@@ -455,7 +457,7 @@ defmodule SymbolGetTest do
           revision_id: #{sym_rev}
         }),
         (s)-[:CATEGORY]->(c),
-        (s)-[:DELETE]->(:DeleteSymbolPatch)
+        (s)<-[:DELETE]-(u)
     """)
 
     conn =
@@ -473,9 +475,8 @@ defmodule SymbolGetTest do
     assert sym_rev2 === sym_rev
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (s:Symbol {revision_id: #{sym_rev}})-[r1]-(),
-        (s)-[r2:DELETE]->(sd:DeleteSymbolPatch)
-      DELETE r1, r2, sd, s
+      MATCH (s:Symbol {revision_id: #{sym_rev}})-[r]-()
+      DELETE r, s
     """)
   end
 
@@ -513,7 +514,7 @@ defmodule SymbolGetTest do
         (s2)-[:CONTRIBUTOR]->(u),
         (s)-[:CATEGORY]->(c),
         (s)-[:UPDATE]->(s2),
-        (s)-[:DELETE]->(:DeleteSymbolPatch)
+        (s)<-[:DELETE]-(u)
     """)
 
     conn =
@@ -540,9 +541,8 @@ defmodule SymbolGetTest do
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (su:UpdateSymbolPatch {revision_id: #{sym_rev_b}})-[r1]-(),
-        (s:Symbol {revision_id: #{sym_rev}})-[r2]-(),
-        (s)-[r3:DELETE]->(sd:DeleteSymbolPatch)
-      DELETE r1, r2, r3, su, s, sd
+        (s:Symbol {revision_id: #{sym_rev}})-[r2]-()
+      DELETE r1, r2, su, s
     """)
   end
 end

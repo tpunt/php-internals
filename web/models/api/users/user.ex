@@ -56,10 +56,8 @@ defmodule PhpInternals.Api.Users.User do
       WHERE HEAD(LABELS(c)) IN [
         "InsertCategoryPatch",
         "UpdateCategoryPatch",
-        "DeleteCategoryPatch",
         "InsertSymbolPatch",
-        "UpdateSymbolPatch",
-        "DeleteSymbolPatch"
+        "UpdateSymbolPatch"
       ]
       RETURN COUNT(c) AS count
     """
@@ -127,7 +125,6 @@ defmodule PhpInternals.Api.Users.User do
             'Category',
             'InsertCategoryPatch',
             'UpdateCategoryPatch',
-            'DeleteCategoryPatch',
             'CategoryDeleted'
           ] THEN 'category' ELSE 'symbol'
         END

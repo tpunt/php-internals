@@ -500,13 +500,14 @@ defmodule CategoryPatchTest do
     name = :rand.uniform(100_000_000)
     rev_id = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {access_token: 'at1'})
       CREATE (c:Category {
           name: '#{name}',
           introduction: '...',
           url: '#{name}',
           revision_id: #{rev_id}
         }),
-        (c)-[:DELETE]->(:DeleteCategoryPatch)
+        (c)<-[:DELETE]-(u)
     """)
 
     conn =
@@ -517,13 +518,13 @@ defmodule CategoryPatchTest do
     assert response.status === 204
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (c:CategoryDeleted {revision_id: #{rev_id}}),
+        (c)-[:CONTRIBUTOR {type: 'delete'}]->(:User {access_token: 'at1'}),
         (c)-[:CONTRIBUTOR {type: 'apply_delete'}]->(:User {access_token: 'at3'})
       RETURN c
     """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:CategoryDeleted {revision_id: #{rev_id}}),
-        (c)-[r:CONTRIBUTOR {type: "apply_delete"}]->()
+      MATCH (c:CategoryDeleted {revision_id: #{rev_id}})-[r]-()
       DELETE r, c
     """)
   end
@@ -619,8 +620,9 @@ defmodule CategoryPatchTest do
     name = :rand.uniform(100_000_000)
     rev_id = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {access_token: 'at2'})
       CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}}),
-        (c)-[:DELETE]->(:DeleteCategoryPatch)
+        (c)<-[:DELETE]-(u)
     """)
 
     conn =
@@ -631,12 +633,12 @@ defmodule CategoryPatchTest do
     assert response.status === 200
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {revision_id: #{rev_id}}),
-        (c)-[:CONTRIBUTOR {type: 'discard_delete'}]-(:User {access_token: 'at3'})
+        (c)-[:CONTRIBUTOR {type: 'discard_delete'}]->(:User {access_token: 'at3'})
       RETURN c
     """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {revision_id: #{rev_id}})-[r:CONTRIBUTOR {type: 'discard_delete'}]-()
+      MATCH (c:Category {revision_id: #{rev_id}})-[r]-()
       DELETE r, c
     """)
   end
