@@ -95,9 +95,7 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
       description: symbol["description"],
       definition: symbol["definition"],
       definition_location: symbol["definition_location"],
-      example: symbol["example"],
-      example_explanation: symbol["example_explanation"],
-      notes: symbol["notes"],
+      additional_information: symbol["additional_information"],
       revision_id: symbol["revision_id"]
     }
 

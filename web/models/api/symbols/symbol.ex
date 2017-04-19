@@ -21,9 +21,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   ]
   @optional_fields [
     "parameters",
-    "example",
-    "example_explanation",
-    "notes",
+    "additional_information",
     "return_type",
     "return_description"
   ]
@@ -527,9 +525,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       return_description: symbol["return_description"],
       definition: symbol["definition"],
       definition_location: symbol["definition_location"],
-      example: symbol["example"],
-      example_explanation: symbol["example_explanation"],
-      notes: symbol["notes"],
+      additional_information: symbol["additional_information"],
       revision_id: :rand.uniform(100_000_000),
       username: username
     }
@@ -609,9 +605,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       new_return_description: new_symbol["return_description"],
       new_definition: new_symbol["definition"],
       new_definition_location: new_symbol["definition_location"],
-      new_example: new_symbol["example"],
-      new_example_explanation: new_symbol["example_explanation"],
-      new_notes: new_symbol["notes"],
+      new_additional_information: new_symbol["additional_information"],
       new_revision_id: :rand.uniform(100_000_000),
       symbol_id: old_symbol["id"],
       username: username
@@ -676,9 +670,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       new_return_description: new_symbol["return_description"],
       new_definition: new_symbol["definition"],
       new_definition_location: new_symbol["definition_location"],
-      new_example: new_symbol["example"],
-      new_example_explanation: new_symbol["example_explanation"],
-      new_notes: new_symbol["notes"],
+      new_additional_information: new_symbol["additional_information"],
       new_revision_id: :rand.uniform(100_000_000),
       against_revision: old_symbol["revision_id"],
       symbol_id: old_symbol["id"],
@@ -781,9 +773,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         new_return_description: new_symbol["return_description"],
         new_definition: new_symbol["definition"],
         new_definition_location: new_symbol["definition_location"],
-        new_example: new_symbol["example"],
-        new_example_explanation: new_symbol["example_explanation"],
-        new_notes: new_symbol["notes"],
+        new_additional_information: new_symbol["additional_information"],
         new_revision_id: :rand.uniform(100_000_000),
         symbol_id: old_symbol["id"],
         username: username,
@@ -858,9 +848,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       new_return_description: new_symbol["return_description"],
       new_definition: new_symbol["definition"],
       new_definition_location: new_symbol["definition_location"],
-      new_example: new_symbol["example"],
-      new_example_explanation: new_symbol["example_explanation"],
-      new_notes: new_symbol["notes"],
+      new_additional_information: new_symbol["additional_information"],
       new_revision_id: :rand.uniform(100_000_000),
       against_revision: old_symbol["revision_id"],
       symbol_id: old_symbol["id"],
