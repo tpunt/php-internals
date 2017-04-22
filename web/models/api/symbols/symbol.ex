@@ -23,7 +23,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     "parameters",
     "additional_information",
     "return_type",
-    "return_description"
+    "return_description",
+    "members"
   ]
 
   def contains_required_fields?(symbol) do
@@ -523,6 +524,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       parameters: symbol["parameters"],
       return_type: symbol["return_type"],
       return_description: symbol["return_description"],
+      members: symbol["members"],
       definition: symbol["definition"],
       definition_location: symbol["definition_location"],
       additional_information: symbol["additional_information"],
@@ -603,6 +605,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       new_parameters: new_symbol["parameters"],
       new_return_type: new_symbol["return_type"],
       new_return_description: new_symbol["return_description"],
+      new_members: new_symbol["members"],
       new_definition: new_symbol["definition"],
       new_definition_location: new_symbol["definition_location"],
       new_additional_information: new_symbol["additional_information"],
@@ -668,6 +671,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       new_parameters: new_symbol["parameters"],
       new_return_type: new_symbol["return_type"],
       new_return_description: new_symbol["return_description"],
+      new_members: new_symbol["members"],
       new_definition: new_symbol["definition"],
       new_definition_location: new_symbol["definition_location"],
       new_additional_information: new_symbol["additional_information"],
@@ -771,6 +775,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         new_parameters: new_symbol["parameters"],
         new_return_type: new_symbol["return_type"],
         new_return_description: new_symbol["return_description"],
+        new_members: new_symbol["members"],
         new_definition: new_symbol["definition"],
         new_definition_location: new_symbol["definition_location"],
         new_additional_information: new_symbol["additional_information"],
@@ -846,6 +851,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       new_parameters: new_symbol["parameters"],
       new_return_type: new_symbol["return_type"],
       new_return_description: new_symbol["return_description"],
+      new_members: new_symbol["members"],
       new_definition: new_symbol["definition"],
       new_definition_location: new_symbol["definition_location"],
       new_additional_information: new_symbol["additional_information"],

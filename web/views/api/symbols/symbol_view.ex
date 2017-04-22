@@ -146,7 +146,11 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
     %{parameters: symbol["parameters"]}
   end
 
-  defp render_type(%{"type" => type}) when type in ["type", "variable"] do
+  defp render_type(%{"type" => "type"} = symbol) do
+    %{members: symbol["members"]}
+  end
+
+  defp render_type(%{"type" => type}) when type == "variable" do
     %{}
   end
 end
