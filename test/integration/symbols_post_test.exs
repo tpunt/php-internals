@@ -123,7 +123,7 @@ defmodule SymbolsPostTest do
     sym_name = :rand.uniform(100_000_000)
     data = %{"symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".",
       "source_location" => ".", "type" => "macro", "categories" => ["existent"],
-      "declaration" => ".."}}
+      "declaration" => "..", "additional_information" => "."}}
 
     conn =
       conn(:post, "/api/symbols", data)
@@ -580,6 +580,69 @@ defmodule SymbolsPostTest do
 
     assert response.status === 400
     assert %{"error" => %{"message" => "The parameters field description must have a length of between 1 and 150 (inclusive)"}}
+      = Poison.decode!(response.resp_body)
+  end
+
+  @doc """
+  POST /api/symbols -H authorization: at2
+  """
+  test "Invalid symbol insert (return_type field length < 1)" do
+    data = %{"symbol" => %{"name" => "a", "description" => "a",
+      "definition" => "a", "source_location" => "a",
+      "type" => "function", "categories" => ["a"], "declaration" => ".",
+      "return_type" => ""}}
+
+    conn =
+      conn(:post, "/api/symbols", data)
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "at2")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 400
+    assert %{"error" => %{"message" => "The return type field should have a length of between 1 and 50 (inclusive)"}}
+      = Poison.decode!(response.resp_body)
+  end
+
+  @doc """
+  POST /api/symbols -H authorization: at2
+  """
+  test "Invalid symbol insert (return_type field length > 50)" do
+    data = %{"symbol" => %{"name" => "a", "description" => "a",
+      "definition" => "a", "source_location" => "a",
+      "type" => "function", "categories" => ["a"], "declaration" => ".",
+      "return_type" => String.duplicate("a", 51)}}
+
+    conn =
+      conn(:post, "/api/symbols", data)
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "at2")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 400
+    assert %{"error" => %{"message" => "The return type field should have a length of between 1 and 50 (inclusive)"}}
+      = Poison.decode!(response.resp_body)
+  end
+
+  @doc """
+  POST /api/symbols -H authorization: at2
+  """
+  test "Invalid symbol insert (return_description field length > 150)" do
+    data = %{"symbol" => %{"name" => "a", "description" => "a",
+      "definition" => "a", "source_location" => "a",
+      "type" => "function", "categories" => ["a"], "declaration" => ".",
+      "return_type" => "a", "return_description" => String.duplicate("a", 151)}}
+
+    conn =
+      conn(:post, "/api/symbols", data)
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "at2")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 400
+    assert %{"error" => %{"message" => "The return description field should have a length of 150 or less"}}
       = Poison.decode!(response.resp_body)
   end
 end

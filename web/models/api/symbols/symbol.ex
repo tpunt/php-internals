@@ -128,6 +128,30 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
+  def validate_field("additional_information", value) do
+    if String.length(value) < 1_001 do
+      {:ok}
+    else
+      {:error, "The additional information field should have a length of 1000 or less"}
+    end
+  end
+
+  def validate_field("return_type", value) do
+    if String.length(value) > 1 and String.length(value) < 51 do
+      {:ok}
+    else
+      {:error, "The return type field should have a length of between 1 and 50 (inclusive)"}
+    end
+  end
+
+  def validate_field("return_description", value) do
+    if String.length(value) < 151 do
+      {:ok}
+    else
+      {:error, "The return description field should have a length of 150 or less"}
+    end
+  end
+
   def validate_field("type", _value) do
     {:ok}
   end
@@ -186,7 +210,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   end
 
   defp special_required_fields("function") do
-    ["return_type", "return_description", "definition"]
+    ["return_type", "definition"]
   end
 
   defp special_required_fields(type) when type in ["macro", "type", "variable"] do
@@ -194,7 +218,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   end
 
   defp special_optional_fields("function") do
-    ["parameters"]
+    ["parameters", "return_description"]
   end
 
   defp special_optional_fields("macro") do
