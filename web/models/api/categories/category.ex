@@ -10,9 +10,11 @@ defmodule PhpInternals.Api.Categories.Category do
   @show_view_types ["normal", "overview", "full"]
   @default_show_view_type "normal"
 
-  def valid_fields?(symbol) do
-    with {:ok} <- validate_types(symbol),
-         {:ok} <- validate_values(symbol) do
+  def valid_fields?(category) do
+    with {:ok} <- contains_required_fields?(category),
+         {:ok} <- contains_only_expected_fields?(category),
+         {:ok} <- validate_types(category),
+         {:ok} <- validate_values(category) do
       {:ok}
     else
       {:error, cause} ->
@@ -20,9 +22,9 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def validate_types(symbol) do
-    validated = Enum.map(Map.keys(symbol), fn key ->
-      if is_binary(symbol[key]), do: {:ok}, else: {:error, "The #{key} field should be a string"}
+  def validate_types(category) do
+    validated = Enum.map(Map.keys(category), fn key ->
+      if is_binary(category[key]), do: {:ok}, else: {:error, "The #{key} field should be a string"}
     end)
 
     valid = Enum.filter(validated, fn
@@ -37,9 +39,9 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def validate_values(symbol) do
-    validated = Enum.map(Map.keys(symbol), fn key ->
-      validate_field(key, symbol[key])
+  def validate_values(category) do
+    validated = Enum.map(Map.keys(category), fn key ->
+      validate_field(key, category[key])
     end)
 
     valid = Enum.filter(validated, fn
@@ -74,7 +76,7 @@ defmodule PhpInternals.Api.Categories.Category do
     if @required_fields -- Map.keys(category) == [] do
       {:ok}
     else
-      {:error, 400, "Required fields are missing (expecting: #{Enum.join(@required_fields, ", ")})"}
+      {:error, "Required fields are missing (expecting: #{Enum.join(@required_fields, ", ")})"}
     end
   end
 
@@ -83,7 +85,7 @@ defmodule PhpInternals.Api.Categories.Category do
     if Map.keys(category) -- all_fields == [] do
       {:ok}
     else
-      {:error, 400, "Unknown fields given (expecting: #{Enum.join(all_fields, ", ")})"}
+      {:error, "Unknown fields given (expecting: #{Enum.join(all_fields, ", ")})"}
     end
   end
 

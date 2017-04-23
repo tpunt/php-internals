@@ -349,8 +349,6 @@ defmodule PhpInternals.Api.Categories.CategoryController do
 
   defp insert(conn, %{"category" => category, "review" => review}) do
     with {:ok} <- User.within_patch_limit?(conn.user),
-         {:ok} <- Category.contains_required_fields?(category),
-         {:ok} <- Category.contains_only_expected_fields?(category),
          {:ok} <- Category.valid_fields?(category),
          {:ok, url_name} <- Utilities.is_url_friendly?(category["name"]),
          {:ok} <- Category.does_not_exist?(url_name) do
@@ -380,8 +378,6 @@ defmodule PhpInternals.Api.Categories.CategoryController do
 
   defp modify(conn, %{"category" => new_category, "category_name" => old_url, "review" => review} = params) do
     with {:ok} <- User.within_patch_limit?(conn.user),
-         {:ok} <- Category.contains_required_fields?(new_category),
-         {:ok} <- Category.contains_only_expected_fields?(new_category),
          {:ok} <- Category.valid_fields?(new_category),
          {:ok, new_url_name} <- Utilities.is_url_friendly?(new_category["name"]),
          {:ok, %{"category" => old_category}} <- Category.valid?(old_url),
