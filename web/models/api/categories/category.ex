@@ -122,6 +122,19 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
+  def does_not_exist?(new_category_url, old_category_url) do
+    if new_category_url === old_category_url do
+      {:ok}
+    else
+      case valid?(new_category_url) do
+        {:ok, _category} ->
+          {:error, 400, "The category with the specified name already exists"}
+        {:error, 404, _status} ->
+          {:ok}
+      end
+    end
+  end
+
   def has_no_delete_patch?(category_url) do
     query = """
       MATCH (c:Category {url: {category_url}}),

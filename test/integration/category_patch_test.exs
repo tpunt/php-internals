@@ -720,4 +720,30 @@ defmodule CategoryPatchTest do
       DELETE r, c, ucp1, ucp2, cr
     """)
   end
+
+  test "Prevent duplicate category naming on update" do
+    name = :rand.uniform(100_000_000)
+    rev_id = :rand.uniform(100_000_000)
+    name2 = :rand.uniform(100_000_000)
+    rev_id2 = :rand.uniform(100_000_000)
+    Neo4j.query!(Neo4j.conn, """
+      CREATE (:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}}),
+        (:Category {name: '#{name2}', introduction: '..', url: '#{name2}', revision_id: #{rev_id2}})
+    """)
+
+    conn =
+      conn(:patch, "/api/categories/#{name2}", %{"category" => %{"name" => "#{name}", "introduction" => "."}})
+      |> put_req_header("authorization", "at2")
+    response = Router.call(conn, @opts)
+
+    assert response.status === 400
+    assert %{"error" => %{"message" => "The category with the specified name already exists"}}
+      = Poison.decode! response.resp_body
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c1:Category {revision_id: #{rev_id}}),
+        (c2:Category {revision_id: #{rev_id2}})
+      DELETE c1, c2
+    """)
+  end
 end

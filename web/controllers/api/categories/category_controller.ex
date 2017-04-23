@@ -379,10 +379,11 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   defp modify(conn, %{"category" => new_category, "category_name" => old_url, "review" => review} = params) do
     with {:ok} <- User.within_patch_limit?(conn.user),
          {:ok} <- Category.valid_fields?(new_category),
-         {:ok, new_url_name} <- Utilities.is_url_friendly?(new_category["name"]),
+         {:ok, new_url} <- Utilities.is_url_friendly?(new_category["name"]),
+         {:ok} <- Category.does_not_exist?(new_url, old_url),
          {:ok, %{"category" => old_category}} <- Category.valid?(old_url),
          {:ok, references_patch} <- Utilities.valid_optional_id?(params["references_patch"]) do
-      new_category = Map.merge(new_category, %{"url" => new_url_name})
+      new_category = Map.merge(new_category, %{"url" => new_url})
       new_category = Category.update(old_category, new_category, review, conn.user.username, references_patch)
 
       case new_category do
