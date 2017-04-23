@@ -14,7 +14,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     "type",
     "name",
     "declaration",
-    "definition_location",
+    "source_location",
     "description",
     "categories"
   ]
@@ -120,7 +120,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def validate_field("definition_location", value) do
+  def validate_field("source_location", value) do
     if String.length(value) > 0 and String.length(value) < 501 do
       {:ok}
     else
@@ -694,7 +694,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       return_description: symbol["return_description"],
       members: symbol["members"],
       definition: symbol["definition"],
-      definition_location: symbol["definition_location"],
+      source_location: symbol["source_location"],
       additional_information: symbol["additional_information"],
       revision_id: :rand.uniform(100_000_000),
       username: username
@@ -775,7 +775,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       new_return_description: new_symbol["return_description"],
       new_members: new_symbol["members"],
       new_definition: new_symbol["definition"],
-      new_definition_location: new_symbol["definition_location"],
+      new_source_location: new_symbol["source_location"],
       new_additional_information: new_symbol["additional_information"],
       new_revision_id: :rand.uniform(100_000_000),
       symbol_id: old_symbol["id"],
@@ -841,7 +841,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       new_return_description: new_symbol["return_description"],
       new_members: new_symbol["members"],
       new_definition: new_symbol["definition"],
-      new_definition_location: new_symbol["definition_location"],
+      new_source_location: new_symbol["source_location"],
       new_additional_information: new_symbol["additional_information"],
       new_revision_id: :rand.uniform(100_000_000),
       against_revision: old_symbol["revision_id"],
@@ -945,7 +945,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         new_return_description: new_symbol["return_description"],
         new_members: new_symbol["members"],
         new_definition: new_symbol["definition"],
-        new_definition_location: new_symbol["definition_location"],
+        new_source_location: new_symbol["source_location"],
         new_additional_information: new_symbol["additional_information"],
         new_revision_id: :rand.uniform(100_000_000),
         symbol_id: old_symbol["id"],
@@ -1021,7 +1021,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       new_return_description: new_symbol["return_description"],
       new_members: new_symbol["members"],
       new_definition: new_symbol["definition"],
-      new_definition_location: new_symbol["definition_location"],
+      new_source_location: new_symbol["source_location"],
       new_additional_information: new_symbol["additional_information"],
       new_revision_id: :rand.uniform(100_000_000),
       against_revision: old_symbol["revision_id"],

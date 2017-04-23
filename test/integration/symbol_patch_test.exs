@@ -24,7 +24,7 @@ defmodule SymbolPatchTest do
   """
   test "authorised invalid update patch submission for a non-existent symbol" do
     data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
-      "definition_location" => "..","type" => "macro","categories" => ["existent"],
+      "source_location" => "..","type" => "macro","categories" => ["existent"],
       "declaration" => ".."}}
 
     conn =
@@ -44,7 +44,7 @@ defmodule SymbolPatchTest do
   """
   test "authorised invalid update patch submission from required fields" do
     data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
-      "definition_location" => "..","type" => "macro"}}
+      "source_location" => "..","type" => "macro"}}
 
     conn =
       conn(:patch, "/api/symbols/0123", data)
@@ -54,7 +54,7 @@ defmodule SymbolPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "Required fields are missing (expecting: type, name, declaration, definition_location, description, categories)"}}
+    assert %{"error" => %{"message" => "Required fields are missing (expecting: type, name, declaration, source_location, description, categories)"}}
       = Poison.decode!(response.resp_body)
   end
 
@@ -63,7 +63,7 @@ defmodule SymbolPatchTest do
   """
   test "authorised invalid update patch submission from an invalid category" do
     data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
-      "definition_location" => "..","type" => "macro","categories" => ["invalid"],
+      "source_location" => "..","type" => "macro","categories" => ["invalid"],
       "declaration" => ".."}}
 
     conn =
@@ -83,7 +83,7 @@ defmodule SymbolPatchTest do
   """
   test "authorised invalid update patch submission from no categories" do
     data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
-      "definition_location" => "..","type" => "macro","categories" => [], "declaration" => ".."}}
+      "source_location" => "..","type" => "macro","categories" => [], "declaration" => ".."}}
 
     conn =
       conn(:patch, "/api/symbols/0123", data)
@@ -112,14 +112,14 @@ defmodule SymbolPatchTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '.',
+          source_location: '.',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
         (s)-[:CATEGORY]->(c)
     """)
     data = %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..",
-      "definition" => "..","definition_location" => "..","type" => "macro",
+      "definition" => "..","source_location" => "..","type" => "macro",
       "categories" => ["existent"], "declaration" => ".."}}
 
     conn =
@@ -162,14 +162,14 @@ defmodule SymbolPatchTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '.',
+          source_location: '.',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
         (s)-[:CATEGORY]->(c)
     """)
     data = %{"review" => "1", "symbol" => %{"name" => "#{new_sym_name}","description" => "..",
-      "definition" => "..","definition_location" => "..","type" => "macro",
+      "definition" => "..","source_location" => "..","type" => "macro",
       "categories" => ["existent"], "declaration" => ".."}}
 
     conn =
@@ -213,14 +213,14 @@ defmodule SymbolPatchTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '.',
+          source_location: '.',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
         (s)-[:CATEGORY]->(c)
     """)
     data = %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..",
-      "definition_location" => "..","type" => "macro","categories" => ["existent"],
+      "source_location" => "..","type" => "macro","categories" => ["existent"],
       "declaration" => ".."}}
 
     conn =
@@ -267,7 +267,7 @@ defmodule SymbolPatchTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '.',
+          source_location: '.',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
@@ -277,7 +277,7 @@ defmodule SymbolPatchTest do
           description: '..',
           url: '...2',
           definition: '..',
-          definition_location: '..',
+          source_location: '..',
           type: 'macro',
           revision_id: #{sym_rev_b},
           against_revision: #{sym_rev}
@@ -330,7 +330,7 @@ defmodule SymbolPatchTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '.',
+          source_location: '.',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
@@ -340,7 +340,7 @@ defmodule SymbolPatchTest do
           description: '..',
           url: '...2',
           definition: '..',
-          definition_location: '..',
+          source_location: '..',
           type: 'macro',
           revision_id: #{sym_rev_b},
           against_revision: #{sym_rev}
@@ -391,7 +391,7 @@ defmodule SymbolPatchTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '.',
+          source_location: '.',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
@@ -436,7 +436,7 @@ defmodule SymbolPatchTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '.',
+          source_location: '.',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
@@ -480,7 +480,7 @@ defmodule SymbolPatchTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '.',
+          source_location: '.',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
@@ -526,7 +526,7 @@ defmodule SymbolPatchTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '.',
+          source_location: '.',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
@@ -566,7 +566,7 @@ defmodule SymbolPatchTest do
           description: '.',
           url: '.',
           definition: '.',
-          definition_location: '.',
+          source_location: '.',
           type: 'macro',
           revision_id: #{rev_id}
         }),
@@ -576,7 +576,7 @@ defmodule SymbolPatchTest do
           description: '..',
           url: '..',
           definition: '..',
-          definition_location: '..',
+          source_location: '..',
           type: 'macro',
           revision_id: #{rev_id2}
         }),
@@ -585,7 +585,7 @@ defmodule SymbolPatchTest do
     """)
     data = %{"review" => "1", "references_patch" => "#{rev_id2}", "symbol" =>
       %{"name" => "...","description" => "...","definition" => "...",
-      "definition_location" => "...","type" => "macro","categories" => ["existent"],
+      "source_location" => "...","type" => "macro","categories" => ["existent"],
       "declaration" => ".."}}
 
     conn =
@@ -622,7 +622,7 @@ defmodule SymbolPatchTest do
           description: '.',
           url: '.',
           definition: '.',
-          definition_location: '.',
+          source_location: '.',
           type: 'macro',
           revision_id: #{rev_id}
         }),
@@ -632,7 +632,7 @@ defmodule SymbolPatchTest do
           description: '..',
           url: '..',
           definition: '..',
-          definition_location: '..',
+          source_location: '..',
           type: 'macro',
           revision_id: #{rev_id2}
         }),
@@ -640,7 +640,7 @@ defmodule SymbolPatchTest do
         (s)-[:CATEGORY]->(c)
     """)
     data = %{"references_patch" => "#{rev_id2}", "symbol" => %{"name" => "...",
-      "description" => "...","definition" => "...", "definition_location" => "...",
+      "description" => "...","definition" => "...", "source_location" => "...",
       "type" => "macro","categories" => ["existent"], "declaration" => ".."}}
 
     conn =

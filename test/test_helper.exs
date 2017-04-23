@@ -17,7 +17,7 @@ defmodule PopulateDatabase do
           description: '~',
           url: 'existent',
           definition: '~',
-          definition_location: '~',
+          source_location: '~',
           type: 'macro',
           revision_id: 123
         }),

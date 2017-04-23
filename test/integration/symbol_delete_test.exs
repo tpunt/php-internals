@@ -63,7 +63,7 @@ defmodule SymbolDeleteTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '.',
+          source_location: '.',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
@@ -106,7 +106,7 @@ defmodule SymbolDeleteTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '.',
+          source_location: '.',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
@@ -149,7 +149,7 @@ defmodule SymbolDeleteTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '.',
+          source_location: '.',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
@@ -191,7 +191,7 @@ defmodule SymbolDeleteTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '.',
+          source_location: '.',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
@@ -260,7 +260,7 @@ defmodule SymbolDeleteTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '.',
+          source_location: '.',
           type: 'macro',
           revision_id: #{sym_rev}
         }),

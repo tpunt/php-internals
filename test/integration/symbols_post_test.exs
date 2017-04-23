@@ -41,7 +41,7 @@ defmodule SymbolsPostTest do
   test "Authenticated attempt at inserting a new symbol patch 1" do
     sym_name = :rand.uniform(100_000_000)
     data = %{"symbol" => %{"name" => "#{sym_name}", "description" => ".",
-      "definition" => ".", "definition_location" => ".", "type" => "macro",
+      "definition" => ".", "source_location" => ".", "type" => "macro",
       "categories" => ["existent"], "declaration" => ".."}}
 
     conn =
@@ -68,7 +68,7 @@ defmodule SymbolsPostTest do
   test "Authenticated attempt at inserting a new symbol patch 2" do
     sym_name = :rand.uniform(100_000_000)
     data = %{"review" => "1", "symbol" => %{"name" => "#{sym_name}", "description" => ".",
-      "definition" => ".", "definition_location" => ".", "type" => "macro",
+      "definition" => ".", "source_location" => ".", "type" => "macro",
       "categories" => ["existent"], "declaration" => ".."}}
 
     conn =
@@ -95,7 +95,7 @@ defmodule SymbolsPostTest do
   test "Authenticated attempt at inserting a new symbol patch 3" do
     sym_name = :rand.uniform(100_000_000)
     data = %{"review" => "1", "symbol" => %{"name" => "#{sym_name}", "description" => ".",
-      "definition" => ".", "definition_location" => ".", "type" => "macro",
+      "definition" => ".", "source_location" => ".", "type" => "macro",
       "categories" => ["existent"], "declaration" => ".."}}
 
     conn =
@@ -122,7 +122,7 @@ defmodule SymbolsPostTest do
   test "Authenticated attempt at inserting a new symbol 1" do
     sym_name = :rand.uniform(100_000_000)
     data = %{"symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".",
-      "definition_location" => ".", "type" => "macro", "categories" => ["existent"],
+      "source_location" => ".", "type" => "macro", "categories" => ["existent"],
       "declaration" => ".."}}
 
     conn =
@@ -149,7 +149,7 @@ defmodule SymbolsPostTest do
   test "Authenticated attempt at inserting a new symbol 2" do
     sym_name = :rand.uniform(100_000_000)
     data = %{"symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".",
-      "definition_location" => ".", "type" => "macro", "categories" => ["existent"],
+      "source_location" => ".", "type" => "macro", "categories" => ["existent"],
       "declaration" => ".."}}
 
     conn =
@@ -202,7 +202,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (name field length < 1)" do
     data = %{"symbol" => %{"name" => "", "description" => ".", "definition" => ".",
-      "definition_location" => ".", "type" => "macro", "categories" => ["existent"],
+      "source_location" => ".", "type" => "macro", "categories" => ["existent"],
       "declaration" => ".."}}
 
     conn =
@@ -222,7 +222,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (name field length > 100)" do
     data = %{"symbol" => %{"name" => String.duplicate("a", 101), "description" => ".",
-      "definition" => ".", "definition_location" => ".", "type" => "macro",
+      "definition" => ".", "source_location" => ".", "type" => "macro",
       "categories" => ["existent"], "declaration" => ".."}}
 
     conn =
@@ -242,7 +242,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (declaration field length < 1)" do
     data = %{"symbol" => %{"name" => "a", "description" => ".",
-      "definition" => ".", "definition_location" => ".", "type" => "macro",
+      "definition" => ".", "source_location" => ".", "type" => "macro",
       "categories" => ["existent"], "declaration" => ""}}
 
     conn =
@@ -262,7 +262,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (declaration field length > 150)" do
     data = %{"symbol" => %{"name" => "a", "description" => ".",
-      "definition" => ".", "definition_location" => ".", "type" => "macro",
+      "definition" => ".", "source_location" => ".", "type" => "macro",
       "categories" => ["existent"], "declaration" => String.duplicate("a", 151)}}
 
     conn =
@@ -282,7 +282,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (description field length < 1)" do
     data = %{"symbol" => %{"name" => "a", "description" => "",
-      "definition" => ".", "definition_location" => ".", "type" => "macro",
+      "definition" => ".", "source_location" => ".", "type" => "macro",
       "categories" => ["existent"], "declaration" => "a"}}
 
     conn =
@@ -302,7 +302,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (description field length > 1000)" do
     data = %{"symbol" => %{"name" => "a", "description" => String.duplicate("a", 1001),
-      "definition" => ".", "definition_location" => ".", "type" => "macro",
+      "definition" => ".", "source_location" => ".", "type" => "macro",
       "categories" => ["existent"], "declaration" => "."}}
 
     conn =
@@ -322,7 +322,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (definition field length < 1)" do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
-      "definition" => "", "definition_location" => ".", "type" => "macro",
+      "definition" => "", "source_location" => ".", "type" => "macro",
       "categories" => ["existent"], "declaration" => "a"}}
 
     conn =
@@ -342,7 +342,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (definition field length > 1000)" do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
-      "definition" => String.duplicate("a", 6001), "definition_location" => ".",
+      "definition" => String.duplicate("a", 6001), "source_location" => ".",
       "type" => "macro", "categories" => ["existent"], "declaration" => "."}}
 
     conn =
@@ -362,7 +362,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (definition location field length < 1)" do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
-      "definition" => "a", "definition_location" => "", "type" => "macro",
+      "definition" => "a", "source_location" => "", "type" => "macro",
       "categories" => ["existent"], "declaration" => "a"}}
 
     conn =
@@ -382,7 +382,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (definition location field length > 1000)" do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
-      "definition" => "a", "definition_location" => String.duplicate("a", 501),
+      "definition" => "a", "source_location" => String.duplicate("a", 501),
       "type" => "macro", "categories" => ["existent"], "declaration" => "."}}
 
     conn =
@@ -402,7 +402,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (type field invalid)" do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
-      "definition" => "a", "definition_location" => "a",
+      "definition" => "a", "source_location" => "a",
       "type" => "invalid", "categories" => ["existent"], "declaration" => "."}}
 
     conn =
@@ -422,7 +422,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (category field length < 1)" do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
-      "definition" => "a", "definition_location" => "a",
+      "definition" => "a", "source_location" => "a",
       "type" => "macro", "categories" => [""], "declaration" => "."}}
 
     conn =
@@ -442,7 +442,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (category field length > 50)" do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
-      "definition" => "a", "definition_location" => "a",
+      "definition" => "a", "source_location" => "a",
       "type" => "macro", "categories" => [String.duplicate("a", 51)], "declaration" => "."}}
 
     conn =
@@ -462,7 +462,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (odd parameter count)" do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
-      "definition" => "a", "definition_location" => "a",
+      "definition" => "a", "source_location" => "a",
       "type" => "macro", "categories" => ["a"], "declaration" => ".",
       "parameters" => ["a"]}}
 
@@ -483,7 +483,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (odd member count)" do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
-      "definition" => "a", "definition_location" => "a",
+      "definition" => "a", "source_location" => "a",
       "type" => "type", "categories" => ["a"], "declaration" => ".",
       "members" => ["a"]}}
 
@@ -504,7 +504,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (parameter field name length < 1)" do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
-      "definition" => "a", "definition_location" => "a",
+      "definition" => "a", "source_location" => "a",
       "type" => "macro", "categories" => ["a"], "declaration" => ".",
       "parameters" => ["", "a"]}}
 
@@ -525,7 +525,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (parameter field name length > 50)" do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
-      "definition" => "a", "definition_location" => "a",
+      "definition" => "a", "source_location" => "a",
       "type" => "macro", "categories" => ["a"], "declaration" => ".",
       "parameters" => [String.duplicate("a", 51), "a"]}}
 
@@ -546,7 +546,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (parameter field description length < 1)" do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
-      "definition" => "a", "definition_location" => "a",
+      "definition" => "a", "source_location" => "a",
       "type" => "macro", "categories" => ["a"], "declaration" => ".",
       "parameters" => ["a", ""]}}
 
@@ -567,7 +567,7 @@ defmodule SymbolsPostTest do
   """
   test "Invalid symbol insert (parameter field description length > 150)" do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
-      "definition" => "a", "definition_location" => "a",
+      "definition" => "a", "source_location" => "a",
       "type" => "macro", "categories" => ["a"], "declaration" => ".",
       "parameters" => ["a", String.duplicate("a", 151)]}}
 

@@ -70,7 +70,7 @@ defmodule SymbolGetTest do
 
     assert response.status === 200
     assert %{"symbol" => %{"id" => 0, "name" => "existent", "description" => "~",
-      "url" => "existent", "definition" => "~", "definition_location" => "~",
+      "url" => "existent", "definition" => "~", "source_location" => "~",
       "type" => "macro", "revision_id" => 123, "categories" => [%{"category" =>
       %{"name" => "existent", "url" => "existent"}}]}} = Poison.decode! response.resp_body
   end
@@ -116,7 +116,7 @@ defmodule SymbolGetTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '..',
+          source_location: '..',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
@@ -131,7 +131,7 @@ defmodule SymbolGetTest do
 
     assert response.status === 200
     assert %{"symbol_delete" => %{"symbol" => %{"id" => sym_id2, "name" => "...",
-      "description" => ".", "url" => "...", "definition" => ".", "definition_location" => "..",
+      "description" => ".", "url" => "...", "definition" => ".", "source_location" => "..",
       "type" => "macro", "revision_id" => sym_rev2, "categories" => [%{"category" =>
       %{"name" => "existent", "url" => "existent"}}]}}}
         = Poison.decode! response.resp_body
@@ -169,7 +169,7 @@ defmodule SymbolGetTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '..',
+          source_location: '..',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
@@ -184,7 +184,7 @@ defmodule SymbolGetTest do
 
     assert response.status === 200
     assert %{"symbol_insert" => %{"symbol" => %{"id" => sym_id2, "name" => "...",
-      "description" => ".", "url" => "...", "definition" => ".", "definition_location" => "..",
+      "description" => ".", "url" => "...", "definition" => ".", "source_location" => "..",
       "type" => "macro", "revision_id" => sym_rev2, "categories" => [%{"category" =>
       %{"name" => "existent", "url" => "existent"}}]}}}
         = Poison.decode! response.resp_body
@@ -206,7 +206,7 @@ defmodule SymbolGetTest do
     assert response.status === 200
     assert %{"symbol_updates" => %{"updates" => [], "symbol" => %{"id" => 0,
       "name" => "existent", "description" => "~", "url" => "existent", "definition" => "~",
-      "definition_location" => "~", "type" => "macro", "revision_id" => 123,
+      "source_location" => "~", "type" => "macro", "revision_id" => 123,
       "categories" => [%{"category" => %{"name" => "existent", "url" => "existent"}}]}}}
         = Poison.decode! response.resp_body
   end
@@ -227,7 +227,7 @@ defmodule SymbolGetTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '..',
+          source_location: '..',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
@@ -237,7 +237,7 @@ defmodule SymbolGetTest do
           description: '.2',
           url: '...2',
           definition: '.2',
-          definition_location: '..2',
+          source_location: '..2',
           type: 'macro',
           revision_id: #{sym_rev_b}
         }),
@@ -255,7 +255,7 @@ defmodule SymbolGetTest do
     assert response.status === 200
     assert %{"symbol_updates" => %{"updates" => updates, "symbol" => %{"id" => sym_id2,
       "name" => "...", "description" => ".", "url" => "...", "definition" => ".",
-      "definition_location" => "..", "type" => "macro", "revision_id" => sym_rev2,
+      "source_location" => "..", "type" => "macro", "revision_id" => sym_rev2,
       "categories" => [%{"category" => %{"name" => "existent", "url" => "existent"}}]}}}
           = Poison.decode! response.resp_body
     assert sym_id2 === sym_id
@@ -263,7 +263,7 @@ defmodule SymbolGetTest do
     assert [%{"user" => %{"username" => "user3", "privilege_level" => 3,
       "name" => "u3", "avatar_url" => "~3"}, "date" => _date, "symbol" => %{"id" => sym_id2,
       "name" => "...2", "description" => ".2", "url" => "...2", "definition" => ".2",
-      "definition_location" => "..2", "type" => "macro", "revision_id" => sym_rev2,
+      "source_location" => "..2", "type" => "macro", "revision_id" => sym_rev2,
       "categories" => [%{"category" => %{"name" => "existent", "url" => "existent"}}]}}]
         = updates
     assert sym_id2 === sym_id
@@ -306,7 +306,7 @@ defmodule SymbolGetTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '..',
+          source_location: '..',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
@@ -316,7 +316,7 @@ defmodule SymbolGetTest do
           description: '.2',
           url: '...2',
           definition: '.2',
-          definition_location: '..2',
+          source_location: '..2',
           type: 'macro',
           revision_id: #{sym_rev_b}
         }),
@@ -334,7 +334,7 @@ defmodule SymbolGetTest do
     assert response.status === 200
     assert %{"symbol_update" => %{"update" => update, "symbol" => %{"id" => sym_id2,
       "name" => "...", "description" => ".", "url" => "...", "definition" => ".",
-      "definition_location" => "..", "type" => "macro", "revision_id" => sym_rev2,
+      "source_location" => "..", "type" => "macro", "revision_id" => sym_rev2,
       "categories" => [%{"category" => %{"name" => "existent", "url" => "existent"}}]}}}
         = Poison.decode! response.resp_body
     assert sym_id2 === sym_id
@@ -342,7 +342,7 @@ defmodule SymbolGetTest do
     assert %{"user" => %{"username" => "user3", "privilege_level" => 3,
       "name" => "u3", "avatar_url" => "~3"}, "date" => _date, "symbol" => %{"id" => sym_id2,
       "name" => "...2", "description" => ".2", "url" => "...2", "definition" => ".2",
-      "definition_location" => "..2", "type" => "macro", "revision_id" => sym_rev2,
+      "source_location" => "..2", "type" => "macro", "revision_id" => sym_rev2,
       "categories" => [%{"category" => %{"name" => "existent", "url" => "existent"}}]}} = update
     assert sym_rev2 === sym_rev_b
     assert sym_id2 === sym_id
@@ -366,7 +366,7 @@ defmodule SymbolGetTest do
     assert response.status === 200
     assert %{"symbol_patches" => %{"patches" => %{"updates" => [], "delete" => false},
       "symbol" => %{"id" => 0, "name" => "existent", "description" => "~",
-      "url" => "existent", "definition" => "~", "definition_location" => "~",
+      "url" => "existent", "definition" => "~", "source_location" => "~",
       "type" => "macro", "revision_id" => 123, "categories" => [%{"category" =>
       %{"name" => "existent", "url" => "existent"}}]}}}
         = Poison.decode! response.resp_body
@@ -388,7 +388,7 @@ defmodule SymbolGetTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '..',
+          source_location: '..',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
@@ -398,7 +398,7 @@ defmodule SymbolGetTest do
           description: '.2',
           url: '...2',
           definition: '.2',
-          definition_location: '..2',
+          source_location: '..2',
           type: 'macro',
           revision_id: #{sym_rev_b}
         }),
@@ -415,7 +415,7 @@ defmodule SymbolGetTest do
 
     assert response.status === 200
     assert %{"symbol_patches" => %{"symbol" => %{"id" => sym_id2, "name" => "...",
-      "description" => ".", "url" => "...", "definition" => ".", "definition_location" => "..",
+      "description" => ".", "url" => "...", "definition" => ".", "source_location" => "..",
       "type" => "macro", "revision_id" => sym_rev2, "categories" => [%{"category" =>
       %{"name" => "existent", "url" => "existent"}}]}, "patches" => %{"updates" => updates,
       "delete" => false}}} = Poison.decode! response.resp_body
@@ -424,7 +424,7 @@ defmodule SymbolGetTest do
     assert [%{"symbol_update" => %{"user" => %{"username" => "user3", "privilege_level" => 3,
       "name" => "u3", "avatar_url" => "~3"}, "date" => _date, "symbol" => %{"id" => sym_id2,
       "name" => "...2", "description" => ".2", "url" => "...2", "definition" => ".2",
-      "definition_location" => "..2", "type" => "macro", "revision_id" => sym_rev2,
+      "source_location" => "..2", "type" => "macro", "revision_id" => sym_rev2,
       "categories" => [%{"category" => %{"name" => "existent", "url" => "existent"}}]}}}]
         = updates
     assert sym_id2 === sym_id
@@ -452,7 +452,7 @@ defmodule SymbolGetTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '..',
+          source_location: '..',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
@@ -467,7 +467,7 @@ defmodule SymbolGetTest do
 
     assert response.status === 200
     assert %{"symbol_patches" => %{"symbol" => %{"id" => sym_id2, "name" => "...",
-      "description" => ".", "url" => "...", "definition" => ".", "definition_location" => "..",
+      "description" => ".", "url" => "...", "definition" => ".", "source_location" => "..",
       "type" => "macro", "revision_id" => sym_rev2, "categories" => [%{"category" =>
       %{"name" => "existent", "url" => "existent"}}]}, "patches" => %{"updates" => [],
       "delete" => true}}} = Poison.decode! response.resp_body
@@ -496,7 +496,7 @@ defmodule SymbolGetTest do
           description: '.',
           url: '...',
           definition: '.',
-          definition_location: '..',
+          source_location: '..',
           type: 'macro',
           revision_id: #{sym_rev}
         }),
@@ -506,7 +506,7 @@ defmodule SymbolGetTest do
           description: '.2',
           url: '...2',
           definition: '.2',
-          definition_location: '..2',
+          source_location: '..2',
           type: 'macro',
           revision_id: #{sym_rev_b}
         }),
@@ -524,7 +524,7 @@ defmodule SymbolGetTest do
 
     assert response.status === 200
     assert %{"symbol_patches" => %{"symbol" => %{"id" => sym_id2, "name" => "...",
-      "description" => ".", "url" => "...", "definition" => ".", "definition_location" => "..",
+      "description" => ".", "url" => "...", "definition" => ".", "source_location" => "..",
       "type" => "macro", "revision_id" => sym_rev2, "categories" => [%{"category" =>
       %{"name" => "existent", "url" => "existent"}}]}, "patches" => %{"updates" => updates,
       "delete" => true}}} = Poison.decode! response.resp_body
@@ -533,7 +533,7 @@ defmodule SymbolGetTest do
     assert [%{"symbol_update" => %{"user" => %{"username" => "user3", "privilege_level" => 3,
       "name" => "u3", "avatar_url" => "~3"}, "date" => _date, "symbol" => %{"id" => sym_id2,
       "name" => "...2", "description" => ".2", "url" => "...2", "definition" => ".2",
-      "definition_location" => "..2", "type" => "macro", "revision_id" => sym_rev2,
+      "source_location" => "..2", "type" => "macro", "revision_id" => sym_rev2,
       "categories" => [%{"category" => %{"name" => "existent", "url" => "existent"}}]}}}]
         = updates
     assert sym_id2 === sym_id
