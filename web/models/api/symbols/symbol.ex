@@ -27,6 +27,147 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     "members"
   ]
 
+  def valid_fields?(symbol) do
+    with {:ok} <- validate_types(symbol),
+         {:ok} <- validate_values(symbol) do
+      {:ok}
+    else
+      {:error, cause} ->
+        {:error, 400, cause}
+    end
+  end
+
+  def validate_types(symbol) do
+    validated = Enum.map(Map.keys(symbol), fn key ->
+      array_based_fields = ["members", "parameters", "categories"]
+
+      if key in (@required_fields ++ @optional_fields) -- array_based_fields do
+        if is_binary(symbol[key]), do: {:ok}, else: {:error, "The #{key} field should be a string"}
+      else
+        if is_list(symbol[key]), do: {:ok}, else: {:error, "The #{key} field should be a list"}
+      end
+    end)
+
+    valid = Enum.filter(validated, fn
+      {:ok} -> false
+      {:error, _} -> true
+    end)
+
+    if valid === [] do
+      {:ok}
+    else
+      List.first valid
+    end
+  end
+
+  def validate_values(symbol) do
+    validated = Enum.map(Map.keys(symbol), fn key ->
+      validate_field(key, symbol[key])
+    end)
+
+    valid = Enum.filter(validated, fn
+      {:ok} -> false
+      {:error, _} -> true
+    end)
+
+    if valid === [] do
+      {:ok}
+    else
+      List.first valid
+    end
+  end
+
+  def validate_field("name", value) do
+    if String.length(value) > 0 and String.length(value) < 101 do
+      {:ok}
+    else
+      {:error, "The name field should have a length of between 1 and 100 (inclusive)"}
+    end
+  end
+
+  def validate_field("declaration", value) do
+    if String.length(value) > 0 and String.length(value) < 151 do
+      {:ok}
+    else
+      {:error, "The declaration field should have a length of between 1 and 150 (inclusive)"}
+    end
+  end
+
+  def validate_field("description", value) do
+    if String.length(value) > 0 and String.length(value) < 1_001 do
+      {:ok}
+    else
+      {:error, "The description field should have a length of between 1 and 1000 (inclusive)"}
+    end
+  end
+
+  def validate_field("definition", value) do
+    if String.length(value) > 0 and String.length(value) < 6_001 do
+      {:ok}
+    else
+      {:error, "The definition field should have a length of between 1 and 6000 (inclusive)"}
+    end
+  end
+
+  def validate_field("definition_location", value) do
+    if String.length(value) > 0 and String.length(value) < 501 do
+      {:ok}
+    else
+      {:error, "The definition location field should have a length of between 1 and 500 (inclusive)"}
+    end
+  end
+
+  def validate_field("type", value) do
+    if Enum.member?(@valid_symbol_types, value) do
+      {:ok}
+    else
+      {:error, "The type field must be one of the following values: #{Enum.join(@valid_symbol_types, ", ")}"}
+    end
+  end
+
+  def validate_field("categories", value) do
+    validated = Enum.all?(value, fn category ->
+      String.length(category) > 0 and String.length(category) < 51
+    end)
+
+    if validated, do: {:ok}, else: {:error, "Invalid category name(s) given"}
+  end
+
+  def validate_field(key, value) when key in ["parameters", "members"] do
+    if rem(Enum.count(value), 2) !== 0 do
+      {:error, "An even number of values is required"}
+    else
+      {validated, _c} = Enum.reduce(value, {[], 0}, fn param, {v, c} ->
+        validate = if rem(c, 2) === 0 do
+          if String.length(param) > 0 and String.length(param) < 51 do
+            {:ok}
+          else
+            {:error, "The #{key} field name must have a length of between 1 and 50 (inclusive)"}
+          end
+        else
+          if String.length(param) > 0 and String.length(param) < 151 do
+            {:ok}
+          else
+            {:error, "The #{key} field description must have a length of between 1 and 150 (inclusive)"}
+          end
+        end
+
+        {[validate | v], c + 1}
+      end)
+
+      valid = Enum.filter(validated, fn
+        {:ok} -> false
+        {:error, _} -> true
+      end)
+
+      if valid === [] do
+        {:ok}
+      else
+        List.first valid
+      end
+    end
+  end
+
   def contains_required_fields?(symbol) do
     if @required_fields -- Map.keys(symbol) === [] and special_required_fields?(symbol) do
       {:ok}
