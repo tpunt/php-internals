@@ -10,6 +10,66 @@ defmodule PhpInternals.Api.Categories.Category do
   @show_view_types ["normal", "overview", "full"]
   @default_show_view_type "normal"
 
+  def valid_fields?(symbol) do
+    with {:ok} <- validate_types(symbol),
+         {:ok} <- validate_values(symbol) do
+      {:ok}
+    else
+      {:error, cause} ->
+        {:error, 400, cause}
+    end
+  end
+
+  def validate_types(symbol) do
+    validated = Enum.map(Map.keys(symbol), fn key ->
+      if is_binary(symbol[key]), do: {:ok}, else: {:error, "The #{key} field should be a string"}
+    end)
+
+    valid = Enum.filter(validated, fn
+      {:ok} -> false
+      {:error, _} -> true
+    end)
+
+    if valid === [] do
+      {:ok}
+    else
+      List.first valid
+    end
+  end
+
+  def validate_values(symbol) do
+    validated = Enum.map(Map.keys(symbol), fn key ->
+      validate_field(key, symbol[key])
+    end)
+
+    valid = Enum.filter(validated, fn
+      {:ok} -> false
+      {:error, _} -> true
+    end)
+
+    if valid === [] do
+      {:ok}
+    else
+      List.first valid
+    end
+  end
+
+  def validate_field("name", value) do
+    if String.length(value) > 0 and String.length(value) < 51 do
+      {:ok}
+    else
+      {:error, "The name field should have a length of between 1 and 50 (inclusive)"}
+    end
+  end
+
+  def validate_field("introduction", value) do
+    if String.length(value) > 0 and String.length(value) < 6_001 do
+      {:ok}
+    else
+      {:error, "The introduction field should have a length of between 1 and 6000 (inclusive)"}
+    end
+  end
+
   def contains_required_fields?(category) do
     if @required_fields -- Map.keys(category) == [] do
       {:ok}

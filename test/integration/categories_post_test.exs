@@ -209,4 +209,76 @@ defmodule CategoriesPostTest do
 
     Neo4j.query!(Neo4j.conn, "MATCH (u:User {username: '#{name}'})<-[r]-(c) DELETE r, u, c")
   end
+
+  @doc """
+  POST /api/categories -H 'authorization: at3'
+  """
+  test "invalid category insert (name field length < 1)" do
+    data = %{"category" => %{"introduction" => "...", "name" => ""}}
+
+    conn =
+      conn(:post, "/api/categories", data)
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "at3")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 400
+    assert %{"error" => %{"message" => "The name field should have a length of between 1 and 50 (inclusive)"}}
+      = Poison.decode!(response.resp_body)
+  end
+
+  @doc """
+  POST /api/categories -H 'authorization: at3'
+  """
+  test "invalid category insert (name field length > 50)" do
+    data = %{"category" => %{"introduction" => "...", "name" => String.duplicate("a", 51)}}
+
+    conn =
+      conn(:post, "/api/categories", data)
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "at3")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 400
+    assert %{"error" => %{"message" => "The name field should have a length of between 1 and 50 (inclusive)"}}
+      = Poison.decode!(response.resp_body)
+  end
+
+  @doc """
+  POST /api/categories -H 'authorization: at3'
+  """
+  test "invalid category insert (introduction field length < 1)" do
+    data = %{"category" => %{"introduction" => "", "name" => "a"}}
+
+    conn =
+      conn(:post, "/api/categories", data)
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "at3")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 400
+    assert %{"error" => %{"message" => "The introduction field should have a length of between 1 and 6000 (inclusive)"}}
+      = Poison.decode!(response.resp_body)
+  end
+
+  @doc """
+  POST /api/categories -H 'authorization: at3'
+  """
+  test "invalid category insert (introduction field length > 6000)" do
+    data = %{"category" => %{"introduction" => String.duplicate("a", 6_001), "name" => "a"}}
+
+    conn =
+      conn(:post, "/api/categories", data)
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "at3")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 400
+    assert %{"error" => %{"message" => "The introduction field should have a length of between 1 and 6000 (inclusive)"}}
+      = Poison.decode!(response.resp_body)
+  end
 end
