@@ -484,7 +484,7 @@ defmodule SymbolsPostTest do
   test "Invalid symbol insert (odd member count)" do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
       "definition" => "a", "definition_location" => "a",
-      "type" => "macro", "categories" => ["a"], "declaration" => ".",
+      "type" => "type", "categories" => ["a"], "declaration" => ".",
       "members" => ["a"]}}
 
     conn =

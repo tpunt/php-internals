@@ -301,8 +301,6 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
   defp insert(conn, %{"symbol" => symbol, "review" => review}) do
     with {:ok} <- User.within_patch_limit?(conn.user),
-         {:ok} <- Symbol.contains_required_fields?(symbol),
-         {:ok} <- Symbol.contains_only_expected_fields?(symbol),
          {:ok} <- Symbol.valid_fields?(symbol),
          {:ok, url_name} <- Utilities.is_url_friendly?(symbol["name"]),
          {:ok} <- Category.all_valid?(symbol["categories"]) do
@@ -332,8 +330,6 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
   defp modify(conn, %{"symbol" => symbol, "symbol_id" => symbol_id, "review" => review} = params) do
     with {:ok} <- User.within_patch_limit?(conn.user),
-         {:ok} <- Symbol.contains_required_fields?(symbol),
-         {:ok} <- Symbol.contains_only_expected_fields?(symbol),
          {:ok} <- Symbol.valid_fields?(symbol),
          {:ok, url_name} <- Utilities.is_url_friendly?(symbol["name"]),
          {:ok} <- Category.all_valid?(symbol["categories"]),

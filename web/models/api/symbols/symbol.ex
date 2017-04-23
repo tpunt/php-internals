@@ -11,24 +11,22 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   @default_view_type "normal"
 
   @required_fields [
+    "type",
     "name",
     "declaration",
-    "description",
-    "definition",
     "definition_location",
-    "type",
+    "description",
     "categories"
   ]
   @optional_fields [
-    "parameters",
-    "additional_information",
-    "return_type",
-    "return_description",
-    "members"
+    "additional_information"
   ]
 
   def valid_fields?(symbol) do
-    with {:ok} <- validate_types(symbol),
+    with {:ok} <- valid_type_field?(symbol),
+         {:ok} <- contains_required_fields?(symbol),
+         {:ok} <- contains_only_expected_fields?(symbol),
+         {:ok} <- validate_types(symbol),
          {:ok} <- validate_values(symbol) do
       {:ok}
     else
@@ -37,11 +35,24 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def validate_types(symbol) do
+  def valid_type_field?(symbol) do
+    if Map.has_key?(symbol, "type") do
+      if Enum.member?(@valid_symbol_types, symbol["type"]) do
+        {:ok}
+      else
+        {:error, "The type field must be one of the following values: #{Enum.join(@valid_symbol_types, ", ")}"}
+      end
+    else
+      {:error, "The type field must be specified"}
+    end
+  end
+
+  def validate_types(%{"type" => type} = symbol) do
     validated = Enum.map(Map.keys(symbol), fn key ->
       array_based_fields = ["members", "parameters", "categories"]
+      all_fields = @required_fields ++ special_required_fields(type) ++ @optional_fields ++ special_optional_fields(type)
 
-      if key in (@required_fields ++ @optional_fields) -- array_based_fields do
+      if key in all_fields -- array_based_fields do
         if is_binary(symbol[key]), do: {:ok}, else: {:error, "The #{key} field should be a string"}
       else
         if is_list(symbol[key]), do: {:ok}, else: {:error, "The #{key} field should be a list"}
@@ -117,12 +128,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def validate_field("type", value) do
-    if Enum.member?(@valid_symbol_types, value) do
-      {:ok}
-    else
-      {:error, "The type field must be one of the following values: #{Enum.join(@valid_symbol_types, ", ")}"}
-    end
+  def validate_field("type", _value) do
+    {:ok}
   end
 
   def validate_field("categories", value) do
@@ -169,26 +176,46 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   end
 
   def contains_required_fields?(symbol) do
-    if @required_fields -- Map.keys(symbol) === [] and special_required_fields?(symbol) do
+    all_required_fields = @required_fields ++ special_required_fields(symbol["type"])
+
+    if all_required_fields -- Map.keys(symbol) === [] do
       {:ok}
     else
-      {:error, 400, "Required fields are missing (expecting: #{Enum.join(@required_fields, ", ")}"
-        <> "(as well as parameters and declaration for functions))"}
+      {:error, "Required fields are missing (expecting: #{Enum.join(all_required_fields, ", ")})"}
     end
   end
 
-  defp special_required_fields?(%{"type" => "function"} = symbol) do
-    ["return_type", "return_description"] -- Map.keys(symbol) === []
+  defp special_required_fields("function") do
+    ["return_type", "return_description", "definition"]
   end
 
-  defp special_required_fields?(_symbol), do: true
+  defp special_required_fields(type) when type in ["macro", "type", "variable"] do
+    []
+  end
 
-  def contains_only_expected_fields?(symbol) do
-    all_fields = @required_fields ++ @optional_fields
+  defp special_optional_fields("function") do
+    ["parameters"]
+  end
+
+  defp special_optional_fields("macro") do
+    ["parameters", "definition"]
+  end
+
+  defp special_optional_fields("type") do
+    ["members", "definition"]
+  end
+
+  defp special_optional_fields("variable") do
+    []
+  end
+
+  def contains_only_expected_fields?(%{"type" => type} = symbol) do
+    all_fields = @required_fields ++ special_required_fields(type) ++ @optional_fields ++ special_optional_fields(type)
+
     if Map.keys(symbol) -- all_fields === [] do
       {:ok}
     else
-      {:error, 400, "Unknown fields given (expecting: #{Enum.join(all_fields, ", ")})"}
+      {:error, "Unknown fields given (expecting: #{Enum.join(all_fields, ", ")})"}
     end
   end
 
