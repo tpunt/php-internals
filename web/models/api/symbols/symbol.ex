@@ -758,7 +758,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       |> Enum.join(",")
 
     query2 = """
-      CREATE (new_symbol:Symbol {#{query2}}),
+      CREATE (new_symbol:Symbol {id: {new_id}, #{query2}}),
         (new_symbol)-[:REVISION]->(old_symbol),
         (new_symbol)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
     """
