@@ -184,4 +184,16 @@ defmodule SymbolsGetTest do
     assert %{"symbols" => symbols} = Poison.decode! response.resp_body
     assert %{"symbol" => %{}} = List.first symbols
   end
+
+  @doc """
+  GET /api/symbols?search=existing_symbol
+  """
+  test "Search (regex) all symbols by type for an existing symbol" do
+    conn = conn(:get, "/api/symbols", %{"search" => "xisTen", "type" => "macro"})
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"symbols" => [%{"symbol" => %{"url" => "existent"}}]} = Poison.decode! response.resp_body
+  end
 end

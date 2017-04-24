@@ -431,7 +431,17 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         {where_query <> column <> " =~ {search_term}", search_term}
       end
 
-    query5 = if symbol_type === "all", do: "", else: "WHERE s.type = '#{symbol_type}'"
+    query5 =
+      if symbol_type === "all" do
+        ""
+      else
+        if search_term === nil do
+          " WHERE s.type = '#{symbol_type}'"
+        else
+          " AND s.type = '#{symbol_type}'"
+        end
+      end
+
     query6 = """
       RETURN {
         symbol: {
