@@ -752,7 +752,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     """
 
     query2 =
-      Map.keys(old_symbol)
+      Map.keys(new_symbol)
       |> Enum.filter(fn key -> key !== "categories" end)
       |> Enum.map(fn key -> "#{key}: {new_#{key}}" end)
       |> Enum.join(",")
