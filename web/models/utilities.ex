@@ -14,7 +14,7 @@ defmodule PhpInternals.Utilities do
     end
   end
 
-  defp make_url_friendly(name) do
+  def make_url_friendly(name) do
     name
     |> String.trim
     |> String.replace(~r/([^a-zA-Z0-9 ._-])/, "")
