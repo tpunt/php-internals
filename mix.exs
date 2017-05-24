@@ -34,7 +34,7 @@ defmodule PhpInternals.Mixfile do
      {:gettext, "~> 0.11"},
      {:cowboy, "~> 1.0"},
      {:neo4j_sips, "~> 0.2"},
-     {:oauth2, "~> 0.7"},
+     {:oauth2, "~> 0.9"},
      {:corsica, "~> 0.5"}]
   end
 end
