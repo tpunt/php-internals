@@ -25,4 +25,4 @@ config :neo4j_sips, Neo4j,
   basic_auth: [username: "neo4j", password: "modernw"],
   pool_size: 5,
   max_overflow: 2,
-  timeout: 30
+  timeout: 5_000
