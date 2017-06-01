@@ -102,6 +102,8 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
     return_symbol
     |> Map.merge(render_type(symbol))
     |> Map.merge(CategoryView.render("index_overview.json", %{categories: categories}))
+    |> Enum.filter(fn {_key, value} -> value !== nil end)
+    |> Enum.into(%{})
   end
 
   def render("symbol_overview.json", %{symbol: %{"symbol" => symbol, "categories" => categories}}) do
