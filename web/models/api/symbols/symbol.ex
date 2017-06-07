@@ -145,10 +145,10 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   end
 
   def validate_field("return_description", value) do
-    if String.length(value) < 151 do
+    if String.length(value) < 401 do
       {:ok}
     else
-      {:error, "The return description field should have a length of 150 or less"}
+      {:error, "The return description field should have a length of 400 or less"}
     end
   end
 
@@ -176,10 +176,10 @@ defmodule PhpInternals.Api.Symbols.Symbol do
             {:error, "The #{key} field name must have a length of between 1 and 50 (inclusive)"}
           end
         else
-          if String.length(param) > 0 and String.length(param) < 151 do
+          if String.length(param) > 0 and String.length(param) < 401 do
             {:ok}
           else
-            {:error, "The #{key} field description must have a length of between 1 and 150 (inclusive)"}
+            {:error, "The #{key} field description must have a length of between 1 and 400 (inclusive)"}
           end
         end
 

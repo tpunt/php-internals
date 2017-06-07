@@ -558,7 +558,7 @@ defmodule SymbolsPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "The parameters field description must have a length of between 1 and 150 (inclusive)"}}
+    assert %{"error" => %{"message" => "The parameters field description must have a length of between 1 and 400 (inclusive)"}}
       = Poison.decode!(response.resp_body)
   end
 
@@ -569,7 +569,7 @@ defmodule SymbolsPostTest do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
       "definition" => "a", "source_location" => "a",
       "type" => "macro", "categories" => ["a"], "declaration" => ".",
-      "parameters" => ["a", String.duplicate("a", 151)]}}
+      "parameters" => ["a", String.duplicate("a", 401)]}}
 
     conn =
       conn(:post, "/api/symbols", data)
@@ -579,7 +579,7 @@ defmodule SymbolsPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "The parameters field description must have a length of between 1 and 150 (inclusive)"}}
+    assert %{"error" => %{"message" => "The parameters field description must have a length of between 1 and 400 (inclusive)"}}
       = Poison.decode!(response.resp_body)
   end
 
@@ -632,7 +632,7 @@ defmodule SymbolsPostTest do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
       "definition" => "a", "source_location" => "a",
       "type" => "function", "categories" => ["a"], "declaration" => ".",
-      "return_type" => "a", "return_description" => String.duplicate("a", 151)}}
+      "return_type" => "a", "return_description" => String.duplicate("a", 401)}}
 
     conn =
       conn(:post, "/api/symbols", data)
@@ -642,7 +642,7 @@ defmodule SymbolsPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "The return description field should have a length of 150 or less"}}
+    assert %{"error" => %{"message" => "The return description field should have a length of 400 or less"}}
       = Poison.decode!(response.resp_body)
   end
 end
