@@ -340,7 +340,7 @@ defmodule SymbolsPostTest do
   @doc """
   POST /api/symbols -H authorization: at2
   """
-  test "Invalid symbol insert (definition field length > 1000)" do
+  test "Invalid symbol insert (definition field length > 6000)" do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
       "definition" => String.duplicate("a", 6001), "source_location" => ".",
       "type" => "macro", "categories" => ["existent"], "declaration" => "."}}
@@ -380,7 +380,7 @@ defmodule SymbolsPostTest do
   @doc """
   POST /api/symbols -H authorization: at2
   """
-  test "Invalid symbol insert (definition location field length > 1000)" do
+  test "Invalid symbol insert (definition location field length > 500)" do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
       "definition" => "a", "source_location" => String.duplicate("a", 501),
       "type" => "macro", "categories" => ["existent"], "declaration" => "."}}
@@ -643,6 +643,28 @@ defmodule SymbolsPostTest do
 
     assert response.status === 400
     assert %{"error" => %{"message" => "The return description field should have a length of 400 or less"}}
+      = Poison.decode!(response.resp_body)
+  end
+
+  @doc """
+  POST /api/symbols -H authorization: at2
+  """
+  test "Invalid symbol insert (additional_information field length > 2000)" do
+    data = %{"symbol" => %{"name" => "a", "description" => "a",
+      "definition" => "a", "source_location" => "a",
+      "type" => "function", "categories" => ["a"], "declaration" => ".",
+      "return_type" => "a", "return_description" => "a",
+      "additional_information" => String.duplicate("a", 2_001)}}
+
+    conn =
+      conn(:post, "/api/symbols", data)
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "at2")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 400
+    assert %{"error" => %{"message" => "The additional information field should have a length of 2000 or less"}}
       = Poison.decode!(response.resp_body)
   end
 end

@@ -129,10 +129,10 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   end
 
   def validate_field("additional_information", value) do
-    if String.length(value) < 1_001 do
+    if String.length(value) < 2_001 do
       {:ok}
     else
-      {:error, "The additional information field should have a length of 1000 or less"}
+      {:error, "The additional information field should have a length of 2000 or less"}
     end
   end
 
