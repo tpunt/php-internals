@@ -27,8 +27,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
          {:ok} <- contains_required_fields?(symbol),
          {:ok} <- contains_only_expected_fields?(symbol),
          {:ok} <- validate_types(symbol),
-         {:ok} <- validate_values(symbol) do
-      {:ok}
+         {:ok, symbol} <- validate_values(symbol) do
+      {:ok, symbol}
     else
       {:error, cause} ->
         {:error, 400, cause}
@@ -73,24 +73,32 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def validate_values(symbol) do
     validated = Enum.map(Map.keys(symbol), fn key ->
-      validate_field(key, symbol[key])
+      if is_binary(symbol[key]) do
+        validate_field(key, String.trim(symbol[key]))
+      else
+        validate_field(key, symbol[key])
+      end
     end)
 
-    valid = Enum.filter(validated, fn
-      {:ok} -> false
+    invalid = Enum.filter(validated, fn
+      {:ok, _map} -> false
       {:error, _} -> true
     end)
 
-    if valid === [] do
-      {:ok}
+    if invalid === [] do
+      symbol = Enum.reduce(validated, %{}, fn {:ok, map}, values ->
+        Map.merge(map, values)
+      end)
+
+      {:ok, symbol}
     else
-      List.first valid
+      List.first invalid
     end
   end
 
   def validate_field("name", value) do
     if String.length(value) > 0 and String.length(value) < 101 do
-      {:ok}
+      {:ok, %{"name" => value}}
     else
       {:error, "The name field should have a length of between 1 and 100 (inclusive)"}
     end
@@ -98,7 +106,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def validate_field("declaration", value) do
     if String.length(value) > 0 and String.length(value) < 151 do
-      {:ok}
+      {:ok, %{"declaration" => value}}
     else
       {:error, "The declaration field should have a length of between 1 and 150 (inclusive)"}
     end
@@ -106,7 +114,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def validate_field("description", value) do
     if String.length(value) > 0 and String.length(value) < 1_001 do
-      {:ok}
+      {:ok, %{"description" => value}}
     else
       {:error, "The description field should have a length of between 1 and 1000 (inclusive)"}
     end
@@ -114,7 +122,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def validate_field("definition", value) do
     if String.length(value) > 0 and String.length(value) < 6_001 do
-      {:ok}
+      {:ok, %{"definition" => value}}
     else
       {:error, "The definition field should have a length of between 1 and 6000 (inclusive)"}
     end
@@ -122,7 +130,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def validate_field("source_location", value) do
     if String.length(value) > 0 and String.length(value) < 501 do
-      {:ok}
+      {:ok, %{"source_location" => value}}
     else
       {:error, "The definition location field should have a length of between 1 and 500 (inclusive)"}
     end
@@ -130,7 +138,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def validate_field("additional_information", value) do
     if String.length(value) < 2_001 do
-      {:ok}
+      {:ok, %{"additional_information" => value}}
     else
       {:error, "The additional information field should have a length of 2000 or less"}
     end
@@ -138,7 +146,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def validate_field("return_type", value) do
     if String.length(value) > 1 and String.length(value) < 51 do
-      {:ok}
+      {:ok, %{"return_type" => value}}
     else
       {:error, "The return type field should have a length of between 1 and 50 (inclusive)"}
     end
@@ -146,14 +154,14 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def validate_field("return_description", value) do
     if String.length(value) < 401 do
-      {:ok}
+      {:ok, %{"return_description" => value}}
     else
       {:error, "The return description field should have a length of 400 or less"}
     end
   end
 
-  def validate_field("type", _value) do
-    {:ok}
+  def validate_field("type", value) do
+    {:ok, %{"type" => value}}
   end
 
   def validate_field("categories", value) do
@@ -161,7 +169,11 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       String.length(category) > 0 and String.length(category) < 51
     end)
 
-    if validated, do: {:ok}, else: {:error, "Invalid category name(s) given"}
+    if validated do
+      {:ok, %{"categories" => value}}
+    else
+      {:error, "Invalid category name(s) given"}
+    end
   end
 
   def validate_field(key, value) when key in ["parameters", "members"] do
@@ -169,15 +181,16 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       {:error, "An even number of values is required"}
     else
       {validated, _c} = Enum.reduce(value, {[], 0}, fn param, {v, c} ->
+        param = String.trim(param)
         validate = if rem(c, 2) === 0 do
           if String.length(param) > 0 and String.length(param) < 51 do
-            {:ok}
+            {:ok, param}
           else
             {:error, "The #{key} field name must have a length of between 1 and 50 (inclusive)"}
           end
         else
           if String.length(param) > 0 and String.length(param) < 401 do
-            {:ok}
+            {:ok, param}
           else
             {:error, "The #{key} field description must have a length of between 1 and 400 (inclusive)"}
           end
@@ -186,15 +199,18 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         {[validate | v], c + 1}
       end)
 
-      valid = Enum.filter(validated, fn
-        {:ok} -> false
+      invalid = Enum.filter(validated, fn
+        {:ok, _value} -> false
         {:error, _} -> true
       end)
 
-      if valid === [] do
-        {:ok}
+      if invalid === [] do
+        values = Enum.reduce(validated, [], fn {:ok, value}, values ->
+            [value | values]
+          end)
+        {:ok, %{key => values}}
       else
-        List.first valid
+        List.first invalid
       end
     end
   end

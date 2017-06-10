@@ -14,8 +14,8 @@ defmodule PhpInternals.Api.Categories.Category do
     with {:ok} <- contains_required_fields?(category),
          {:ok} <- contains_only_expected_fields?(category),
          {:ok} <- validate_types(category),
-         {:ok} <- validate_values(category) do
-      {:ok}
+         {:ok, category} <- validate_values(category) do
+      {:ok, category}
     else
       {:error, cause} ->
         {:error, 400, cause}
@@ -41,24 +41,28 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def validate_values(category) do
     validated = Enum.map(Map.keys(category), fn key ->
-      validate_field(key, category[key])
+      validate_field(key, String.trim(category[key]))
     end)
 
-    valid = Enum.filter(validated, fn
-      {:ok} -> false
+    invalid = Enum.filter(validated, fn
+      {:ok, _map} -> false
       {:error, _} -> true
     end)
 
-    if valid === [] do
-      {:ok}
+    if invalid === [] do
+      category = Enum.reduce(validated, %{}, fn {:ok, map}, values ->
+        Map.merge(values, map)
+      end)
+
+      {:ok, category}
     else
-      List.first valid
+      List.first invalid
     end
   end
 
   def validate_field("name", value) do
     if String.length(value) > 0 and String.length(value) < 51 do
-      {:ok}
+      {:ok, %{"name" => value}}
     else
       {:error, "The name field should have a length of between 1 and 50 (inclusive)"}
     end
@@ -66,7 +70,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def validate_field("introduction", value) do
     if String.length(value) > 0 and String.length(value) < 6_001 do
-      {:ok}
+      {:ok, %{"introduction" => value}}
     else
       {:error, "The introduction field should have a length of between 1 and 6000 (inclusive)"}
     end
