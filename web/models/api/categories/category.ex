@@ -444,7 +444,7 @@ defmodule PhpInternals.Api.Categories.Category do
       OPTIONAL MATCH (s:Symbol)-[:CATEGORY]->(c)
       OPTIONAL MATCH (a:Article)-[:CATEGORY]->(c), (a)-[:AUTHOR]->(u:User)
       WITH c, a, u, collect(
-        CASE s WHEN NULL THEN NULL ELSE {symbol: {name: s.name, url: s.url, type: s.type}}
+        CASE s WHEN NULL THEN NULL ELSE {symbol: {name: s.name, url: s.url, type: s.type, id: s.id}}
       END) AS symbols
       OPTIONAL MATCH (a)-[:CATEGORY]->(ac)
       WITH c, a, u, symbols, collect(ac) AS acs
