@@ -774,7 +774,11 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       |> Enum.join(",")
 
     query2 = """
-      CREATE (new_symbol:Symbol {id: {new_id}, #{query2}}),
+      CREATE (new_symbol:Symbol {
+          id: {new_id},
+          revision_id: {new_revision_id},
+          #{query2}
+        }),
         (new_symbol)-[:REVISION]->(old_symbol),
         (new_symbol)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
     """
@@ -851,7 +855,12 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       |> Enum.join(",")
 
     query2 = """
-      CREATE (new_symbol:UpdateSymbolPatch {id: {symbol_id}, against_revision: {against_revision}, #{query2}}),
+      CREATE (new_symbol:UpdateSymbolPatch {
+          id: {symbol_id},
+          against_revision: {against_revision},
+          revision_id: {new_revision_id},
+          #{query2}
+        }),
         (old_symbol)-[:UPDATE]->(new_symbol),
         (new_symbol)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
     """
