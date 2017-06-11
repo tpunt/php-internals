@@ -4,22 +4,21 @@ defmodule PhpInternals.Api.Users.UserController do
   alias PhpInternals.Api.Users.User
   alias PhpInternals.Utilities
 
-  def index(%{user: %{privilege_level: 3}} = conn, _params) do
-    conn
-    |> put_status(200)
-    |> render("index.json", users: User.fetch_all)
-  end
-
-  def index(%{user: %{privilege_level: 0}} = conn, _params) do
-    conn
-    |> put_status(401)
-    |> render(PhpInternals.ErrorView, "error.json", error: "Unauthenticated access attempt")
-  end
-
-  def index(conn, _params) do
-    conn
-    |> put_status(403)
-    |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised access attempt")
+  def index(conn, params) do
+    with {:ok, order_by} <- User.valid_order_by?(params["order_by"]),
+         {:ok, ordering} <- Utilities.valid_ordering?(params["ordering"]),
+         {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
+         {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
+      users = User.fetch_all(order_by, ordering, offset, limit, params["search"])
+      conn
+      |> put_status(200)
+      |> render("index.json", users: users["result"])
+    else
+      {:error, status_code, error} ->
+        conn
+        |> put_status(status_code)
+        |> render(PhpInternals.ErrorView, "error.json", error: error)
+    end
   end
 
   def show_contributions(conn, %{"username" => username} = params) do

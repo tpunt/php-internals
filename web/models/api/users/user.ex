@@ -5,7 +5,7 @@ defmodule PhpInternals.Api.Users.User do
   @admin_valid_fields ["privilege_level", "access_token"] # "username" ?
   @patch_limit 20
 
-  @valid_order_bys ["date", "username"]
+  @valid_order_bys ["date", "username", "name"]
   @default_order_by "date"
 
   def valid_order_by?(order_by) do
@@ -77,13 +77,44 @@ defmodule PhpInternals.Api.Users.User do
     {:ok}
   end
 
-  def fetch_all do
+  def fetch_all(order_by, ordering, offset, limit, search_term) do
+    {where_query, search_term} =
+      if search_term !== nil do
+        {column, search_term} =
+          if String.first(search_term) === "=" do
+            {"username", "(?i)#{String.slice(search_term, 1..-1)}"}
+          else
+            {"username", "(?i).*#{search_term}.*"}
+          end
+
+        {"WHERE u." <> column <> " =~ {search_term}", search_term}
+      else
+        {"", nil}
+      end
+
     query = """
       MATCH (u:User)
-      RETURN {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
+      #{where_query}
+      WITH u
+      ORDER BY u.#{order_by} #{ordering}
+      WITH COLLECT({user: {
+        username: u.username,
+        name: u.name,
+        privilege_level: u.privilege_level
+      }}) AS users
+      RETURN {
+        users: users[#{offset}..#{offset + limit}],
+        meta: {
+          total: LENGTH(users),
+          offset: #{offset},
+          limit: #{limit}
+        }
+      } AS result
     """
 
-    Neo4j.query!(Neo4j.conn, query)
+    params = %{search_term: search_term}
+
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def fetch_by_username(username) do

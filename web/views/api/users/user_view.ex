@@ -4,9 +4,11 @@ defmodule PhpInternals.Api.Users.UserView do
   alias PhpInternals.Api.Users.UserView
   alias PhpInternals.Api.Categories.CategoryView
   alias PhpInternals.Api.Symbols.SymbolView
+  alias PhpInternals.Api.UtilitiesView
 
-  def render("index.json", %{users: users}) do
-    %{users: render_many(users, UserView, "show_overview.json")}
+  def render("index.json", %{users: %{"users" => users, "meta" => meta}}) do
+    %{users: render_many(users, UserView, "show_overview.json"),
+      meta: UtilitiesView.render("meta.json", meta)}
   end
 
   def render("show_overview.json", %{user: user}) do
