@@ -4,9 +4,11 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
   alias PhpInternals.Api.Symbols.SymbolView
   alias PhpInternals.Api.Categories.CategoryView
   alias PhpInternals.Api.Users.UserView
+  alias PhpInternals.Api.UtilitiesView
 
   def render("index.json", %{symbols: symbols}) do
-    %{symbols: render_many(symbols, SymbolView, "show_overview_index.json")}
+    %{symbols: render_many(symbols["symbols"], SymbolView, "show_overview_index.json"),
+      meta: UtilitiesView.render("meta.json", symbols["meta"])}
   end
 
   def render("index_patches_all.json", %{symbols_patches: %{inserts: inserts, patches: patches}}) do

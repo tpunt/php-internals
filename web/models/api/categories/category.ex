@@ -236,15 +236,22 @@ defmodule PhpInternals.Api.Categories.Category do
     query = """
       MATCH (c:Category)
       #{where_query}
-      RETURN {name: c.name, url: c.url} AS category
-      ORDER BY c.#{order_by} #{ordering}
-      SKIP #{offset}
-      LIMIT #{limit}
+      WITH c
+      ORDER BY LOWER(c.#{order_by}) #{ordering}
+      WITH COLLECT({category: {name: c.name, url: c.url}}) AS categories
+      RETURN {
+        categories: categories[#{offset}..#{offset + limit}],
+        meta: {
+          total: LENGTH(categories),
+          offset: #{offset},
+          limit: #{limit}
+        }
+      } AS result
     """
 
     params = %{search_term: search_term}
 
-    Neo4j.query!(Neo4j.conn, query, params)
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def fetch_all_patches("all") do

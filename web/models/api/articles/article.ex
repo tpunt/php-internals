@@ -178,36 +178,40 @@ defmodule PhpInternals.Api.Articles.Article do
         end
 
     query3 = """
-      MATCH (a)-[arel:AUTHOR]->(u:User), (a)-[crel:CATEGORY]->(category:Category)
-
+      MATCH (a)-[arel:AUTHOR]->(u:User), (a)-[crel:CATEGORY]->(c:Category)
+      WITH a, u, COLLECT({category: {name: c.name, url: c.url}}) AS categories
+      ORDER BY a.#{order_by} #{ordering}
+      WITH COLLECT({
+        article: {
+          title: a.title,
+          url: a.url,
+          date: a.date,
+          excerpt: a.excerpt,
+          series_name: a.series_name,
+          series_url: a.series_url,
+          categories: categories,
+          user: {
+            username: u.username,
+            name: u.name,
+            privilege_level: u.privilege_level
+          }
+        }
+      }) AS articles
       RETURN {
-        title: a.title,
-        url: a.url,
-        date: a.date,
-        excerpt: a.excerpt,
-        series_name: a.series_name,
-        series_url: a.series_url
-      } AS article,
-        collect({category: category}) as categories,
-        {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
-      ORDER BY article.#{order_by} #{ordering}
-      SKIP #{offset}
-      LIMIT #{limit}
+        articles: articles[#{offset}..#{offset + limit}],
+        meta: {
+          total: LENGTH(articles),
+          offset: #{offset},
+          limit: #{limit}
+        }
+      } AS result
     """
 
     query = query1 <> query2 <> query3
 
     params = %{category_url: category_filter, username: author_filter, search_term: search_term}
 
-    Neo4j.query!(Neo4j.conn, query, params)
-    |> Enum.map(fn %{"article" => article, "user" => user} = result ->
-        article =
-          article
-          |> Map.merge(%{"user" => user})
-          |> Map.merge(%{"categories" => result["categories"]})
-
-        %{"article" => article}
-      end)
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def insert(article, username) do

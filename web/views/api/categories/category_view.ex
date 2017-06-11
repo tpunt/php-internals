@@ -5,11 +5,18 @@ defmodule PhpInternals.Api.Categories.CategoryView do
   alias PhpInternals.Api.Symbols.SymbolView
   alias PhpInternals.Api.Articles.ArticleView
   alias PhpInternals.Api.Users.UserView
+  alias PhpInternals.Api.UtilitiesView
 
   def render("index_normal.json", %{categories: categories}) do
     %{categories: render_many(categories, CategoryView, "show.json")}
   end
 
+  def render("index_overview.json", %{categories: %{"categories" => cats, "meta" => meta}}) do
+    %{categories: render_many(cats, CategoryView, "show_overview.json"),
+      meta: UtilitiesView.render("meta.json", meta)}
+  end
+
+  # used to render categories list for symbols/articles
   def render("index_overview.json", %{categories: categories}) do
     %{categories: render_many(categories, CategoryView, "show_overview.json")}
   end

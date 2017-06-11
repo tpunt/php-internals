@@ -51,7 +51,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
          {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
       all_categories = Category.fetch_all(order_by, ordering, offset, limit, params["search"], params["full_search"])
-      render(conn, "index_overview.json", categories: all_categories)
+      render(conn, "index_overview.json", categories: all_categories["result"])
     else
       {:error, status_code, error} ->
         conn

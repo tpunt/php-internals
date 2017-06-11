@@ -50,10 +50,10 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
          {:ok, ordering} <- Utilities.valid_ordering?(params["ordering"]),
          {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]),
-         {:ok, symbol_type} <- Symbol.valid_type?(params["type"]),
+         {:ok, type} <- Symbol.valid_type?(params["type"]),
          {:ok, _category} <- Category.valid?(params["category"]) do
-      symbols = Symbol.fetch_all(order_by, ordering, offset, limit, symbol_type, params["category"], params["search"], params["full_search"])
-      render(conn, "index.json", symbols: symbols)
+      results = Symbol.fetch_all(order_by, ordering, offset, limit, type, params["category"], params["search"], params["full_search"])
+      render(conn, "index.json", symbols: results["result"])
     else
       {:error, status_code, error} ->
         conn

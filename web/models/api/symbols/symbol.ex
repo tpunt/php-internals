@@ -459,25 +459,34 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       end
 
     query6 = """
-      RETURN {
+      WITH COLLECT({category: {name: c.name, url: c.url}}) AS categories, s
+      ORDER BY s.#{order_by} #{ordering}
+      WITH COLLECT({
         symbol: {
-          id: s.id,
-          name: s.name,
-          url: s.url,
-          type: s.type
-        },
-        categories: collect({category: {name: c.name, url: c.url}})
-      } AS symbol
-      ORDER BY symbol.symbol.#{order_by} #{ordering}
-      SKIP #{offset}
-      LIMIT #{limit}
+          symbol: {
+            id: s.id,
+            name: s.name,
+            url: s.url,
+            type: s.type
+          },
+          categories: categories
+        }
+      }) AS symbols
+      RETURN {
+        symbols: symbols[#{offset}..#{offset + limit}],
+        meta: {
+          total: LENGTH(symbols),
+          offset: #{offset},
+          limit: #{limit}
+        }
+      } AS result
     """
 
     query = query1 <> query2 <> query3 <> query4 <> query5 <> query6
 
     params = %{category_url: category_filter, search_term: search_term}
 
-    Neo4j.query!(Neo4j.conn, query, params)
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def fetch_all_patches("all") do

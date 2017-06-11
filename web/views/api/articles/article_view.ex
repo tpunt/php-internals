@@ -4,7 +4,14 @@ defmodule PhpInternals.Api.Articles.ArticleView do
   alias PhpInternals.Api.Categories.CategoryView
   alias PhpInternals.Api.Articles.ArticleView
   alias PhpInternals.Api.Users.UserView
+  alias PhpInternals.Api.UtilitiesView
 
+  def render("index.json", %{articles: %{"articles" => articles, "meta" => meta}}) do
+    %{articles: render_many(articles, ArticleView, "show_overview.json"),
+      meta: UtilitiesView.render("meta.json", meta)}
+  end
+
+  # viewing article series is not paginated currently
   def render("index.json", %{articles: articles}) do
     %{articles: render_many(articles, ArticleView, "show_overview.json")}
   end
