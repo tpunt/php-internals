@@ -53,6 +53,12 @@ defmodule PhpInternals.Api.Users.UserController do
     end
   end
 
+  def self(%{user: %{privilege_level: 0}} = conn, _params) do
+    conn
+    |> put_status(404)
+    |> render(PhpInternals.ErrorView, "error.json", error: "User not found")
+  end
+
   def self(%{user: user} = conn, _params) do
     user_data = %{"user" => %{"username" => user.username, "name" => user.name,
       "privilege_level" => user.privilege_level, "avatar_url" => user.avatar_url}}
