@@ -5,7 +5,7 @@ defmodule PhpInternals.Api.Users.User do
   @admin_valid_fields ["privilege_level", "access_token"] # "username" ?
   @patch_limit 20
 
-  @valid_order_bys ["date", "username", "name"]
+  @valid_order_bys ["date", "username", "name", "privilege_level"]
   @default_order_by "date"
 
   def valid_order_by?(order_by) do
