@@ -15,7 +15,10 @@ config :logger, :console,
 
 config :neo4j_sips, Neo4j,
   url: "http://localhost:7474",
-  basic_auth: [username: "neo4j", password: "test_db"],
+  basic_auth: [
+    username: System.get_env("NEO4J_USERNAME_TEST"),
+    password: System.get_env("NEO4J_PASSWORD_TEST")
+  ],
   pool_size: 20,
   max_overflow: 2,
   timeout: 5_000
