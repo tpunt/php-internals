@@ -574,7 +574,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def insert(category, parent, review, username) do
     label = if review === 1, do: "InsertCategoryPatch", else: "Category"
-    parent_match = if parent === nil, do: "", else: ", (pc:Category {name: {parent}})"
+    parent_match = if parent === nil, do: "", else: ", (pc:Category {url: {parent}})"
     parent_join = if parent === nil, do: "", else: ", (pc)-[:SUBCATEGORY]->(c)"
 
     {subcategories_match, subcategories_join, subcategories_params} =
