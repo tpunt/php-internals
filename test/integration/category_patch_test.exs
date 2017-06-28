@@ -169,7 +169,7 @@ defmodule CategoryPatchTest do
     assert response.status === 403
   end
 
-  test "Authorised update existing category 1" do
+  test "Authorised update existing category 1 (without subcategories)" do
     name = :rand.uniform(100_000_000)
     rev_id = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
@@ -199,15 +199,16 @@ defmodule CategoryPatchTest do
     """)
   end
 
-  test "Authorised update existing category 2" do
+  test "Authorised update existing category 2 (with subcategories)" do
     name = :rand.uniform(100_000_000)
     rev_id = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})
     """)
+    data = %{"category" => %{"name" => "#{name}", "introduction" => ".", "subcategories" => ["existent"]}}
 
     conn =
-      conn(:patch, "/api/categories/#{name}", %{"category" => %{"name" => "#{name}", "introduction" => "."}})
+      conn(:patch, "/api/categories/#{name}", data)
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -217,19 +218,21 @@ defmodule CategoryPatchTest do
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}'}),
         (c)-[r1:REVISION]->(cr:CategoryRevision {revision_id: #{rev_id}}),
-        (c)-[r2:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'})
+        (c)-[r2:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'}),
+        (c)-[:SUBCATEGORY]->(:Category {name: 'existent'})
       RETURN c
     """)
 
     Neo4j.query!(Neo4j.conn, """
-      MATCH (c1:Category {name: '#{name}'}),
-        (c1)-[r1:REVISION]->(c2:CategoryRevision {revision_id: #{rev_id}}),
-        (c1)-[r2:CONTRIBUTOR {type: 'update'}]->()
-      DELETE r1, r2, c1, c2
+      MATCH (c:Category {name: '#{name}'}),
+        (c)-[r1:REVISION]-(cr:CategoryRevision {revision_id: #{rev_id}}),
+        (c)-[r2:CONTRIBUTOR {type: "update"}]->(),
+        (c)-[r3:SUBCATEGORY]->(:Category {name: 'existent'})
+      DELETE r1, r2, r3, c, cr
     """)
   end
 
-  test "Authorised update existing category 3" do
+  test "Authorised update existing category 3 (without subcategories)" do
     name = :rand.uniform(100_000_000)
     rev_id = :rand.uniform(100_000_000)
     rev_id2 = :rand.uniform(100_000_000)
@@ -269,6 +272,51 @@ defmodule CategoryPatchTest do
         (c)-[r2:REVISION]->(cr:CategoryRevision {revision_id: #{rev_id}}),
         (c)-[r3:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'})
       DELETE r1, r2, r3, c, ucpr, cr
+    """)
+  end
+
+  test "Authorised update existing category 4 (with subcategories)" do
+    name = :rand.uniform(100_000_000)
+    rev_id = :rand.uniform(100_000_000)
+    rev_id2 = :rand.uniform(100_000_000)
+    Neo4j.query!(Neo4j.conn, """
+      CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}}),
+        (cp:UpdateCategoryPatch {
+          name: '#{name}.#{name}',
+          introduction: '.',
+          url: '#{name}.#{name}',
+          revision_id: #{rev_id2},
+          against_revision: #{rev_id}
+        }),
+        (c)-[:UPDATE]->(cp)
+    """)
+    data = %{"references_patch" => "#{rev_id2}", "category" =>
+      %{"name" => "#{name}.", "introduction" => "..", "subcategories" => ["existent"]}}
+
+    conn =
+      conn(:patch, "/api/categories/#{name}", data)
+      |> put_req_header("authorization", "at3")
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"category" => %{"name" => _, "introduction" => "..", "url" => _, "revision_id" => _}}
+      = Poison.decode! response.resp_body
+    refute [] === Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {name: '#{name}.'}),
+        (c)-[:UPDATE_REVISION]->(ucpr:UpdateCategoryPatchRevision {revision_id: #{rev_id2}}),
+        (c)-[:REVISION]->(cr:CategoryRevision {revision_id: #{rev_id}}),
+        (c)-[:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'}),
+        (c)-[:SUBCATEGORY]->(:Category {name: 'existent'})
+      RETURN c
+    """)
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {name: '#{name}.'}),
+        (c)-[r1:UPDATE_REVISION]->(ucpr:UpdateCategoryPatchRevision {revision_id: #{rev_id2}}),
+        (c)-[r2:REVISION]->(cr:CategoryRevision {revision_id: #{rev_id}}),
+        (c)-[r3:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'}),
+        (c)-[r4:SUBCATEGORY]->(:Category {name: 'existent'})
+      DELETE r1, r2, r3, r4, c, ucpr, cr
     """)
   end
 

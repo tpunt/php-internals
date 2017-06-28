@@ -10,6 +10,4 @@ defmodule PhpInternals.Api.UtilitiesView do
       current_page: div(offset, limit) + 1
     }
   end
-
-  def render("meta.json", a), do: IO.inspect a
 end

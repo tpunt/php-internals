@@ -165,7 +165,9 @@ defmodule PhpInternals.Api.Categories.CategoryController do
       case view_type do
         "overview" -> render(conn, "show_overview.json", category: category)
         "normal" -> render(conn, "show.json", category: category)
-        "full" -> render(conn, "show_full.json", category: Category.fetch(category_url, "full"))
+        "full" ->
+          category = Category.fetch(category_url, "full")
+          render(conn, "show_full.json", category: category)
       end
     else
       {:error, status_code, error} ->
@@ -347,15 +349,16 @@ defmodule PhpInternals.Api.Categories.CategoryController do
     remove(conn, Map.put(params, "review", 0))
   end
 
-  defp insert(conn, %{"category" => category, "review" => review}) do
+  defp insert(conn, %{"category" => category, "review" => review} = params) do
     with {:ok} <- User.within_patch_limit?(conn.user),
          {:ok, category} <- Category.valid_fields?(category),
          {:ok, url_name} <- Utilities.is_url_friendly?(category["name"]),
-         {:ok} <- Category.does_not_exist?(url_name) do
+         {:ok} <- Category.does_not_exist?(url_name),
+         {:ok, _parent_category} <- Category.valid_parent_category?(params["category_name"]) do
       category =
         category
         |> Map.put("url_name", url_name)
-        |> Category.insert(review, conn.user.username)
+        |> Category.insert(params["category_name"], review, conn.user.username)
 
       status_code = if review === 0, do: 201, else: 202
 
@@ -382,20 +385,16 @@ defmodule PhpInternals.Api.Categories.CategoryController do
          {:ok, new_url} <- Utilities.is_url_friendly?(new_category["name"]),
          {:ok} <- Category.does_not_exist?(new_url, old_url),
          {:ok, %{"category" => old_category}} <- Category.valid?(old_url),
-         {:ok, references_patch} <- Utilities.valid_optional_id?(params["references_patch"]) do
+         {:ok, references_patch} <- Utilities.valid_optional_id?(params["references_patch"]),
+         {:ok} <- Category.update_patch_exists?(old_url, references_patch),
+         {:ok} <- Category.valid_subcategories?(new_category["subcategories"], old_url) do
       new_category = Map.merge(new_category, %{"url" => new_url})
       new_category = Category.update(old_category, new_category, review, conn.user.username, references_patch)
+      status_code = if review === 0, do: 200, else: 202
 
-      case new_category do
-        {:error, status_code, error} ->
-          conn
-          |> put_status(status_code)
-          |> render(PhpInternals.ErrorView, "error.json", error: error)
-        {:ok, status_code, new_category} ->
-          conn
-          |> put_status(status_code)
-          |> render("show.json", category: new_category)
-      end
+      conn
+      |> put_status(status_code)
+      |> render("show_full.json", category: new_category)
     else
       {:error, status_code, error} ->
         conn

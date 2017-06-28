@@ -19,6 +19,7 @@ defmodule PhpInternals.Router do
 
     scope "/categories", Categories do
       get "/:category_name", CategoryController, :show
+      post "/:category_name", CategoryController, :create
       patch "/:category_name", CategoryController, :update
       delete "/:category_name", CategoryController, :delete
       get "/", CategoryController, :index

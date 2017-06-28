@@ -2,7 +2,7 @@ defmodule PhpInternals.Api.Categories.Category do
   use PhpInternals.Web, :model
 
   @required_fields ["name", "introduction"]
-  @optional_fields []
+  @optional_fields ["subcategories"]
 
   @valid_ordering_fields ["name"]
   @default_order_by "name"
@@ -24,24 +24,35 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def validate_types(category) do
     validated = Enum.map(Map.keys(category), fn key ->
-      if is_binary(category[key]), do: {:ok}, else: {:error, "The #{key} field should be a string"}
+      array_based_fields = ["subcategories"]
+      all_fields = @required_fields ++ @optional_fields
+
+      if key in all_fields -- array_based_fields do
+        if is_binary(category[key]), do: {:ok}, else: {:error, "The #{key} field should be a string"}
+      else
+        if is_list(category[key]), do: {:ok}, else: {:error, "The #{key} field should be a list"}
+      end
     end)
 
-    valid = Enum.filter(validated, fn
+    invalid = Enum.filter(validated, fn
       {:ok} -> false
       {:error, _} -> true
     end)
 
-    if valid === [] do
+    if invalid === [] do
       {:ok}
     else
-      List.first valid
+      List.first invalid
     end
   end
 
   def validate_values(category) do
     validated = Enum.map(Map.keys(category), fn key ->
-      validate_field(key, String.trim(category[key]))
+      if is_binary(category[key]) do
+        validate_field(key, String.trim(category[key]))
+      else
+        validate_field(key, category[key])
+      end
     end)
 
     invalid = Enum.filter(validated, fn
@@ -73,6 +84,18 @@ defmodule PhpInternals.Api.Categories.Category do
       {:ok, %{"introduction" => value}}
     else
       {:error, "The introduction field should have a length of between 1 and 6000 (inclusive)"}
+    end
+  end
+
+  def validate_field("subcategories", value) do
+    validated = Enum.all?(value, fn category ->
+      String.length(category) > 0 and String.length(category) < 51
+    end)
+
+    if validated do
+      {:ok, %{"subcategories" => value}}
+    else
+      {:error, "Invalid subcategory name(s) given"}
     end
   end
 
@@ -157,6 +180,24 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
+  def update_patch_exists?(_category_url, nil), do: {:ok}
+
+  def update_patch_exists?(category_url, patch_revision_id) do
+    query = """
+      MATCH (category:Category {url: {url}}),
+        (category)-[:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
+      RETURN category
+    """
+
+    params = %{url: category_url, patch_revision_id: patch_revision_id}
+
+    if Neo4j.query!(Neo4j.conn, query, params) === [] do
+      {:error, 404, "Update patch not found"}
+    else
+      {:ok}
+    end
+  end
+
   def valid?(nil = _category_url), do: {:ok, nil}
 
   def valid?(category_url) do
@@ -195,6 +236,23 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
+  def valid_parent_category?(nil), do: {:ok, nil}
+
+  def valid_parent_category?(parent_category) do
+    valid?(parent_category)
+  end
+
+  def valid_subcategories?(nil, _parent_category), do: {:ok}
+  def valid_subcategories?([], _parent_category), do: {:ok}
+
+  def valid_subcategories?(subcategories, category) do
+    if Enum.member?(subcategories, category) do
+      {:error, 400, "A category may not be a subcategory of itself"}
+    else
+      all_valid?(subcategories)
+    end
+  end
+
   def contains_nothing?(category_url) do
     query = """
       MATCH (n)-[:CATEGORY]->(category:Category {url: {category_url}})
@@ -212,33 +270,53 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
+  def fetch_all(order_by, ordering, offset, limit, nil = _search_term, _full_search) do
+    query = """
+      MATCH (c:Category)
+      OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sc:Category)
+
+      WITH c, COLLECT(CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END) AS subcategories
+
+      ORDER BY LOWER(c.#{order_by}) #{ordering}
+
+      WITH COLLECT({category: {name: c.name, url: c.url, subcategories: subcategories}}) AS categories
+
+      RETURN {
+        categories: categories[#{offset}..#{offset + limit}],
+        meta: {
+          total: LENGTH(categories),
+          offset: #{offset},
+          limit: #{limit}
+        }
+      } AS result
+    """
+
+    List.first Neo4j.query!(Neo4j.conn, query)
+  end
+
   def fetch_all(order_by, ordering, offset, limit, search_term, full_search) do
-    {where_query, search_term} =
-      if search_term !== nil do
-        where_query = "WHERE c."
-
-        {column, search_term} =
-          if full_search do
-            {"introduction", "(?i).*#{search_term}.*"}
-          else
-            if String.first(search_term) === "=" do
-              {"name", "(?i)#{String.slice(search_term, 1..-1)}"}
-            else
-              {"name", "(?i).*#{search_term}.*"}
-            end
-          end
-
-        {where_query <> column <> " =~ {search_term}", search_term}
+    {column, search_term} =
+      if full_search do
+        {"introduction", "(?i).*#{search_term}.*"}
       else
-        {"", nil}
+        if String.first(search_term) === "=" do
+          {"name", "(?i)#{String.slice(search_term, 1..-1)}"}
+        else
+          {"name", "(?i).*#{search_term}.*"}
+        end
       end
 
     query = """
       MATCH (c:Category)
-      #{where_query}
+
+      WHERE c.#{column} =~ {search_term}
+
       WITH c
+
       ORDER BY LOWER(c.#{order_by}) #{ordering}
+
       WITH COLLECT({category: {name: c.name, url: c.url}}) AS categories
+
       RETURN {
         categories: categories[#{offset}..#{offset + limit}],
         meta: {
@@ -448,24 +526,42 @@ defmodule PhpInternals.Api.Categories.Category do
   def fetch(category_url, "full") do
     query = """
       MATCH (c:Category {url: {category_url}})
+      OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sc:Category)
       OPTIONAL MATCH (s:Symbol)-[:CATEGORY]->(c)
-      OPTIONAL MATCH (a:Article)-[:CATEGORY]->(c), (a)-[:AUTHOR]->(u:User)
-      WITH c, a, u, collect(
-        CASE s WHEN NULL THEN NULL ELSE {symbol: {name: s.name, url: s.url, type: s.type, id: s.id}}
-      END) AS symbols
-      OPTIONAL MATCH (a)-[:CATEGORY]->(ac)
-      WITH c, a, u, symbols, collect(ac) AS acs
+      OPTIONAL MATCH (a:Article)-[:CATEGORY]->(c), (a)-[:AUTHOR]->(u:User), (a)-[:CATEGORY]->(ac)
+
+      WITH c,
+        a,
+        u,
+        COLLECT(
+          CASE s WHEN NULL THEN NULL ELSE {symbol: {name: s.name, url: s.url, type: s.type, id: s.id}} END
+        ) AS symbols,
+        COLLECT(
+          CASE ac WHEN NULL THEN NULL ELSE {category: {name: ac.name, url: ac.url}} END
+        ) AS acs,
+        COLLECT(
+          CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END
+        ) AS subcategories
+
       RETURN {
         name: c.name,
         url: c.url,
         introduction: c.introduction,
         revision_id: c.revision_id,
+        subcategories: subcategories,
         symbols: symbols,
-        articles: collect(CASE a WHEN NULL THEN NULL ELSE {
+        articles: COLLECT(CASE a WHEN NULL THEN NULL ELSE {
           article: {
-            user: {username: u.username, name: u.name, privilege_level: u.privilege_level},
+            user: {
+              username: u.username,
+              name: u.name,
+              privilege_level: u.privilege_level
+            },
             categories: acs,
-            title: a.title, url: a.url, date: a.date, excerpt: a.excerpt
+            title: a.title,
+            url: a.url,
+            date: a.date,
+            excerpt: a.excerpt
           }
         } END)
       } as category
@@ -476,44 +572,65 @@ defmodule PhpInternals.Api.Categories.Category do
     List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def insert(category, 0, username) do
+  def insert(category, parent, review, username) do
+    label = if review === 1, do: "InsertCategoryPatch", else: "Category"
+    parent_match = if parent === nil, do: "", else: ", (pc:Category {name: {parent}})"
+    parent_join = if parent === nil, do: "", else: ", (pc)-[:SUBCATEGORY]->(c)"
+
+    {subcategories_match, subcategories_join, subcategories_params} =
+      subcategories_query_builder(category["subcategories"], "c")
+
     query = """
       MATCH (user:User {username: {username}})
-      CREATE (category:Category {name: {name}, introduction: {introduction}, url: {url}, revision_id: {rev_id}}),
-        (category)-[:CONTRIBUTOR {type: "insert", date: timestamp()}]->(user)
-      RETURN category
+        #{parent_match}
+        #{subcategories_match}
+
+      CREATE (c:#{label} {
+          name: {name},
+          introduction: {introduction},
+          url: {url},
+          revision_id: {rev_id}
+        }),
+        (c)-[:CONTRIBUTOR {type: "insert", date: timestamp()}]->(user)
+        #{parent_join}
+        #{subcategories_join}
+
+      WITH c
+
+      OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sc:Category)
+
+      RETURN {
+        name: c.name,
+        url: c.url,
+        introduction: c.introduction,
+        revision_id: c.revision_id,
+        subcategories: COLLECT(CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END),
+        symbols: [],
+        articles: []
+      } as category
     """
 
-    params = %{name: category["name"],
-      introduction: category["introduction"],
-      url: category["url_name"],
-      rev_id: :rand.uniform(100_000_000),
-      username: username}
-
-    List.first Neo4j.query!(Neo4j.conn, query, params)
-  end
-
-  def insert(category, _review = 1, username) do
-    query = """
-      MATCH (user:User {username: {username}})
-      CREATE (category:InsertCategoryPatch {name: {name}, introduction: {introduction}, url: {url}, revision_id: {rev_id}}),
-        (category)-[:CONTRIBUTOR {type: "insert", date: timestamp()}]->(user)
-      RETURN category
-    """
-
-    params = %{name: category["name"],
-      introduction: category["introduction"],
-      url: category["url_name"],
-      rev_id: :rand.uniform(100_000_000),
-      username: username}
+    params =
+      Map.merge(subcategories_params, %{
+        name: category["name"],
+        introduction: category["introduction"],
+        url: category["url_name"],
+        rev_id: :rand.uniform(100_000_000),
+        username: username,
+        parent: parent
+      })
 
     List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def update(old_category, new_category, 0 = _review, username, nil = _patch_revision_id) do
+    {subcategories_match, subcategories_join, subcategories_params} =
+      subcategories_query_builder(new_category["subcategories"], "new_category")
+
     query = """
       MATCH (old_category:Category {url: {old_url}}),
         (user:User {username: {username}})
+        #{subcategories_match}
 
       CREATE (new_category:Category {
           name: {new_name},
@@ -523,19 +640,22 @@ defmodule PhpInternals.Api.Categories.Category do
         }),
         (new_category)-[:REVISION]->(old_category),
         (new_category)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
+        #{subcategories_join}
 
       WITH old_category, user, new_category
 
       OPTIONAL MATCH (old_category)-[r1:UPDATE]->(ucp:UpdateCategoryPatch)
       OPTIONAL MATCH (old_category)<-[r2:DELETE]-(user2:User)
       OPTIONAL MATCH (n)-[r3:CATEGORY]->(old_category)
+      OPTIONAL MATCH (pc:Category)-[r4:SUBCATEGORY]->(old_category)
+      OPTIONAL MATCH (old_category)-[r5:SUBCATEGORY]->(sc:Category)
 
       REMOVE old_category:Category
       SET old_category:CategoryRevision
 
-      DELETE r1, r2, r3
+      DELETE r1, r2, r3, r4, r5
 
-      WITH new_category, COLLECT(ucp) AS ucps, user2, COLLECT(n) AS ns
+      WITH new_category, COLLECT(ucp) AS ucps, user2, COLLECT(n) AS ns, COLLECT(pc) AS pcs, COLLECT(sc) AS scs
 
       FOREACH (ucp IN ucps |
         MERGE (new_category)-[:UPDATE]->(ucp)
@@ -549,25 +669,39 @@ defmodule PhpInternals.Api.Categories.Category do
         MERGE (n)-[:CATEGORY]->(new_category)
       )
 
-      RETURN new_category as category
+      FOREACH (pc IN pcs |
+        MERGE (pc)-[:SUBCATEGORY]->(new_category)
+      )
+
+      FOREACH (sc IN scs |
+        MERGE (new_category)-[:SUBCATEGORY]->(sc)
+      )
     """
 
-    params = %{
-      new_name: new_category["name"],
-      new_introduction: new_category["introduction"],
-      new_url: new_category["url"],
-      new_rev_id: :rand.uniform(100_000_000),
-      old_url: old_category["url"],
-      username: username
-    }
+    params =
+      Map.merge(subcategories_params, %{
+        new_name: new_category["name"],
+        new_introduction: new_category["introduction"],
+        new_url: new_category["url"],
+        new_rev_id: :rand.uniform(100_000_000),
+        old_url: old_category["url"],
+        username: username
+      })
 
-    {:ok, 200, List.first Neo4j.query!(Neo4j.conn, query, params)}
+    Neo4j.query!(Neo4j.conn, query, params)
+
+    fetch(new_category["url"], "full")
   end
 
   def update(old_category, new_category, 1 = _review, username, nil = _patch_revision_id) do
+    {subcategories_match, subcategories_join, subcategories_params} =
+      subcategories_query_builder(new_category["subcategories"], "new_category")
+
     query = """
       MATCH (category:Category {url: {old_url}}),
         (user:User {username: {username}})
+        #{subcategories_match}
+
       CREATE (ucp:UpdateCategoryPatch {
           name: {name},
           introduction: {introduction},
@@ -577,128 +711,133 @@ defmodule PhpInternals.Api.Categories.Category do
         }),
         (category)-[:UPDATE]->(ucp),
         (ucp)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
-      RETURN category
+        #{subcategories_join}
     """
 
-    params = %{
-      name: new_category["name"],
-      introduction: new_category["introduction"],
-      new_url: new_category["url"],
-      rev_id: :rand.uniform(100_000_000),
-      old_url: old_category["url"],
-      against_rev: old_category["revision_id"],
-      username: username
-    }
+    params =
+      Map.merge(subcategories_params, %{
+        name: new_category["name"],
+        introduction: new_category["introduction"],
+        new_url: new_category["url"],
+        rev_id: :rand.uniform(100_000_000),
+        old_url: old_category["url"],
+        against_rev: old_category["revision_id"],
+        username: username
+      })
 
-    {:ok, 202, List.first Neo4j.query!(Neo4j.conn, query, params)}
+    Neo4j.query!(Neo4j.conn, query, params)
+
+    fetch(old_category["url"], "full")
   end
 
   def update(old_category, new_category, 0 = _review, username, patch_revision_id) do
+    {subcategories_match, subcategories_join, subcategories_params} =
+      subcategories_query_builder(new_category["subcategories"], "new_category")
+
     query = """
-      MATCH (category:Category {url: {old_url}}),
-        (category)-[:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
-      RETURN category
+      MATCH (old_category:Category {url: {old_url}}),
+        (user:User {username: {username}}),
+        (old_category)-[r1:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
+        #{subcategories_match}
+
+      CREATE (new_category:Category {
+          name: {new_name},
+          introduction: {new_introduction},
+          url: {new_url},
+          revision_id: {new_rev_id}
+        }),
+        (new_category)-[:REVISION]->(old_category),
+        (new_category)-[:UPDATE_REVISION]->(cp),
+        (new_category)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
+        #{subcategories_join}
+
+      REMOVE old_category:Category
+      SET old_category:CategoryRevision
+
+      REMOVE cp:UpdateCategoryPatch
+      SET cp:UpdateCategoryPatchRevision
+
+      DELETE r1
+
+      WITH old_category, new_category, user
+
+      OPTIONAL MATCH (n)-[r2:CATEGORY]->(old_category)
+      OPTIONAL MATCH (old_category)-[r3:UPDATE]->(ucp:UpdateCategoryPatch)
+      OPTIONAL MATCH (old_category)<-[r4:DELETE]-(user2:User)
+      OPTIONAL MATCH (pc:Category)-[r5:SUBCATEGORY]->(old_category)
+      OPTIONAL MATCH (old_category)-[r6:SUBCATEGORY]->(sc:Category)
+
+      DELETE r2, r3, r4, r5, r6
+
+      WITH new_category, COLLECT(n) AS ns, COLLECT(ucp) AS ucps, user2, COLLECT(pc) AS pcs, COLLECT(sc) AS scs
+
+      FOREACH (n IN ns |
+        MERGE (n)-[:CATEGORY]->(new_category)
+      )
+
+      FOREACH (ucp IN ucps |
+        MERGE (new_category)-[:UPDATE]->(ucp)
+      )
+
+      FOREACH (ignored IN CASE user2 WHEN NULL THEN [] ELSE [1] END |
+        MERGE (new_category)-[:DELETE]->(user2)
+      )
+
+      FOREACH (pc IN pcs |
+        MERGE (pc)-[:SUBCATEGORY]->(new_category)
+      )
+
+      FOREACH (sc IN scs |
+        MERGE (new_category)-[:SUBCATEGORY]->(sc)
+      )
     """
 
-    params = %{
-      old_url: old_category["url"],
-      patch_revision_id: patch_revision_id,
-      new_name: new_category["name"],
-      new_url: new_category["url"],
-      new_introduction: new_category["introduction"],
-      new_rev_id: :rand.uniform(100_000_000),
-      username: username
-    }
+    params =
+      Map.merge(subcategories_params, %{
+        old_url: old_category["url"],
+        patch_revision_id: patch_revision_id,
+        new_name: new_category["name"],
+        new_url: new_category["url"],
+        new_introduction: new_category["introduction"],
+        new_rev_id: :rand.uniform(100_000_000),
+        username: username
+      })
 
-    if Neo4j.query!(Neo4j.conn, query, params) === [] do
-      {:error, 404, "Update patch not found"}
-    else
-      query = """
-        MATCH (old_category:Category {url: {old_url}}),
-          (user:User {username: {username}}),
-          (old_category)-[r1:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
+    Neo4j.query!(Neo4j.conn, query, params)
 
-        CREATE (new_category:Category {
-            name: {new_name}, introduction: {new_introduction}, url: {new_url}, revision_id: {new_rev_id}
-          }),
-          (new_category)-[:REVISION]->(old_category),
-          (new_category)-[:UPDATE_REVISION]->(cp),
-          (new_category)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
-
-        REMOVE old_category:Category
-        SET old_category:CategoryRevision
-
-        REMOVE cp:UpdateCategoryPatch
-        SET cp:UpdateCategoryPatchRevision
-
-        DELETE r1
-
-        WITH old_category, new_category, user
-
-        OPTIONAL MATCH (n)-[r2:CATEGORY]->(old_category)
-        OPTIONAL MATCH (old_category)-[r3:UPDATE]->(ucp:UpdateCategoryPatch)
-        OPTIONAL MATCH (old_category)<-[r4:DELETE]-(user2:User)
-
-        DELETE r2, r3, r4
-
-        WITH new_category, COLLECT(n) AS ns, COLLECT(ucp) AS ucps, user2
-
-        FOREACH (n IN ns |
-          MERGE (n)-[:CATEGORY]->(new_category)
-        )
-
-        FOREACH (ucp IN ucps |
-          MERGE (new_category)-[:UPDATE]->(ucp)
-        )
-
-        FOREACH (ignored IN CASE user2 WHEN NULL THEN [] ELSE [1] END |
-          MERGE (new_category)-[:DELETE]->(user2)
-        )
-
-        return new_category as category
-      """
-
-      {:ok, 200, List.first Neo4j.query!(Neo4j.conn, query, params)}
-    end
+    fetch(new_category["url"], "full")
   end
 
   def update(old_category, new_category, 1 = _review, username, patch_revision_id) do
+    {subcategories_match, subcategories_join, subcategories_params} =
+      subcategories_query_builder(new_category["subcategories"], "new_ucp")
+
     query = """
-      MATCH (ucp:UpdateCategoryPatch {revision_id: {patch_revision_id}}),
-        (category:Category {url: {old_url}})-[:UPDATE]->(ucp)
-      RETURN category
+      MATCH (category:Category {url: {old_url}}),
+        (category)-[r:UPDATE]->(old_ucp:UpdateCategoryPatch {revision_id: {patch_revision_id}}),
+        (user:User {username: {username}})
+        #{subcategories_match}
+
+      CREATE (new_ucp:UpdateCategoryPatch {
+          name: {name},
+          introduction: {introduction},
+          url: {new_url},
+          revision_id: {rev_id},
+          against_revision: {against_rev}
+        }),
+        (category)-[:UPDATE]->(new_ucp),
+        (new_ucp)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user),
+        (new_ucp)-[:UPDATE_REVISION]->(old_ucp)
+        #{subcategories_join}
+
+      DELETE r
+
+      REMOVE old_ucp:UpdateCategoryPatch
+      SET old_ucp:UpdateCategoryPatchRevision
     """
 
-    params = %{old_url: old_category["url"], patch_revision_id: patch_revision_id}
-
-    if Neo4j.query!(Neo4j.conn, query, params) == [] do
-      {:error, 404, "Update patch not found"}
-    else
-      query = """
-        MATCH (category:Category {url: {old_url}}),
-          (category)-[r:UPDATE]->(old_ucp:UpdateCategoryPatch {revision_id: {patch_revision_id}}),
-          (user:User {username: {username}})
-
-        CREATE (new_ucp:UpdateCategoryPatch {
-            name: {name},
-            introduction: {introduction},
-            url: {new_url},
-            revision_id: {rev_id},
-            against_revision: {against_rev}
-          }),
-          (category)-[:UPDATE]->(new_ucp),
-          (new_ucp)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user),
-          (new_ucp)-[:UPDATE_REVISION]->(old_ucp)
-
-        DELETE r
-
-        REMOVE old_ucp:UpdateCategoryPatch
-        SET old_ucp:UpdateCategoryPatchRevision
-
-        RETURN category
-      """
-
-      params = %{
+    params =
+      Map.merge(subcategories_params, %{
         name: new_category["name"],
         introduction: new_category["introduction"],
         new_url: new_category["url"],
@@ -707,10 +846,27 @@ defmodule PhpInternals.Api.Categories.Category do
         against_rev: old_category["revision_id"],
         patch_revision_id: patch_revision_id,
         username: username
-      }
+      })
 
-      {:ok, 202, List.first Neo4j.query!(Neo4j.conn, query, params)}
-    end
+    Neo4j.query!(Neo4j.conn, query, params)
+
+    fetch(old_category["url"], "full")
+  end
+
+  defp subcategories_query_builder(nil, _name), do: {"", "", %{}}
+
+  defp subcategories_query_builder(subcategories, name) do
+    {m, j, p, _n} =
+      Enum.reduce(subcategories, {"", "", %{}, 0}, fn (cat, {m, j, p, n}) ->
+        {
+          m <> ", (cat#{n}:Category {url: {cat#{n}_url}})",
+          j <> ", (#{name})-[:SUBCATEGORY]->(cat#{n})",
+          Map.put(p, "cat#{n}_url", cat),
+          n + 1
+        }
+      end)
+
+    {m, j, p}
   end
 
   def apply_patch?(category_url, %{"action" => "insert"}, username) do
@@ -728,14 +884,18 @@ defmodule PhpInternals.Api.Categories.Category do
         query = """
           MATCH (cp:InsertCategoryPatch {url: {category_url}}),
             (user:User {username: {username}})
+
           REMOVE cp:InsertCategoryPatch
           SET cp:Category
+
           CREATE (cp)-[:CONTRIBUTOR {type: "apply_insert", date: timestamp()}]->(user)
+
           WITH cp
+
           RETURN cp as category
         """
 
-        {:ok, Neo4j.query!(Neo4j.conn, query, params) |> List.first}
+        {:ok, List.first Neo4j.query!(Neo4j.conn, query, params)}
       end
     end
   end
@@ -748,7 +908,7 @@ defmodule PhpInternals.Api.Categories.Category do
     """
     params = %{patch_revision_id: patch_revision_id, category_url: category_url, username: username}
 
-    category = Neo4j.query!(Neo4j.conn, query, params) |> List.first
+    category = List.first Neo4j.query!(Neo4j.conn, query, params)
 
     if category["c"] == nil do
       {:error, 404, "Category not found"}
@@ -782,10 +942,12 @@ defmodule PhpInternals.Api.Categories.Category do
             OPTIONAL MATCH (n)-[r2:CATEGORY]->(old_category)
             OPTIONAL MATCH (old_category)-[r3:UPDATE]->(ucp:UpdateCategoryPatch)
             OPTIONAL MATCH (old_category)<-[r4:DELETE]-(user2:User)
+            OPTIONAL MATCH (pc:Category)-[r5:SUBCATEGORY]->(old_category)
+            OPTIONAL MATCH (old_category)-[r6:SUBCATEGORY]->(sc:Category)
 
-            DELETE r2, r3, r4
+            DELETE r2, r3, r4, r5, r6
 
-            WITH new_category, COLLECT(n) AS ns, COLLECT(ucp) AS ucps, user2
+            WITH new_category, COLLECT(n) AS ns, COLLECT(ucp) AS ucps, user2, COLLECT(pc) AS pcs, COLLECT(sc) AS scs
 
             FOREACH (n IN ns |
               MERGE (n)-[:CATEGORY]->(new_category)
@@ -797,6 +959,14 @@ defmodule PhpInternals.Api.Categories.Category do
 
             FOREACH (ignored IN CASE user2 WHEN NULL THEN [] ELSE [1] END |
               MERGE (new_category)<-[:DELETE]-(user2)
+            )
+
+            FOREACH (pc IN pcs |
+              MERGE (pc)-[:SUBCATEGORY]->(new_category)
+            )
+
+            FOREACH (sc IN scs |
+              MERGE (new_category)-[:SUBCATEGORY]->(sc)
             )
 
             RETURN new_category as category

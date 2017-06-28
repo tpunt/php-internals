@@ -154,6 +154,30 @@ defmodule CategoriesPostTest do
   @doc """
   POST /api/categories -H 'authorization: at3'
   """
+  test "Authorised attempt 3 at inserting a new category (with categories)" do
+    name = :rand.uniform(100_000_000)
+    data = %{"category" => %{"name": "#{name}", "introduction": "...", "subcategories": ["existent"]}}
+    conn =
+      conn(:post, "/api/categories", data)
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "at3")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 201
+    refute [] === Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {name: '#{name}'}),
+        (c)-[:CONTRIBUTOR {type: 'insert'}]->(:User {access_token: 'at3'}),
+        (c)-[:SUBCATEGORY]->(:Category {name: 'existent'})
+      RETURN c
+    """)
+
+    Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'})-[r]-() DELETE r, c")
+  end
+
+  @doc """
+  POST /api/categories -H 'authorization: at3'
+  """
   test "Authorised invalid attempt at inserting a new category (missing introduction field)" do
     name = :rand.uniform(100_000_000)
     conn =
