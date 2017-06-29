@@ -679,15 +679,13 @@ defmodule PhpInternals.Api.Categories.Category do
       OPTIONAL MATCH (old_category)-[r1:UPDATE]->(ucp:UpdateCategoryPatch)
       OPTIONAL MATCH (old_category)<-[r2:DELETE]-(user2:User)
       OPTIONAL MATCH (n)-[r3:CATEGORY]->(old_category)
-      OPTIONAL MATCH (pc:Category)-[r4:SUBCATEGORY]->(old_category)
-      OPTIONAL MATCH (old_category)-[r5:SUBCATEGORY]->(sc:Category)
 
       REMOVE old_category:Category
       SET old_category:CategoryRevision
 
-      DELETE r1, r2, r3, r4, r5
+      DELETE r1, r2, r3
 
-      WITH new_category, COLLECT(ucp) AS ucps, user2, COLLECT(n) AS ns, COLLECT(pc) AS pcs, COLLECT(sc) AS scs
+      WITH new_category, COLLECT(ucp) AS ucps, user2, COLLECT(n) AS ns
 
       FOREACH (ucp IN ucps |
         MERGE (new_category)-[:UPDATE]->(ucp)
@@ -699,14 +697,6 @@ defmodule PhpInternals.Api.Categories.Category do
 
       FOREACH (n IN ns |
         MERGE (n)-[:CATEGORY]->(new_category)
-      )
-
-      FOREACH (pc IN pcs |
-        MERGE (pc)-[:SUBCATEGORY]->(new_category)
-      )
-
-      FOREACH (sc IN scs |
-        MERGE (new_category)-[:SUBCATEGORY]->(sc)
       )
     """
 
@@ -796,12 +786,10 @@ defmodule PhpInternals.Api.Categories.Category do
       OPTIONAL MATCH (n)-[r2:CATEGORY]->(old_category)
       OPTIONAL MATCH (old_category)-[r3:UPDATE]->(ucp:UpdateCategoryPatch)
       OPTIONAL MATCH (old_category)<-[r4:DELETE]-(user2:User)
-      OPTIONAL MATCH (pc:Category)-[r5:SUBCATEGORY]->(old_category)
-      OPTIONAL MATCH (old_category)-[r6:SUBCATEGORY]->(sc:Category)
 
-      DELETE r2, r3, r4, r5, r6
+      DELETE r2, r3, r4
 
-      WITH new_category, COLLECT(n) AS ns, COLLECT(ucp) AS ucps, user2, COLLECT(pc) AS pcs, COLLECT(sc) AS scs
+      WITH new_category, COLLECT(n) AS ns, COLLECT(ucp) AS ucps, user2
 
       FOREACH (n IN ns |
         MERGE (n)-[:CATEGORY]->(new_category)
@@ -813,14 +801,6 @@ defmodule PhpInternals.Api.Categories.Category do
 
       FOREACH (ignored IN CASE user2 WHEN NULL THEN [] ELSE [1] END |
         MERGE (new_category)-[:DELETE]->(user2)
-      )
-
-      FOREACH (pc IN pcs |
-        MERGE (pc)-[:SUBCATEGORY]->(new_category)
-      )
-
-      FOREACH (sc IN scs |
-        MERGE (new_category)-[:SUBCATEGORY]->(sc)
       )
     """
 
