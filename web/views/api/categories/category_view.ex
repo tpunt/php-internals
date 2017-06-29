@@ -112,7 +112,7 @@ defmodule PhpInternals.Api.Categories.CategoryView do
       url: category["url"],
       revision_id: category["revision_id"]
     }
-    |> Map.merge(render_subcategories(category["subcategories"]))
+    |> Map.merge(render_linked_categories(category["subcategories"], category["supercategories"]))
   end
 
   def render("category_update.json", %{category: %{"update" => update, "user" => user, "date" => date}}) do
@@ -133,7 +133,7 @@ defmodule PhpInternals.Api.Categories.CategoryView do
 
   def render("category_overview.json", %{category: %{"category" => category}}) do
     %{name: category["name"], url: category["url"]}
-    |> Map.merge(render_subcategories(category["subcategories"]))
+    |> Map.merge(render_linked_categories(category["subcategories"], category["supercategories"]))
   end
 
   # used in symbols view
@@ -150,11 +150,14 @@ defmodule PhpInternals.Api.Categories.CategoryView do
       symbols: render_many(category["symbols"], SymbolView, "show_overview.json"),
       articles: render_many(category["articles"], ArticleView, "show_overview.json")
     }
-    |> Map.merge(render_subcategories(category["subcategories"]))
+    |> Map.merge(render_linked_categories(category["subcategories"], category["supercategories"]))
   end
 
-  defp render_subcategories(nil), do: %{}
-  defp render_subcategories(subcategories) do
-    %{subcategories: render_many(subcategories, CategoryView, "show_overview.json")}
+  defp render_linked_categories(nil, nil), do: %{}
+  defp render_linked_categories(subcategories, supercategories) do
+    %{
+      subcategories: render_many(subcategories, CategoryView, "show_overview.json"),
+      supercategories: render_many(supercategories, CategoryView, "show_overview.json")
+    }
   end
 end

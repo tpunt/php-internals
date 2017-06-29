@@ -274,12 +274,26 @@ defmodule PhpInternals.Api.Categories.Category do
     query = """
       MATCH (c:Category)
       OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sc:Category)
+      OPTIONAL MATCH (pc:Category)-[:SUBCATEGORY]->(c)
 
-      WITH c, COLLECT(CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END) AS subcategories
+      WITH c,
+        COLLECT(
+          CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END
+        ) AS subcategories,
+        COLLECT(
+          CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END
+        ) AS supercategories
 
       ORDER BY LOWER(c.#{order_by}) #{ordering}
 
-      WITH COLLECT({category: {name: c.name, url: c.url, subcategories: subcategories}}) AS categories
+      WITH COLLECT({
+        category: {
+          name: c.name,
+          url: c.url,
+          subcategories: subcategories,
+          supercategories: supercategories
+        }
+      }) AS categories
 
       RETURN {
         categories: categories[#{offset}..#{offset + limit}],
@@ -527,6 +541,7 @@ defmodule PhpInternals.Api.Categories.Category do
     query = """
       MATCH (c:Category {url: {category_url}})
       OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sc:Category)
+      OPTIONAL MATCH (pc:Category)-[:SUBCATEGORY]->(c)
       OPTIONAL MATCH (s:Symbol)-[:CATEGORY]->(c)
       OPTIONAL MATCH (a:Article)-[:CATEGORY]->(c), (a)-[:AUTHOR]->(u:User), (a)-[:CATEGORY]->(ac)
 
@@ -541,7 +556,10 @@ defmodule PhpInternals.Api.Categories.Category do
         ) AS acs,
         COLLECT(
           CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END
-        ) AS subcategories
+        ) AS subcategories,
+        COLLECT(
+          CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END
+        ) AS supercategories
 
       RETURN {
         name: c.name,
@@ -549,6 +567,7 @@ defmodule PhpInternals.Api.Categories.Category do
         introduction: c.introduction,
         revision_id: c.revision_id,
         subcategories: subcategories,
+        supercategories: supercategories,
         symbols: symbols,
         articles: COLLECT(CASE a WHEN NULL THEN NULL ELSE {
           article: {
@@ -574,8 +593,18 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def insert(category, parent, review, username) do
     label = if review === 1, do: "InsertCategoryPatch", else: "Category"
-    parent_match = if parent === nil, do: "", else: ", (pc:Category {url: {parent}})"
-    parent_join = if parent === nil, do: "", else: ", (pc)-[:SUBCATEGORY]->(c)"
+
+    {parent_match, parent_join, parent_propagate, parent_return} =
+      if parent === nil do
+        {"", "", "", "supercategories: [],"}
+      else
+        {
+          ", (pc:Category {url: {parent}})",
+          ", (pc)-[:SUBCATEGORY]->(c)",
+          ", pc",
+          "supercategories: COLLECT({category: {name: pc.name, url: pc.url}}),"
+        }
+      end
 
     {subcategories_match, subcategories_join, subcategories_params} =
       subcategories_query_builder(category["subcategories"], "c")
@@ -595,7 +624,7 @@ defmodule PhpInternals.Api.Categories.Category do
         #{parent_join}
         #{subcategories_join}
 
-      WITH c
+      WITH c#{parent_propagate}
 
       OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sc:Category)
 
@@ -604,6 +633,7 @@ defmodule PhpInternals.Api.Categories.Category do
         url: c.url,
         introduction: c.introduction,
         revision_id: c.revision_id,
+        #{parent_return}
         subcategories: COLLECT(CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END),
         symbols: [],
         articles: []
