@@ -2,7 +2,7 @@ defmodule PhpInternals.Api.Categories.Category do
   use PhpInternals.Web, :model
 
   @required_fields ["name", "introduction"]
-  @optional_fields ["subcategories"]
+  @optional_fields ["subcategories", "supercategories"]
 
   @valid_ordering_fields ["name"]
   @default_order_by "name"
@@ -24,7 +24,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def validate_types(category) do
     validated = Enum.map(Map.keys(category), fn key ->
-      array_based_fields = ["subcategories"]
+      array_based_fields = ["subcategories", "supercategories"]
       all_fields = @required_fields ++ @optional_fields
 
       if key in all_fields -- array_based_fields do
@@ -96,6 +96,18 @@ defmodule PhpInternals.Api.Categories.Category do
       {:ok, %{"subcategories" => value}}
     else
       {:error, "Invalid subcategory name(s) given"}
+    end
+  end
+
+  def validate_field("supercategories", value) do
+    validated = Enum.all?(value, fn category ->
+      String.length(category) > 0 and String.length(category) < 51
+    end)
+
+    if validated do
+      {:ok, %{"supercategories" => value}}
+    else
+      {:error, "Invalid supercategory name(s) given"}
     end
   end
 
@@ -236,20 +248,24 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def valid_parent_category?(nil), do: {:ok, nil}
+  def valid_linked_categories?(subcategories, supercategories, category) do
+    subcategories = if subcategories === nil, do: [], else: subcategories
+    supercategories = if supercategories === nil, do: [], else: supercategories
 
-  def valid_parent_category?(parent_category) do
-    valid?(parent_category)
-  end
-
-  def valid_subcategories?(nil, _parent_category), do: {:ok}
-  def valid_subcategories?([], _parent_category), do: {:ok}
-
-  def valid_subcategories?(subcategories, category) do
-    if Enum.member?(subcategories, category) do
-      {:error, 400, "A category may not be a subcategory of itself"}
+    if subcategories === [] and supercategories === [] do
+      {:ok}
     else
-      all_valid?(subcategories)
+      if MapSet.size(MapSet.intersection(MapSet.new(subcategories), MapSet.new(supercategories))) === 0 do
+        linked_categories = subcategories ++ supercategories
+
+        if Enum.member?(linked_categories, category) do
+          {:error, 400, "A category may not be a subcategory of itself"}
+        else
+          all_valid?(linked_categories)
+        end
+      else
+        {:error, 400, "A category may not have the same category in its super and sub categories"}
+      end
     end
   end
 
@@ -591,28 +607,15 @@ defmodule PhpInternals.Api.Categories.Category do
     List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def insert(category, parent, review, username) do
+  def insert(category, review, username) do
     label = if review === 1, do: "InsertCategoryPatch", else: "Category"
 
-    {parent_match, parent_join, parent_propagate, parent_return} =
-      if parent === nil do
-        {"", "", "", "supercategories: [],"}
-      else
-        {
-          ", (pc:Category {url: {parent}})",
-          ", (pc)-[:SUBCATEGORY]->(c)",
-          ", pc",
-          "supercategories: COLLECT({category: {name: pc.name, url: pc.url}}),"
-        }
-      end
-
-    {subcategories_match, subcategories_join, subcategories_params} =
-      subcategories_query_builder(category["subcategories"], "c")
+    {linked_categories_match, linked_categories_join, linked_categories_params} =
+      linked_categories_query_builder(category["subcategories"], category["supercategories"], "c")
 
     query = """
       MATCH (user:User {username: {username}})
-        #{parent_match}
-        #{subcategories_match}
+        #{linked_categories_match}
 
       CREATE (c:#{label} {
           name: {name},
@@ -621,46 +624,45 @@ defmodule PhpInternals.Api.Categories.Category do
           revision_id: {rev_id}
         }),
         (c)-[:CONTRIBUTOR {type: "insert", date: timestamp()}]->(user)
-        #{parent_join}
-        #{subcategories_join}
+        #{linked_categories_join}
 
-      WITH c#{parent_propagate}
+      WITH c
 
       OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sc:Category)
+      OPTIONAL MATCH (pc:Category)-[:SUBCATEGORY]->(c)
 
       RETURN {
         name: c.name,
         url: c.url,
         introduction: c.introduction,
         revision_id: c.revision_id,
-        #{parent_return}
         subcategories: COLLECT(CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END),
+        supercategories: COLLECT(CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END),
         symbols: [],
         articles: []
       } as category
     """
 
     params =
-      Map.merge(subcategories_params, %{
+      Map.merge(linked_categories_params, %{
         name: category["name"],
         introduction: category["introduction"],
         url: category["url_name"],
         rev_id: :rand.uniform(100_000_000),
-        username: username,
-        parent: parent
+        username: username
       })
 
     List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def update(old_category, new_category, 0 = _review, username, nil = _patch_revision_id) do
-    {subcategories_match, subcategories_join, subcategories_params} =
-      subcategories_query_builder(new_category["subcategories"], "new_category")
+    {linked_categories_match, linked_categories_join, linked_categories_params} =
+      linked_categories_query_builder(new_category["subcategories"], new_category["supercategories"], "new_category")
 
     query = """
       MATCH (old_category:Category {url: {old_url}}),
         (user:User {username: {username}})
-        #{subcategories_match}
+        #{linked_categories_match}
 
       CREATE (new_category:Category {
           name: {new_name},
@@ -670,7 +672,7 @@ defmodule PhpInternals.Api.Categories.Category do
         }),
         (new_category)-[:REVISION]->(old_category),
         (new_category)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
-        #{subcategories_join}
+        #{linked_categories_join}
 
       WITH old_category, user, new_category
 
@@ -709,7 +711,7 @@ defmodule PhpInternals.Api.Categories.Category do
     """
 
     params =
-      Map.merge(subcategories_params, %{
+      Map.merge(linked_categories_params, %{
         new_name: new_category["name"],
         new_introduction: new_category["introduction"],
         new_url: new_category["url"],
@@ -724,13 +726,13 @@ defmodule PhpInternals.Api.Categories.Category do
   end
 
   def update(old_category, new_category, 1 = _review, username, nil = _patch_revision_id) do
-    {subcategories_match, subcategories_join, subcategories_params} =
-      subcategories_query_builder(new_category["subcategories"], "new_category")
+    {linked_categories_match, linked_categories_join, linked_categories_params} =
+      linked_categories_query_builder(new_category["subcategories"], new_category["supercategories"], "ucp")
 
     query = """
       MATCH (category:Category {url: {old_url}}),
         (user:User {username: {username}})
-        #{subcategories_match}
+        #{linked_categories_match}
 
       CREATE (ucp:UpdateCategoryPatch {
           name: {name},
@@ -741,11 +743,11 @@ defmodule PhpInternals.Api.Categories.Category do
         }),
         (category)-[:UPDATE]->(ucp),
         (ucp)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
-        #{subcategories_join}
+        #{linked_categories_join}
     """
 
     params =
-      Map.merge(subcategories_params, %{
+      Map.merge(linked_categories_params, %{
         name: new_category["name"],
         introduction: new_category["introduction"],
         new_url: new_category["url"],
@@ -761,14 +763,14 @@ defmodule PhpInternals.Api.Categories.Category do
   end
 
   def update(old_category, new_category, 0 = _review, username, patch_revision_id) do
-    {subcategories_match, subcategories_join, subcategories_params} =
-      subcategories_query_builder(new_category["subcategories"], "new_category")
+    {linked_categories_match, linked_categories_join, linked_categories_params} =
+      linked_categories_query_builder(new_category["subcategories"], new_category["supercategories"], "new_category")
 
     query = """
       MATCH (old_category:Category {url: {old_url}}),
         (user:User {username: {username}}),
         (old_category)-[r1:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
-        #{subcategories_match}
+        #{linked_categories_match}
 
       CREATE (new_category:Category {
           name: {new_name},
@@ -779,7 +781,7 @@ defmodule PhpInternals.Api.Categories.Category do
         (new_category)-[:REVISION]->(old_category),
         (new_category)-[:UPDATE_REVISION]->(cp),
         (new_category)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
-        #{subcategories_join}
+        #{linked_categories_join}
 
       REMOVE old_category:Category
       SET old_category:CategoryRevision
@@ -823,7 +825,7 @@ defmodule PhpInternals.Api.Categories.Category do
     """
 
     params =
-      Map.merge(subcategories_params, %{
+      Map.merge(linked_categories_params, %{
         old_url: old_category["url"],
         patch_revision_id: patch_revision_id,
         new_name: new_category["name"],
@@ -839,14 +841,14 @@ defmodule PhpInternals.Api.Categories.Category do
   end
 
   def update(old_category, new_category, 1 = _review, username, patch_revision_id) do
-    {subcategories_match, subcategories_join, subcategories_params} =
-      subcategories_query_builder(new_category["subcategories"], "new_ucp")
+    {linked_categories_match, linked_categories_join, linked_categories_params} =
+      linked_categories_query_builder(new_category["subcategories"], new_category["supercategories"], "new_ucp")
 
     query = """
       MATCH (category:Category {url: {old_url}}),
         (category)-[r:UPDATE]->(old_ucp:UpdateCategoryPatch {revision_id: {patch_revision_id}}),
         (user:User {username: {username}})
-        #{subcategories_match}
+        #{linked_categories_match}
 
       CREATE (new_ucp:UpdateCategoryPatch {
           name: {name},
@@ -858,7 +860,7 @@ defmodule PhpInternals.Api.Categories.Category do
         (category)-[:UPDATE]->(new_ucp),
         (new_ucp)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user),
         (new_ucp)-[:UPDATE_REVISION]->(old_ucp)
-        #{subcategories_join}
+        #{linked_categories_join}
 
       DELETE r
 
@@ -867,7 +869,7 @@ defmodule PhpInternals.Api.Categories.Category do
     """
 
     params =
-      Map.merge(subcategories_params, %{
+      Map.merge(linked_categories_params, %{
         name: new_category["name"],
         introduction: new_category["introduction"],
         new_url: new_category["url"],
@@ -883,14 +885,32 @@ defmodule PhpInternals.Api.Categories.Category do
     fetch(old_category["url"], "full")
   end
 
-  defp subcategories_query_builder(nil, _name), do: {"", "", %{}}
+  defp linked_categories_query_builder(nil, nil, _name), do: {"", "", %{}}
 
-  defp subcategories_query_builder(subcategories, name) do
-    {m, j, p, _n} =
+  defp linked_categories_query_builder(nil = _subcategories, supercategories, name) do
+    linked_categories_query_builder([], supercategories, name)
+  end
+
+  defp linked_categories_query_builder(subcategories, nil = _supercategories, name) do
+    linked_categories_query_builder(subcategories, [], name)
+  end
+
+  defp linked_categories_query_builder(subcategories, supercategories, name) do
+    return =
       Enum.reduce(subcategories, {"", "", %{}, 0}, fn (cat, {m, j, p, n}) ->
         {
           m <> ", (cat#{n}:Category {url: {cat#{n}_url}})",
           j <> ", (#{name})-[:SUBCATEGORY]->(cat#{n})",
+          Map.put(p, "cat#{n}_url", cat),
+          n + 1
+        }
+      end)
+
+    {m, j, p, _n} =
+      Enum.reduce(supercategories, return, fn (cat, {m, j, p, n}) ->
+        {
+          m <> ", (cat#{n}:Category {url: {cat#{n}_url}})",
+          j <> ", (cat#{n})-[:SUBCATEGORY]->(#{name})",
           Map.put(p, "cat#{n}_url", cat),
           n + 1
         }

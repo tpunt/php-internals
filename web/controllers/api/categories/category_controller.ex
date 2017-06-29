@@ -329,16 +329,16 @@ defmodule PhpInternals.Api.Categories.CategoryController do
     remove(conn, Map.put(params, "review", 0))
   end
 
-  defp insert(conn, %{"category" => category, "review" => review} = params) do
+  defp insert(conn, %{"category" => category, "review" => review}) do
     with {:ok} <- User.within_patch_limit?(conn.user),
          {:ok, category} <- Category.valid_fields?(category),
          {:ok, url_name} <- Utilities.is_url_friendly?(category["name"]),
          {:ok} <- Category.does_not_exist?(url_name),
-         {:ok, _parent_category} <- Category.valid_parent_category?(params["category_name"]) do
+         {:ok} <- Category.valid_linked_categories?(category["subcategories"], category["supercategories"], url_name) do
       category =
         category
         |> Map.put("url_name", url_name)
-        |> Category.insert(params["category_name"], review, conn.user.username)
+        |> Category.insert(review, conn.user.username)
 
       status_code = if review === 0, do: 201, else: 202
 
@@ -368,7 +368,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
          {:ok, refs_patch} <- Utilities.valid_optional_id?(params["references_patch"]),
          {:ok} <- Category.update_patch_exists?(old_url, refs_patch),
          {:ok} <- Utilities.revision_ids_match?(rev_id, (if refs_patch === nil, do: old_category["revision_id"], else: refs_patch)),
-         {:ok} <- Category.valid_subcategories?(new_category["subcategories"], old_url) do
+         {:ok} <- Category.valid_linked_categories?(new_category["subcategories"], new_category["supercategories"], old_url) do
       new_category = Map.merge(new_category, %{"url" => new_url})
       new_category = Category.update(old_category, new_category, review, conn.user.username, refs_patch)
       status_code = if review === 0, do: 200, else: 202
