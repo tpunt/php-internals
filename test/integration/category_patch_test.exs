@@ -16,8 +16,9 @@ defmodule CategoryPatchTest do
   end
 
   test "Authorised non-existent category patch" do
+    data = %{"category" => %{"name" => ".", "introduction" => "."}, "revision_id" => 1}
     conn =
-      conn(:patch, "/api/categories/non-existent", %{"category" => %{"name" => ".", "introduction" => "."}})
+      conn(:patch, "/api/categories/non-existent", data)
       |> put_req_header("authorization", "at1")
     response = Router.call(conn, @opts)
 
@@ -31,9 +32,10 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, """
       CREATE (:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})
     """)
+    data = %{"category" => %{"name" => "#{name}", "introduction" => "."}, "revision_id" => rev_id}
 
     conn =
-      conn(:patch, "/api/categories/#{name}", %{"category" => %{"name" => "#{name}", "introduction" => "."}})
+      conn(:patch, "/api/categories/#{name}", data)
       |> put_req_header("authorization", "at1")
     response = Router.call(conn, @opts)
 
@@ -60,7 +62,7 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, """
       CREATE (:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})
     """)
-    data = %{"review" => "1", "category" => %{"name" => "#{name}", "introduction" => "."}}
+    data = %{"review" => "1", "category" => %{"name" => "#{name}", "introduction" => "."}, "revision_id" => rev_id}
 
     conn =
       conn(:patch, "/api/categories/#{name}", data)
@@ -90,7 +92,7 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, """
       CREATE (:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})
     """)
-    data = %{"review" => "1", "category" => %{"name" => "#{name}", "introduction" => "."}}
+    data = %{"review" => "1", "category" => %{"name" => "#{name}", "introduction" => "."}, "revision_id" => rev_id}
 
     conn =
       conn(:patch, "/api/categories/#{name}", data)
@@ -130,7 +132,7 @@ defmodule CategoryPatchTest do
         (c)-[:UPDATE]->(cp)
     """)
     data = %{"review" => "1", "references_patch" => "#{rev_id2}", "category" =>
-      %{"name" => "#{name}.", "introduction" => "....."}}
+      %{"name" => "#{name}.", "introduction" => "....."}, "revision_id" => rev_id2}
 
     conn =
       conn(:patch, "/api/categories/#{name}", data)
@@ -159,7 +161,7 @@ defmodule CategoryPatchTest do
 
   test "Unauthorised update existing category review" do
     data = %{"review" => "1", "references_patch" => "1", "category" =>
-      %{"name" => "...", "introduction" => "....."}}
+      %{"name" => "...", "introduction" => "....."}, "revision_id" => 1}
 
     conn =
       conn(:patch, "/api/categories/existent", data)
@@ -175,9 +177,10 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})
     """)
+    data = %{"category" => %{"name" => "#{name}", "introduction" => "."}, "revision_id" => rev_id}
 
     conn =
-      conn(:patch, "/api/categories/#{name}", %{"category" => %{"name" => "#{name}", "introduction" => "."}})
+      conn(:patch, "/api/categories/#{name}", data)
       |> put_req_header("authorization", "at2")
     response = Router.call(conn, @opts)
 
@@ -205,7 +208,8 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, """
       CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})
     """)
-    data = %{"category" => %{"name" => "#{name}", "introduction" => ".", "subcategories" => ["existent"]}}
+    data = %{"category" => %{"name" => "#{name}", "introduction" => ".", "subcategories" => ["existent"]},
+      "revision_id" => rev_id}
 
     conn =
       conn(:patch, "/api/categories/#{name}", data)
@@ -248,7 +252,7 @@ defmodule CategoryPatchTest do
         (c)-[:UPDATE]->(cp)
     """)
     data = %{"references_patch" => "#{rev_id2}", "category" =>
-      %{"name" => "#{name}.", "introduction" => ".."}}
+      %{"name" => "#{name}.", "introduction" => ".."}, "revision_id" => rev_id2}
 
     conn =
       conn(:patch, "/api/categories/#{name}", data)
@@ -291,7 +295,8 @@ defmodule CategoryPatchTest do
         (c)-[:UPDATE]->(cp)
     """)
     data = %{"references_patch" => "#{rev_id2}", "category" =>
-      %{"name" => "#{name}.", "introduction" => "..", "subcategories" => ["existent"]}}
+      %{"name" => "#{name}.", "introduction" => "..", "subcategories" => ["existent"]},
+        "revision_id" => rev_id2}
 
     conn =
       conn(:patch, "/api/categories/#{name}", data)
@@ -321,7 +326,8 @@ defmodule CategoryPatchTest do
   end
 
   test "Unauthorised update existing category" do
-    data = %{"references_patch" => "1", "category" => %{"name" => "...", "introduction" => "."}}
+    data = %{"references_patch" => "1", "category" => %{"name" => "...", "introduction" => "."},
+      "revision_id" => 1}
 
     conn =
       conn(:patch, "/api/categories/existent", data)
@@ -705,7 +711,7 @@ defmodule CategoryPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/categories/...", %{"category" => %{}})
+      conn(:patch, "/api/categories/...", %{"category" => %{}, "revision_id" => 1})
       |> put_req_header("authorization", "#{name}")
 
     response = Router.call(conn, @opts)
@@ -740,9 +746,10 @@ defmodule CategoryPatchTest do
         (c)-[:UPDATE]->(ucp1),
         (c)-[:UPDATE]->(ucp2)
     """)
+    data = %{"category" => %{"name" => "#{name}...#{name}", "introduction" => "."}, "revision_id" => rev_id}
 
     conn =
-      conn(:patch, "/api/categories/#{name}", %{"category" => %{"name" => "#{name}...#{name}", "introduction" => "."}})
+      conn(:patch, "/api/categories/#{name}", data)
       |> put_req_header("authorization", "at3")
     response = Router.call(conn, @opts)
 
@@ -778,9 +785,10 @@ defmodule CategoryPatchTest do
       CREATE (:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}}),
         (:Category {name: '#{name2}', introduction: '..', url: '#{name2}', revision_id: #{rev_id2}})
     """)
+    data = %{"category" => %{"name" => "#{name}", "introduction" => "."}, "revision_id" => rev_id2}
 
     conn =
-      conn(:patch, "/api/categories/#{name2}", %{"category" => %{"name" => "#{name}", "introduction" => "."}})
+      conn(:patch, "/api/categories/#{name2}", data)
       |> put_req_header("authorization", "at2")
     response = Router.call(conn, @opts)
 

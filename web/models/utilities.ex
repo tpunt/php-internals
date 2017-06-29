@@ -25,6 +25,7 @@ defmodule PhpInternals.Utilities do
   def valid_review_param?(review) do
     cond do
       review in ["0", "1"] -> {:ok, String.to_integer(review)}
+      review in [0, 1] -> {:ok, review}
       true -> {:error, 400, "Unknown review param"}
     end
   end
@@ -89,5 +90,9 @@ defmodule PhpInternals.Utilities do
 
   def valid_optional_id?(id) do
     if id === nil, do: {:ok, id}, else: valid_id?(id)
+  end
+
+  def revision_ids_match?(id1, id2) do
+    if id1 === id2, do: {:ok}, else: {:error, 400, "Revision ID mismatch"}
   end
 end

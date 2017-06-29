@@ -219,7 +219,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Malformed input data")
   end
 
-  def update(%{user: %{privilege_level: 0}} = conn, %{"apply_patch" => _action, "category_name" => _category_url}) do
+  def update(%{user: %{privilege_level: 0}} = conn, _params) do
     conn
     |> put_status(401)
     |> render(PhpInternals.ErrorView, "error.json", error: "Unauthenticated access attempt")
@@ -247,12 +247,6 @@ defmodule PhpInternals.Api.Categories.CategoryController do
     end
   end
 
-  def update(%{user: %{privilege_level: 0}} = conn, %{"discard_patch" => _action, "category_name" => _category_url}) do
-    conn
-    |> put_status(401)
-    |> render(PhpInternals.ErrorView, "error.json", error: "Unauthenticated access attempt")
-  end
-
   def update(%{user: %{privilege_level: 1}} = conn, %{"discard_patch" => _action, "category_name" => _category_url}) do
     conn
     |> put_status(403)
@@ -271,29 +265,9 @@ defmodule PhpInternals.Api.Categories.CategoryController do
     end
   end
 
-  def update(%{user: %{privilege_level: 0}} = conn, _params) do
-    conn
-    |> put_status(401)
-    |> render(PhpInternals.ErrorView, "error.json", error: "Unauthenticated access attempt")
-  end
-
-  def update(%{user: %{privilege_level: 1}} = conn, %{"category" => %{}, "review" => review} = params) do
-    with {:ok, _review} <- Utilities.valid_review_param?(review) do
-      modify(conn, Map.put(params, "review", 1))
-    else
-      {:error, status_code, status} ->
-        conn
-        |> put_status(status_code)
-        |> render(PhpInternals.ErrorView, "error.json", error: status)
-    end
-  end
-
-  def update(%{user: %{privilege_level: 1}} = conn, %{"category" => %{}} = params) do
-    modify(conn, Map.put(params, "review", 1))
-  end
-
-  def update(conn, %{"category" => %{}, "review" => review} = params) do
+  def update(%{user: user} = conn, %{"category" => %{}, "review" => review, "revision_id" => _rev_id} = params) do
     with {:ok, review} <- Utilities.valid_review_param?(review) do
+      review = if user.privilege_level === 1, do: 1, else: review
       modify(conn, Map.put(params, "review", review))
     else
       {:error, status_code, status} ->
@@ -304,7 +278,13 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   end
 
   def update(conn, %{"category" => %{}} = params) do
-    modify(conn, Map.put(params, "review", 0))
+    if Map.has_key?(params, "revision_id") do
+      update(conn, Map.put(params, "review", 0))
+    else
+      conn
+      |> put_status(400)
+      |> render(PhpInternals.ErrorView, "error.json", error: "A revision ID must be specified")
+    end
   end
 
   def update(conn, _params) do
@@ -379,17 +359,18 @@ defmodule PhpInternals.Api.Categories.CategoryController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised action")
   end
 
-  defp modify(conn, %{"category" => new_category, "category_name" => old_url, "review" => review} = params) do
+  defp modify(conn, %{"category" => new_category, "category_name" => old_url, "review" => review, "revision_id" => rev_id} = params) do
     with {:ok} <- User.within_patch_limit?(conn.user),
          {:ok, new_category} <- Category.valid_fields?(new_category),
          {:ok, new_url} <- Utilities.is_url_friendly?(new_category["name"]),
          {:ok} <- Category.does_not_exist?(new_url, old_url),
          {:ok, %{"category" => old_category}} <- Category.valid?(old_url),
-         {:ok, references_patch} <- Utilities.valid_optional_id?(params["references_patch"]),
-         {:ok} <- Category.update_patch_exists?(old_url, references_patch),
+         {:ok, refs_patch} <- Utilities.valid_optional_id?(params["references_patch"]),
+         {:ok} <- Category.update_patch_exists?(old_url, refs_patch),
+         {:ok} <- Utilities.revision_ids_match?(rev_id, (if refs_patch === nil, do: old_category["revision_id"], else: refs_patch)),
          {:ok} <- Category.valid_subcategories?(new_category["subcategories"], old_url) do
       new_category = Map.merge(new_category, %{"url" => new_url})
-      new_category = Category.update(old_category, new_category, review, conn.user.username, references_patch)
+      new_category = Category.update(old_category, new_category, review, conn.user.username, refs_patch)
       status_code = if review === 0, do: 200, else: 202
 
       conn
