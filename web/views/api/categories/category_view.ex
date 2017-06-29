@@ -116,15 +116,13 @@ defmodule PhpInternals.Api.Categories.CategoryView do
   end
 
   def render("category_update.json", %{category: %{"update" => update, "user" => user, "date" => date}}) do
+    category =
+      %{against_revision: update["against_revision"]}
+      |> Map.merge(render_one(update, CategoryView, "category.json"))
+
     %{
       category_update: %{
-        category: %{
-          name: update["name"],
-          introduction: update["introduction"],
-          url: update["url"],
-          revision_id: update["revision_id"],
-          against_revision: update["against_revision"]
-        },
+        category: category,
         user: UserView.render("user_overview.json", %{user: %{"user" => user}}),
         date: date
       }

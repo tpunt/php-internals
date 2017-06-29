@@ -26,7 +26,8 @@ defmodule CategoryGetTest do
 
     assert response.status === 200
     assert %{"category" => %{"name" => "existent", "introduction" => "~",
-      "url" => "existent", "revision_id" => 123}} = Poison.decode! response.resp_body
+      "url" => "existent", "revision_id" => 123, "supercategories" => _superc,
+      "subcategories" => _subc}} = Poison.decode! response.resp_body
   end
 
   @doc """
@@ -70,7 +71,8 @@ defmodule CategoryGetTest do
 
     assert response.status === 200
     assert %{"category" => %{"name" => "existent", "introduction" => "~",
-      "url" => "existent", "revision_id" => 123, "symbols" => _symbols}}
+      "url" => "existent", "revision_id" => 123, "symbols" => _symbols,
+      "articles" => _articles, "supercategories" => _superc, "subcategories" => _subc}}
         = Poison.decode! response.resp_body
   end
 

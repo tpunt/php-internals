@@ -496,10 +496,39 @@ defmodule PhpInternals.Api.Categories.Category do
         (ucp:UpdateCategoryPatch {revision_id: {patch_id}}),
         (c)-[:UPDATE]->(ucp),
         (ucp)-[r:CONTRIBUTOR]->(u:User)
+
+      OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sc:Category)
+      OPTIONAL MATCH (pc:Category)-[:SUBCATEGORY]->(c)
+      OPTIONAL MATCH (ucp)-[:SUBCATEGORY]->(sc2:Category)
+      OPTIONAL MATCH (pc2:Category)-[:SUBCATEGORY]->(ucp)
+
       RETURN {
-        category: c,
+        category: {
+          name: c.name,
+          url: c.url,
+          introduction: c.introduction,
+          revision_id: c.revision_id,
+          subcategories: COLLECT(
+            CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END
+          ),
+          supercategories: COLLECT(
+            CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END
+          )
+        },
         update: {
-          update: ucp,
+          update: {
+            name: ucp.name,
+            url: ucp.url,
+            introduction: ucp.introduction,
+            revision_id: ucp.revision_id,
+            against_revision: ucp.against_revision,
+            subcategories: COLLECT(
+              CASE sc2 WHEN NULL THEN NULL ELSE {category: {name: sc2.name, url: sc2.url}} END
+            ),
+            supercategories: COLLECT(
+              CASE pc2 WHEN NULL THEN NULL ELSE {category: {name: pc2.name, url: pc2.url}} END
+            )
+          },
           user: {
             username: u.username,
             name: u.name,
