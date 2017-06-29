@@ -553,6 +553,31 @@ defmodule PhpInternals.Api.Categories.Category do
     List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
+  def fetch(category_url, "normal") do
+    query = """
+      MATCH (c:Category {url: {category_url}})
+      OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sc:Category)
+      OPTIONAL MATCH (pc:Category)-[:SUBCATEGORY]->(c)
+
+      RETURN {
+        name: c.name,
+        url: c.url,
+        introduction: c.introduction,
+        revision_id: c.revision_id,
+        subcategories: COLLECT(
+          CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END
+        ),
+        supercategories: COLLECT(
+          CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END
+        )
+      } as category
+    """
+
+    params = %{category_url: category_url}
+
+    List.first Neo4j.query!(Neo4j.conn, query, params)
+  end
+
   def fetch(category_url, "full") do
     query = """
       MATCH (c:Category {url: {category_url}})

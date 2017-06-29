@@ -164,10 +164,8 @@ defmodule PhpInternals.Api.Categories.CategoryController do
          {:ok, category} <- Category.valid?(category_url) do
       case view_type do
         "overview" -> render(conn, "show_overview.json", category: category)
-        "normal" -> render(conn, "show.json", category: category)
-        "full" ->
-          category = Category.fetch(category_url, "full")
-          render(conn, "show_full.json", category: category)
+        "normal" -> render(conn, "show.json", category: Category.fetch(category_url, "normal"))
+        "full" -> render(conn, "show_full.json", category: Category.fetch(category_url, "full"))
       end
     else
       {:error, status_code, error} ->
