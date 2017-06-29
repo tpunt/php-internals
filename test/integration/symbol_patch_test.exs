@@ -25,7 +25,7 @@ defmodule SymbolPatchTest do
   test "authorised invalid update patch submission for a non-existent symbol" do
     data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
       "source_location" => "..","type" => "macro","categories" => ["existent"],
-      "declaration" => ".."}}
+      "declaration" => ".."}, "revision_id" => 1}
 
     conn =
       conn(:patch, "/api/symbols/0123", data)
@@ -44,7 +44,7 @@ defmodule SymbolPatchTest do
   """
   test "authorised invalid update patch submission from required fields" do
     data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
-      "source_location" => "..","type" => "macro"}}
+      "source_location" => "..","type" => "macro"}, "revision_id" => 1}
 
     conn =
       conn(:patch, "/api/symbols/0123", data)
@@ -64,7 +64,7 @@ defmodule SymbolPatchTest do
   test "authorised invalid update patch submission from an invalid category" do
     data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
       "source_location" => "..","type" => "macro","categories" => ["invalid"],
-      "declaration" => ".."}}
+      "declaration" => ".."}, "revision_id" => 1}
 
     conn =
       conn(:patch, "/api/symbols/0123", data)
@@ -83,7 +83,8 @@ defmodule SymbolPatchTest do
   """
   test "authorised invalid update patch submission from no categories" do
     data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
-      "source_location" => "..","type" => "macro","categories" => [], "declaration" => ".."}}
+      "source_location" => "..","type" => "macro","categories" => [], "declaration" => ".."},
+      "revision_id" => 1}
 
     conn =
       conn(:patch, "/api/symbols/0123", data)
@@ -120,7 +121,7 @@ defmodule SymbolPatchTest do
     """)
     data = %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..",
       "definition" => "..","source_location" => "..","type" => "macro",
-      "categories" => ["existent"], "declaration" => ".."}}
+      "categories" => ["existent"], "declaration" => ".."}, "revision_id" => sym_rev}
 
     conn =
       conn(:patch, "/api/symbols/#{sym_id}", data)
@@ -170,7 +171,7 @@ defmodule SymbolPatchTest do
     """)
     data = %{"review" => "1", "symbol" => %{"name" => "#{new_sym_name}","description" => "..",
       "definition" => "..","source_location" => "..","type" => "macro",
-      "categories" => ["existent"], "declaration" => ".."}}
+      "categories" => ["existent"], "declaration" => ".."}, "revision_id" => sym_rev}
 
     conn =
       conn(:patch, "/api/symbols/#{sym_id}", data)
@@ -221,7 +222,7 @@ defmodule SymbolPatchTest do
     """)
     data = %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..",
       "source_location" => "..","type" => "macro","categories" => ["existent"],
-      "declaration" => ".."}}
+      "declaration" => ".."}, "revision_id" => sym_rev}
 
     conn =
       conn(:patch, "/api/symbols/#{sym_id}", data)
@@ -586,7 +587,7 @@ defmodule SymbolPatchTest do
     data = %{"review" => "1", "references_patch" => "#{rev_id2}", "symbol" =>
       %{"name" => "...","description" => "...","definition" => "...",
       "source_location" => "...","type" => "macro","categories" => ["existent"],
-      "declaration" => ".."}}
+      "declaration" => ".."}, "revision_id" => rev_id2}
 
     conn =
       conn(:patch, "/api/symbols/#{rev_id}", data)
@@ -641,7 +642,8 @@ defmodule SymbolPatchTest do
     """)
     data = %{"references_patch" => "#{rev_id2}", "symbol" => %{"name" => "...",
       "description" => "...","definition" => "...", "source_location" => "...",
-      "type" => "macro","categories" => ["existent"], "declaration" => ".."}}
+      "type" => "macro","categories" => ["existent"], "declaration" => ".."},
+      "revision_id" => rev_id2}
 
     conn =
       conn(:patch, "/api/symbols/#{rev_id}", data)
@@ -681,7 +683,7 @@ defmodule SymbolPatchTest do
     """)
 
     conn =
-      conn(:patch, "/api/symbols/...", %{"symbol" => %{}})
+      conn(:patch, "/api/symbols/...", %{"symbol" => %{}, "revision_id" => 1})
       |> put_req_header("authorization", "#{name}")
 
     response = Router.call(conn, @opts)

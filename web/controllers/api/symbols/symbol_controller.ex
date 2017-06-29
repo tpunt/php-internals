@@ -249,12 +249,9 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     end
   end
 
-  def update(%{user: %{privilege_level: 1}} = conn, %{"symbol" => %{}} = params) do
-    modify(conn, Map.put(params, "review", 1))
-  end
-
-  def update(conn, %{"symbol" => %{}, "review" => review} = params) do
+  def update(%{user: user} = conn, %{"symbol" => %{}, "review" => review, "revision_id" => _rev_id} = params) do
     with {:ok, review} <- Utilities.valid_review_param?(review) do
+      review = if user.privilege_level === 1, do: 1, else: review
       modify(conn, Map.put(params, "review", review))
     else
       {:error, status_code, status} ->
@@ -265,7 +262,13 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   end
 
   def update(conn, %{"symbol" => %{}} = params) do
-    modify(conn, Map.put(params, "review", 0))
+    if Map.has_key?(params, "revision_id") do
+      update(conn, Map.put(params, "review", 0))
+    else
+      conn
+      |> put_status(400)
+      |> render(PhpInternals.ErrorView, "error.json", error: "A revision ID must be specified")
+    end
   end
 
   def update(conn, _params) do
