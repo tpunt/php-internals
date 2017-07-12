@@ -365,7 +365,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
          {:ok, %{"category" => old_category}} <- Category.valid?(old_url),
          {:ok, refs_patch} <- Utilities.valid_optional_id?(params["references_patch"]),
          {:ok} <- Category.update_patch_exists?(old_url, refs_patch),
-         {:ok} <- Utilities.revision_ids_match?(rev_id, (if refs_patch === nil, do: old_category["revision_id"], else: refs_patch)),
+         {:ok} <- Utilities.revision_ids_match?(rev_id, old_category["revision_id"]),
          {:ok} <- Category.valid_linked_categories?(new_category["subcategories"], new_category["supercategories"], old_url) do
       new_category = Map.merge(new_category, %{"url" => new_url})
       new_category = Category.update(old_category, new_category, review, conn.user.username, refs_patch)

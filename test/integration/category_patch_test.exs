@@ -206,7 +206,10 @@ defmodule CategoryPatchTest do
     name = :rand.uniform(100_000_000)
     rev_id = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
-      CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})
+      MATCH (u:User {access_token: 'at2'})
+
+      CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}}),
+        (c)-[:CONTRIBUTOR {type: "insert", date: 1}]->(u)
     """)
     data = %{"category" => %{"name" => "#{name}", "introduction" => ".", "subcategories" => ["existent"]},
       "revision_id" => rev_id}
@@ -221,19 +224,20 @@ defmodule CategoryPatchTest do
       = Poison.decode! response.resp_body
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}'}),
-        (c)-[r1:REVISION]->(cr:CategoryRevision {revision_id: #{rev_id}}),
-        (c)-[r2:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'}),
+        (c)-[:REVISION]->(cr:CategoryRevision {revision_id: #{rev_id}}),
+        (c)-[:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'}),
+        (cr)-[:CONTRIBUTOR {type: "insert", date: 1}]->(:User {access_token: 'at2'}),
         (c)-[:SUBCATEGORY]->(:Category {name: 'existent'})
       RETURN c
     """)
 
-    Neo4j.query!(Neo4j.conn, """
-      MATCH (c:Category {name: '#{name}'}),
-        (c)-[r1:REVISION]-(cr:CategoryRevision {revision_id: #{rev_id}}),
-        (c)-[r2:CONTRIBUTOR {type: "update"}]->(),
-        (c)-[r3:SUBCATEGORY]->(:Category {name: 'existent'})
-      DELETE r1, r2, r3, c, cr
-    """)
+    # Neo4j.query!(Neo4j.conn, """
+    #   MATCH (c:Category {name: '#{name}'}),
+    #     (c)-[r1:REVISION]-(cr:CategoryRevision {revision_id: #{rev_id}}),
+    #     (c)-[r2:CONTRIBUTOR {type: "update"}]->(),
+    #     (c)-[r3:SUBCATEGORY]->(:Category {name: 'existent'})
+    #   DELETE r1, r2, r3, c, cr
+    # """)
   end
 
   test "Authorised update existing category 3 (without subcategories)" do

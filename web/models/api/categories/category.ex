@@ -664,7 +664,7 @@ defmodule PhpInternals.Api.Categories.Category do
   def insert(category, review, username) do
     label = if review === 1, do: "InsertCategoryPatch", else: "Category"
 
-    {linked_categories_match, linked_categories_join, linked_categories_params} =
+    {linked_categories_match, linked_categories_join, linked_categories_params, _linked_categories_propagate} =
       linked_categories_query_builder(category["subcategories"], category["supercategories"], "c")
 
     query = """
@@ -683,15 +683,23 @@ defmodule PhpInternals.Api.Categories.Category do
       WITH c
 
       OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sc:Category)
+
+      WITH c,
+        COLLECT(CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END) AS scs
+
       OPTIONAL MATCH (pc:Category)-[:SUBCATEGORY]->(c)
+
+      WITH c,
+        scs,
+        COLLECT(CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END) AS pcs
 
       RETURN {
         name: c.name,
         url: c.url,
         introduction: c.introduction,
         revision_id: c.revision_id,
-        subcategories: COLLECT(CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END),
-        supercategories: COLLECT(CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END),
+        subcategories: scs,
+        supercategories: pcs,
         symbols: [],
         articles: []
       } as category
@@ -710,48 +718,68 @@ defmodule PhpInternals.Api.Categories.Category do
   end
 
   def update(old_category, new_category, 0 = _review, username, nil = _patch_revision_id) do
-    {linked_categories_match, linked_categories_join, linked_categories_params} =
-      linked_categories_query_builder(new_category["subcategories"], new_category["supercategories"], "new_category")
+    {linked_categories_match, linked_categories_join, linked_categories_params, linked_categories_propagate} =
+      linked_categories_query_builder(new_category["subcategories"], new_category["supercategories"], "category")
 
     query = """
-      MATCH (old_category:Category {url: {old_url}}),
+      MATCH (category:Category {url: {old_url}}),
+        (category)-[r:CONTRIBUTOR]->(old_user:User),
         (user:User {username: {username}})
         #{linked_categories_match}
 
-      CREATE (new_category:Category {
-          name: {new_name},
-          introduction: {new_introduction},
-          url: {new_url},
-          revision_id: {new_rev_id}
+      OPTIONAL MATCH (category)-[r2:REVISION]->(category_revision:CategoryRevision)
+      DELETE r2
+
+      WITH category,
+        r,
+        old_user,
+        user,
+        category_revision
+        #{linked_categories_propagate}
+
+      OPTIONAL MATCH (category)-[r3:SUBCATEGORY]->(subcats:Category)
+      DELETE r3
+
+      WITH category,
+        r,
+        old_user,
+        user,
+        category_revision,
+        COLLECT(subcats) AS unused
+        #{linked_categories_propagate}
+
+      OPTIONAL MATCH (category)<-[r4:SUBCATEGORY]-(supercats:Category)
+      DELETE r4
+
+      WITH category,
+        r,
+        old_user,
+        user,
+        category_revision,
+        COLLECT(supercats) AS unused
+        #{linked_categories_propagate}
+
+      CREATE (old_category:CategoryRevision {
+          name: category.name,
+          introduction: category.introduction,
+          url: category.url,
+          revision_id: category.revision_id
         }),
-        (new_category)-[:REVISION]->(old_category),
-        (new_category)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
+        (category)-[:REVISION]->(old_category),
+        (old_category)-[:CONTRIBUTOR {type: r.type, date: r.date}]->(old_user),
+        (category)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
         #{linked_categories_join}
 
-      WITH old_category, user, new_category
-
-      OPTIONAL MATCH (old_category)-[r1:UPDATE]->(ucp:UpdateCategoryPatch)
-      OPTIONAL MATCH (old_category)<-[r2:DELETE]-(user2:User)
-      OPTIONAL MATCH (n)-[r3:CATEGORY]->(old_category)
-
-      REMOVE old_category:Category
-      SET old_category:CategoryRevision
-
-      DELETE r1, r2, r3
-
-      WITH new_category, COLLECT(ucp) AS ucps, user2, COLLECT(n) AS ns
-
-      FOREACH (ucp IN ucps |
-        MERGE (new_category)-[:UPDATE]->(ucp)
+      FOREACH (ignored IN CASE category_revision WHEN NULL THEN [] ELSE [1] END |
+        CREATE (old_category)-[:REVISION]->(category_revision)
       )
 
-      FOREACH (ignored IN CASE user2 WHEN NULL THEN [] ELSE [1] END |
-        MERGE (new_category)<-[:DELETE]-(user2)
-      )
+      SET category.name = {new_name},
+        category.introduction = {new_introduction},
+        category.url = {new_url},
+        category.revision_id = {new_rev_id}
 
-      FOREACH (n IN ns |
-        MERGE (n)-[:CATEGORY]->(new_category)
-      )
+      DELETE r
     """
 
     params =
@@ -770,7 +798,7 @@ defmodule PhpInternals.Api.Categories.Category do
   end
 
   def update(old_category, new_category, 1 = _review, username, nil = _patch_revision_id) do
-    {linked_categories_match, linked_categories_join, linked_categories_params} =
+    {linked_categories_match, linked_categories_join, linked_categories_params, _linked_categories_propagate} =
       linked_categories_query_builder(new_category["subcategories"], new_category["supercategories"], "ucp")
 
     query = """
@@ -807,55 +835,100 @@ defmodule PhpInternals.Api.Categories.Category do
   end
 
   def update(old_category, new_category, 0 = _review, username, patch_revision_id) do
-    {linked_categories_match, linked_categories_join, linked_categories_params} =
-      linked_categories_query_builder(new_category["subcategories"], new_category["supercategories"], "new_category")
+    {linked_categories_match, linked_categories_join, linked_categories_params, linked_categories_propagate} =
+      linked_categories_query_builder(new_category["subcategories"], new_category["supercategories"], "category")
 
     query = """
-      MATCH (old_category:Category {url: {old_url}}),
+      MATCH (category:Category {url: {old_url}}),
+        (category)-[r:CONTRIBUTOR]->(old_user:User),
         (user:User {username: {username}}),
-        (old_category)-[r1:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
+        (category)-[r2:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
         #{linked_categories_match}
 
-      CREATE (new_category:Category {
-          name: {new_name},
-          introduction: {new_introduction},
-          url: {new_url},
-          revision_id: {new_rev_id}
+      OPTIONAL MATCH (category)-[r3:REVISION]->(category_revision:CategoryRevision)
+      DELETE r2, r3
+
+      WITH category,
+        r,
+        old_user,
+        user,
+        cp,
+        category_revision
+        #{linked_categories_propagate}
+
+      OPTIONAL MATCH (category)-[r4:SUBCATEGORY]->(subcats:Category)
+      DELETE r4
+
+      WITH category,
+        r,
+        old_user,
+        user,
+        cp,
+        category_revision,
+        COLLECT(subcats) AS unused
+        #{linked_categories_propagate}
+
+      OPTIONAL MATCH (category)<-[r5:SUBCATEGORY]-(supercats:Category)
+      DELETE r5
+
+      WITH category,
+        r,
+        old_user,
+        user,
+        cp,
+        category_revision,
+        COLLECT(supercats) AS unused
+        #{linked_categories_propagate}
+
+      OPTIONAL MATCH (cp)-[r6:SUBCATEGORY]->(subcats2:Category)
+      DELETE r6
+
+      WITH category,
+        r,
+        old_user,
+        user,
+        cp,
+        category_revision,
+        COLLECT(subcats2) AS unused
+        #{linked_categories_propagate}
+
+      OPTIONAL MATCH (category)<-[r7:SUBCATEGORY]-(supercats2:Category)
+      DELETE r7
+
+      WITH category,
+        r,
+        old_user,
+        user,
+        cp,
+        category_revision,
+        COLLECT(supercats2) AS unused
+        #{linked_categories_propagate}
+
+      CREATE (old_category:CategoryRevision {
+          name: category.name,
+          introduction: category.introduction,
+          url: category.url,
+          revision_id: category.revision_id
         }),
-        (new_category)-[:REVISION]->(old_category),
-        (new_category)-[:UPDATE_REVISION]->(cp),
-        (new_category)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
+        (old_category)-[:CONTRIBUTOR {type: r.type, date: r.date}]->(old_user),
+        (category)-[:UPDATE_REVISION]->(cp),
+        (category)-[:REVISION]->(old_category),
+        (category)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
         #{linked_categories_join}
 
-      REMOVE old_category:Category
-      SET old_category:CategoryRevision
+      FOREACH (ignored IN CASE category_revision WHEN NULL THEN [] ELSE [1] END |
+        CREATE (old_category)-[:REVISION]->(category_revision)
+      )
 
       REMOVE cp:UpdateCategoryPatch
       SET cp:UpdateCategoryPatchRevision
 
-      DELETE r1
+      SET category.name = {new_name},
+        category.introduction = {new_introduction},
+        category.url = {new_url},
+        category.revision_id = {new_rev_id}
 
-      WITH old_category, new_category, user
-
-      OPTIONAL MATCH (n)-[r2:CATEGORY]->(old_category)
-      OPTIONAL MATCH (old_category)-[r3:UPDATE]->(ucp:UpdateCategoryPatch)
-      OPTIONAL MATCH (old_category)<-[r4:DELETE]-(user2:User)
-
-      DELETE r2, r3, r4
-
-      WITH new_category, COLLECT(n) AS ns, COLLECT(ucp) AS ucps, user2
-
-      FOREACH (n IN ns |
-        MERGE (n)-[:CATEGORY]->(new_category)
-      )
-
-      FOREACH (ucp IN ucps |
-        MERGE (new_category)-[:UPDATE]->(ucp)
-      )
-
-      FOREACH (ignored IN CASE user2 WHEN NULL THEN [] ELSE [1] END |
-        MERGE (new_category)-[:DELETE]->(user2)
-      )
+      DELETE r
     """
 
     params =
@@ -875,7 +948,7 @@ defmodule PhpInternals.Api.Categories.Category do
   end
 
   def update(old_category, new_category, 1 = _review, username, patch_revision_id) do
-    {linked_categories_match, linked_categories_join, linked_categories_params} =
+    {linked_categories_match, linked_categories_join, linked_categories_params, linked_categories_propagate} =
       linked_categories_query_builder(new_category["subcategories"], new_category["supercategories"], "new_ucp")
 
     query = """
@@ -883,6 +956,24 @@ defmodule PhpInternals.Api.Categories.Category do
         (category)-[r:UPDATE]->(old_ucp:UpdateCategoryPatch {revision_id: {patch_revision_id}}),
         (user:User {username: {username}})
         #{linked_categories_match}
+
+      OPTIONAL MATCH (old_ucp)-[r2:SUBCATEGORY]->(subcats:Category)
+      DELETE r, r2
+
+      WITH category,
+        old_ucp,
+        user,
+        COLLECT(subcats) AS unused
+        #{linked_categories_propagate}
+
+      OPTIONAL MATCH (old_ucp)<-[r3:SUBCATEGORY]-(supercats:Category)
+      DELETE r3
+
+      WITH category,
+        old_ucp,
+        user,
+        COLLECT(supercats) AS unused
+        #{linked_categories_propagate}
 
       CREATE (new_ucp:UpdateCategoryPatch {
           name: {name},
@@ -895,8 +986,6 @@ defmodule PhpInternals.Api.Categories.Category do
         (new_ucp)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user),
         (new_ucp)-[:UPDATE_REVISION]->(old_ucp)
         #{linked_categories_join}
-
-      DELETE r
 
       REMOVE old_ucp:UpdateCategoryPatch
       SET old_ucp:UpdateCategoryPatchRevision
@@ -931,26 +1020,28 @@ defmodule PhpInternals.Api.Categories.Category do
 
   defp linked_categories_query_builder(subcategories, supercategories, name) do
     return =
-      Enum.reduce(subcategories, {"", "", %{}, 0}, fn (cat, {m, j, p, n}) ->
+      Enum.reduce(subcategories, {"", "", %{}, "", 0}, fn (cat, {m, j, p, w, n}) ->
         {
           m <> ", (cat#{n}:Category {url: {cat#{n}_url}})",
           j <> ", (#{name})-[:SUBCATEGORY]->(cat#{n})",
           Map.put(p, "cat#{n}_url", cat),
+          w <> ", cat#{n}",
           n + 1
         }
       end)
 
-    {m, j, p, _n} =
-      Enum.reduce(supercategories, return, fn (cat, {m, j, p, n}) ->
+    {m, j, p, w, _n} =
+      Enum.reduce(supercategories, return, fn (cat, {m, j, p, w, n}) ->
         {
           m <> ", (cat#{n}:Category {url: {cat#{n}_url}})",
           j <> ", (cat#{n})-[:SUBCATEGORY]->(#{name})",
           Map.put(p, "cat#{n}_url", cat),
+          w <> ", cat#{n}",
           n + 1
         }
       end)
 
-    {m, j, p}
+    {m, j, p, w}
   end
 
   def apply_patch?(category_url, %{"action" => "insert"}, username) do
