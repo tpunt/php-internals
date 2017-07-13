@@ -289,13 +289,18 @@ defmodule PhpInternals.Api.Categories.Category do
   def fetch_all(order_by, ordering, offset, limit, nil = _search_term, _full_search) do
     query = """
       MATCH (c:Category)
+
       OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sc:Category)
-      OPTIONAL MATCH (pc:Category)-[:SUBCATEGORY]->(c)
 
       WITH c,
         COLLECT(
           CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END
-        ) AS subcategories,
+        ) AS subcategories
+
+      OPTIONAL MATCH (pc:Category)-[:SUBCATEGORY]->(c)
+
+      WITH c,
+        subcategories,
         COLLECT(
           CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END
         ) AS supercategories
@@ -498,9 +503,50 @@ defmodule PhpInternals.Api.Categories.Category do
         (ucp)-[r:CONTRIBUTOR]->(u:User)
 
       OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sc:Category)
+
+      WITH c,
+        ucp,
+        r,
+        u,
+        COLLECT(
+          CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END
+        ) AS scs
+
       OPTIONAL MATCH (pc:Category)-[:SUBCATEGORY]->(c)
+
+      WITH c,
+        ucp,
+        r,
+        u,
+        scs,
+        COLLECT(
+          CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END
+        ) AS pcs
+
       OPTIONAL MATCH (ucp)-[:SUBCATEGORY]->(sc2:Category)
+
+      WITH c,
+        ucp,
+        r,
+        u,
+        scs,
+        pcs,
+        COLLECT(
+          CASE sc2 WHEN NULL THEN NULL ELSE {category: {name: sc2.name, url: sc2.url}} END
+        ) AS sc2s
+
       OPTIONAL MATCH (pc2:Category)-[:SUBCATEGORY]->(ucp)
+
+      WITH c,
+        ucp,
+        r,
+        u,
+        scs,
+        pcs,
+        sc2s,
+        COLLECT(
+          CASE pc2 WHEN NULL THEN NULL ELSE {category: {name: pc2.name, url: pc2.url}} END
+        ) AS pc2s
 
       RETURN {
         category: {
@@ -508,12 +554,8 @@ defmodule PhpInternals.Api.Categories.Category do
           url: c.url,
           introduction: c.introduction,
           revision_id: c.revision_id,
-          subcategories: COLLECT(
-            CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END
-          ),
-          supercategories: COLLECT(
-            CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END
-          )
+          subcategories: scs,
+          supercategories: pcs
         },
         update: {
           update: {
@@ -522,12 +564,8 @@ defmodule PhpInternals.Api.Categories.Category do
             introduction: ucp.introduction,
             revision_id: ucp.revision_id,
             against_revision: ucp.against_revision,
-            subcategories: COLLECT(
-              CASE sc2 WHEN NULL THEN NULL ELSE {category: {name: sc2.name, url: sc2.url}} END
-            ),
-            supercategories: COLLECT(
-              CASE pc2 WHEN NULL THEN NULL ELSE {category: {name: pc2.name, url: pc2.url}} END
-            )
+            subcategories: sc2s,
+            supercategories: pc2s
           },
           user: {
             username: u.username,
@@ -585,7 +623,14 @@ defmodule PhpInternals.Api.Categories.Category do
   def fetch(category_url, "normal") do
     query = """
       MATCH (c:Category {url: {category_url}})
+
       OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sc:Category)
+
+      WITH c,
+        COLLECT(
+          CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END
+        ) AS scs
+
       OPTIONAL MATCH (pc:Category)-[:SUBCATEGORY]->(c)
 
       RETURN {
@@ -593,9 +638,7 @@ defmodule PhpInternals.Api.Categories.Category do
         url: c.url,
         introduction: c.introduction,
         revision_id: c.revision_id,
-        subcategories: COLLECT(
-          CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END
-        ),
+        subcategories: scs,
         supercategories: COLLECT(
           CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END
         )
@@ -610,34 +653,51 @@ defmodule PhpInternals.Api.Categories.Category do
   def fetch(category_url, "full") do
     query = """
       MATCH (c:Category {url: {category_url}})
+
       OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sc:Category)
-      OPTIONAL MATCH (pc:Category)-[:SUBCATEGORY]->(c)
-      OPTIONAL MATCH (s:Symbol)-[:CATEGORY]->(c)
-      OPTIONAL MATCH (a:Article)-[:CATEGORY]->(c), (a)-[:AUTHOR]->(u:User), (a)-[:CATEGORY]->(ac)
 
       WITH c,
+        COLLECT(
+          CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END
+        ) AS scs
+
+      OPTIONAL MATCH (pc:Category)-[:SUBCATEGORY]->(c)
+
+      WITH c,
+        scs,
+        COLLECT(
+          CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END
+        ) AS pcs
+
+      OPTIONAL MATCH (s:Symbol)-[:CATEGORY]->(c)
+
+      WITH c,
+        scs,
+        pcs,
+        COLLECT(
+          CASE s WHEN NULL THEN NULL ELSE {symbol: {name: s.name, url: s.url, type: s.type, id: s.id}} END
+        ) AS symbols
+
+      OPTIONAL MATCH (a:Article)-[:CATEGORY]->(c), (a)-[:AUTHOR]->(u:User)
+      OPTIONAL MATCH (a)-[:CATEGORY]->(ac:Category)
+
+      WITH c,
+        scs,
+        pcs,
+        symbols,
         a,
         u,
         COLLECT(
-          CASE s WHEN NULL THEN NULL ELSE {symbol: {name: s.name, url: s.url, type: s.type, id: s.id}} END
-        ) AS symbols,
-        COLLECT(
           CASE ac WHEN NULL THEN NULL ELSE {category: {name: ac.name, url: ac.url}} END
-        ) AS acs,
-        COLLECT(
-          CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END
-        ) AS subcategories,
-        COLLECT(
-          CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END
-        ) AS supercategories
+        ) AS acs
 
       RETURN {
         name: c.name,
         url: c.url,
         introduction: c.introduction,
         revision_id: c.revision_id,
-        subcategories: subcategories,
-        supercategories: supercategories,
+        subcategories: scs,
+        supercategories: pcs,
         symbols: symbols,
         articles: COLLECT(CASE a WHEN NULL THEN NULL ELSE {
           article: {
