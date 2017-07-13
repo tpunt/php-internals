@@ -723,7 +723,6 @@ defmodule PhpInternals.Api.Categories.Category do
 
     query = """
       MATCH (category:Category {url: {old_url}}),
-        (category)-[r:CONTRIBUTOR]->(old_user:User),
         (user:User {username: {username}})
         #{linked_categories_match}
 
@@ -731,8 +730,6 @@ defmodule PhpInternals.Api.Categories.Category do
       DELETE r2
 
       WITH category,
-        r,
-        old_user,
         user,
         category_revision
         #{linked_categories_propagate}
@@ -741,8 +738,6 @@ defmodule PhpInternals.Api.Categories.Category do
       DELETE r3
 
       WITH category,
-        r,
-        old_user,
         user,
         category_revision,
         COLLECT(subcats) AS unused
@@ -752,8 +747,6 @@ defmodule PhpInternals.Api.Categories.Category do
       DELETE r4
 
       WITH category,
-        r,
-        old_user,
         user,
         category_revision,
         COLLECT(supercats) AS unused
@@ -763,8 +756,6 @@ defmodule PhpInternals.Api.Categories.Category do
       DELETE r5
 
       WITH category,
-        r,
-        old_user,
         user,
         category_revision,
         ucpr
@@ -776,10 +767,27 @@ defmodule PhpInternals.Api.Categories.Category do
           url: category.url,
           revision_id: category.revision_id
         }),
-        (category)-[:REVISION]->(old_category),
-        (old_category)-[:CONTRIBUTOR {type: r.type, date: r.date}]->(old_user),
-        (category)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
+        (category)-[:REVISION]->(old_category)
         #{linked_categories_join}
+
+      WITH category,
+        old_category,
+        user,
+        category_revision,
+        ucpr
+
+      MATCH (category)-[r:CONTRIBUTOR]->(old_user:User)
+      CREATE (old_category)-[:CONTRIBUTOR {type: r.type, date: r.date}]->(old_user)
+      DELETE r
+
+      WITH category,
+        old_category,
+        user,
+        category_revision,
+        ucpr,
+        COLLECT(old_user) AS unused
+
+      CREATE (category)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
 
       FOREACH (ignored IN CASE category_revision WHEN NULL THEN [] ELSE [1] END |
         CREATE (old_category)-[:REVISION]->(category_revision)
@@ -793,8 +801,6 @@ defmodule PhpInternals.Api.Categories.Category do
         category.introduction = {new_introduction},
         category.url = {new_url},
         category.revision_id = {new_rev_id}
-
-      DELETE r
     """
 
     params =
@@ -855,7 +861,6 @@ defmodule PhpInternals.Api.Categories.Category do
 
     query = """
       MATCH (category:Category {url: {old_url}}),
-        (category)-[r:CONTRIBUTOR]->(old_user:User),
         (user:User {username: {username}}),
         (category)-[r2:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
         #{linked_categories_match}
@@ -864,8 +869,6 @@ defmodule PhpInternals.Api.Categories.Category do
       DELETE r2, r3
 
       WITH category,
-        r,
-        old_user,
         user,
         cp,
         category_revision
@@ -875,8 +878,6 @@ defmodule PhpInternals.Api.Categories.Category do
       DELETE r4
 
       WITH category,
-        r,
-        old_user,
         user,
         cp,
         category_revision,
@@ -887,8 +888,6 @@ defmodule PhpInternals.Api.Categories.Category do
       DELETE r5
 
       WITH category,
-        r,
-        old_user,
         user,
         cp,
         category_revision,
@@ -899,8 +898,6 @@ defmodule PhpInternals.Api.Categories.Category do
       DELETE r6
 
       WITH category,
-        r,
-        old_user,
         user,
         cp,
         category_revision,
@@ -911,8 +908,6 @@ defmodule PhpInternals.Api.Categories.Category do
       DELETE r7
 
       WITH category,
-        r,
-        old_user,
         user,
         cp,
         category_revision,
@@ -923,8 +918,6 @@ defmodule PhpInternals.Api.Categories.Category do
       DELETE r8
 
       WITH category,
-        r,
-        old_user,
         user,
         cp,
         category_revision,
@@ -937,11 +930,30 @@ defmodule PhpInternals.Api.Categories.Category do
           url: category.url,
           revision_id: category.revision_id
         }),
-        (old_category)-[:CONTRIBUTOR {type: r.type, date: r.date}]->(old_user),
         (category)-[:UPDATE_REVISION]->(cp),
-        (category)-[:REVISION]->(old_category),
-        (category)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
+        (category)-[:REVISION]->(old_category)
         #{linked_categories_join}
+
+      WITH category,
+        user,
+        cp,
+        category_revision,
+        ucpr,
+        old_category
+
+      MATCH (category)-[r:CONTRIBUTOR]->(old_user:User)
+      CREATE (old_category)-[:CONTRIBUTOR {type: r.type, date: r.date}]->(old_user)
+      DELETE r
+
+      WITH category,
+        user,
+        cp,
+        category_revision,
+        ucpr,
+        old_category,
+        COLLECT(old_user) AS unused
+
+      CREATE (category)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
 
       FOREACH (ignored IN CASE category_revision WHEN NULL THEN [] ELSE [1] END |
         CREATE (old_category)-[:REVISION]->(category_revision)
@@ -958,8 +970,6 @@ defmodule PhpInternals.Api.Categories.Category do
         category.introduction = {new_introduction},
         category.url = {new_url},
         category.revision_id = {new_rev_id}
-
-      DELETE r
     """
 
     params =
@@ -1149,37 +1159,83 @@ defmodule PhpInternals.Api.Categories.Category do
         else
           query = """
             MATCH (category:Category {url: {category_url}}),
-              (category)-[r:CONTRIBUTOR]->(old_user:User),
               (category)-[:UPDATE]->(ucp:UpdateCategoryPatch {revision_id: {patch_revision_id}}),
-              (user:User {username: {username}})
+              (ucp)-[r2:CONTRIBUTOR]->(user:User),
+              (new_user:User {username: {username}})
+
+            WITH category,
+              r2,
+              ucp,
+              user,
+              new_user
 
             OPTIONAL MATCH (category)-[r3:REVISION]->(category_revision:CategoryRevision)
             DELETE r3
 
-            WITH category, r, old_user, ucp, user, category_revision
+            WITH category,
+              r2,
+              ucp,
+              user,
+              new_user,
+              category_revision
 
             OPTIONAL MATCH (category)-[r4:UPDATE_REVISION]->(ucpr:UpdateCategoryPatchRevision)
             DELETE r4
 
-            WITH category, r, old_user, ucp, user, category_revision, ucpr
+            WITH category,
+              r2,
+              ucp,
+              user,
+              new_user,
+              category_revision,
+              ucpr
 
             OPTIONAL MATCH (category)-[r5:SUBCATEGORY]->(subcats:Category)
             DELETE r5
 
-            WITH category, r, old_user, ucp, user, category_revision, ucpr, COLLECT(subcats) AS unused
+            WITH category,
+              r2,
+              ucp,
+              user,
+              new_user,
+              category_revision,
+              ucpr,
+              COLLECT(subcats) AS unused
 
             OPTIONAL MATCH (category)<-[r6:SUBCATEGORY]-(supcats:Category)
             DELETE r6
 
-            WITH category, r, old_user, ucp, user, category_revision, ucpr, COLLECT(supcats) AS unused
+            WITH category,
+              r2,
+              ucp,
+              user,
+              new_user,
+              category_revision,
+              ucpr,
+              COLLECT(supcats) AS unused
 
             OPTIONAL MATCH (ucp)-[:SUBCATEGORY]->(sc:Category)
 
-            WITH category, r, old_user, ucp, user, category_revision, ucpr, COLLECT(sc) AS scs
+            WITH category,
+              r2,
+              ucp,
+              user,
+              new_user,
+              category_revision,
+              ucpr,
+              COLLECT(sc) AS scs
 
             OPTIONAL MATCH (ucp)<-[:SUBCATEGORY]-(pc:Category)
 
-            WITH category, r, old_user, ucp, user, category_revision, ucpr, scs, COLLECT(pc) AS pcs
+            WITH category,
+              r2,
+              ucp,
+              user,
+              new_user,
+              category_revision,
+              ucpr,
+              scs,
+              COLLECT(pc) AS pcs
 
             CREATE (old_category:CategoryRevision {
                 name: category.name,
@@ -1187,9 +1243,37 @@ defmodule PhpInternals.Api.Categories.Category do
                 url: category.url,
                 revision_id: category.revision_id
               }),
-              (old_category)-[:CONTRIBUTOR {type: r.type, date: r.date}]->(old_user),
-              (category)-[:REVISION]->(old_category),
-              (new_category)-[:CONTRIBUTOR {type: "apply_update", date: timestamp()}]->(user)
+              (category)-[:REVISION]->(old_category)
+
+            WITH category,
+              old_category,
+              category_revision,
+              user,
+              new_user,
+              ucp,
+              ucpr,
+              scs,
+              pcs,
+              r2
+
+            MATCH (category)-[r:CONTRIBUTOR]->(old_user:User)
+            CREATE (old_category)-[:CONTRIBUTOR {type: r.type, date: r.date}]->(old_user)
+            DELETE r
+
+            WITH category,
+              old_category,
+              category_revision,
+              user,
+              new_user,
+              ucp,
+              ucpr,
+              scs,
+              pcs,
+              r2,
+              COLLECT(old_user) AS unused
+
+            CREATE (category)-[:CONTRIBUTOR {type: "apply_update", date: timestamp()}]->(new_user),
+              (category)-[:CONTRIBUTOR {type: r2.type, date: r2.date}]->(user)
 
             FOREACH (ignored IN CASE category_revision WHEN NULL THEN [] ELSE [1] END |
               CREATE (old_category)-[:REVISION]->(category_revision)
@@ -1212,15 +1296,13 @@ defmodule PhpInternals.Api.Categories.Category do
               category.url = ucp.url,
               category.revision_id = ucp.revision_id
 
-            DELETE r
+            DELETE r2
             DETACH DELETE ucp
-
-            RETURN category.url AS category_url
           """
 
-          %{"category_url" => category_url} = List.first Neo4j.query!(Neo4j.conn, query, params)
+          List.first Neo4j.query!(Neo4j.conn, query, params)
 
-          {:ok, fetch(category_url, "full")}
+          {:ok, fetch(category["cp"]["url"], "full")}
         end
       end
     end

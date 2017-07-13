@@ -121,6 +121,8 @@ defmodule CategoryPatchTest do
     rev_id = :rand.uniform(100_000_000)
     rev_id2 = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {access_token: 'at2'})
+
       CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}}),
         (cp:UpdateCategoryPatch {
           name: '#{name}.#{name}',
@@ -129,7 +131,9 @@ defmodule CategoryPatchTest do
           revision_id: #{rev_id2},
           against_revision: #{rev_id}
         }),
-        (c)-[:UPDATE]->(cp)
+        (c)-[:UPDATE]->(cp),
+        (c)-[:CONTRIBUTOR {type: "insert", date: 1}]->(u),
+        (cp)-[:CONTRIBUTOR {type: "update", date: 2}]->(u)
     """)
     data = %{"review" => "1", "references_patch" => "#{rev_id2}", "category" =>
       %{"name" => "#{name}.", "introduction" => "....."}, "revision_id" => rev_id2}
@@ -153,9 +157,11 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {revision_id: #{rev_id}}),
         (c)-[r1:UPDATE]->(ucp:UpdateCategoryPatch),
-        (ucp)-[r2:UPDATE_REVISION]->(ucpr:UpdateCategoryPatchRevision),
-        (ucp)-[r3:CONTRIBUTOR {type: "update"}]->()
-      DELETE r1, r2, r3, c, ucp, ucpr
+        (c)-[r2:CONTRIBUTOR {type: "insert"}]->(:User {access_token: 'at2'}),
+        (ucp)-[r3:UPDATE_REVISION]->(ucpr:UpdateCategoryPatchRevision),
+        (ucpr)-[r4:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at2'}),
+        (ucp)-[r5:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'})
+      DELETE r1, r2, r3, r4, r5, c, ucp, ucpr
     """)
   end
 
@@ -175,7 +181,10 @@ defmodule CategoryPatchTest do
     name = :rand.uniform(100_000_000)
     rev_id = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
-      CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})
+      MATCH (u:User {access_token: 'at2'})
+
+      CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}}),
+        (c)-[:CONTRIBUTOR {type: "insert", date: 1}]->(u)
     """)
     data = %{"category" => %{"name" => "#{name}", "introduction" => "."}, "revision_id" => rev_id}
 
@@ -197,8 +206,9 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}'}),
         (c)-[r1:REVISION]-(cr:CategoryRevision {revision_id: #{rev_id}}),
-        (c)-[r2:CONTRIBUTOR {type: "update"}]->()
-      DELETE r1, r2, c, cr
+        (c)-[r2:CONTRIBUTOR {type: "update"}]->(),
+        (c)-[r3:CONTRIBUTOR {type: "insert"}]->()
+      DELETE r1, r2, r3, c, cr
     """)
   end
 
@@ -225,19 +235,20 @@ defmodule CategoryPatchTest do
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}'}),
         (c)-[:REVISION]->(cr:CategoryRevision {revision_id: #{rev_id}}),
-        (c)-[:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'}),
         (cr)-[:CONTRIBUTOR {type: "insert", date: 1}]->(:User {access_token: 'at2'}),
+        (c)-[:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'}),
         (c)-[:SUBCATEGORY]->(:Category {name: 'existent'})
       RETURN c
     """)
 
-    # Neo4j.query!(Neo4j.conn, """
-    #   MATCH (c:Category {name: '#{name}'}),
-    #     (c)-[r1:REVISION]-(cr:CategoryRevision {revision_id: #{rev_id}}),
-    #     (c)-[r2:CONTRIBUTOR {type: "update"}]->(),
-    #     (c)-[r3:SUBCATEGORY]->(:Category {name: 'existent'})
-    #   DELETE r1, r2, r3, c, cr
-    # """)
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {name: '#{name}'}),
+        (c)-[r1:REVISION]-(cr:CategoryRevision {revision_id: #{rev_id}}),
+        (cr)-[r2:CONTRIBUTOR {type: "insert", date: 1}]->(:User {access_token: 'at2'}),
+        (c)-[r3:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'}),
+        (c)-[r4:SUBCATEGORY]->(:Category {name: 'existent'})
+      DELETE r1, r2, r3, r4, c, cr
+    """)
   end
 
   test "Authorised update existing category 3 (without subcategories)" do
@@ -245,6 +256,8 @@ defmodule CategoryPatchTest do
     rev_id = :rand.uniform(100_000_000)
     rev_id2 = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {access_token: 'at2'})
+
       CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}}),
         (cp:UpdateCategoryPatch {
           name: '#{name}.#{name}',
@@ -253,7 +266,9 @@ defmodule CategoryPatchTest do
           revision_id: #{rev_id2},
           against_revision: #{rev_id}
         }),
-        (c)-[:UPDATE]->(cp)
+        (c)-[:UPDATE]->(cp),
+        (c)-[:CONTRIBUTOR {type: "insert", date: 1}]->(u),
+        (cp)-[:CONTRIBUTOR {type: "update", date: 2}]->(u)
     """)
     data = %{"references_patch" => "#{rev_id2}", "category" =>
       %{"name" => "#{name}.", "introduction" => ".."}, "revision_id" => rev_id2}
@@ -276,10 +291,12 @@ defmodule CategoryPatchTest do
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}.'}),
-        (c)-[r1:UPDATE_REVISION]->(ucpr:UpdateCategoryPatchRevision {revision_id: #{rev_id2}}),
-        (c)-[r2:REVISION]->(cr:CategoryRevision {revision_id: #{rev_id}}),
-        (c)-[r3:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'})
-      DELETE r1, r2, r3, c, ucpr, cr
+        (c)-[r1:CONTRIBUTOR {type: "insert"}]->(:User {access_token: 'at2'}),
+        (c)-[r2:UPDATE_REVISION]->(ucpr:UpdateCategoryPatchRevision {revision_id: #{rev_id2}}),
+        (ucpr)-[r3:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at2'}),
+        (c)-[r4:REVISION]->(cr:CategoryRevision {revision_id: #{rev_id}}),
+        (c)-[r5:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'})
+      DELETE r1, r2, r3, r4, r5, c, ucpr, cr
     """)
   end
 
@@ -288,6 +305,8 @@ defmodule CategoryPatchTest do
     rev_id = :rand.uniform(100_000_000)
     rev_id2 = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {access_token: 'at2'})
+
       CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}}),
         (cp:UpdateCategoryPatch {
           name: '#{name}.#{name}',
@@ -296,7 +315,9 @@ defmodule CategoryPatchTest do
           revision_id: #{rev_id2},
           against_revision: #{rev_id}
         }),
-        (c)-[:UPDATE]->(cp)
+        (c)-[:UPDATE]->(cp),
+        (c)-[:CONTRIBUTOR {type: "insert", date: 1}]->(u),
+        (cp)-[:CONTRIBUTOR {type: "update", date: 2}]->(u)
     """)
     data = %{"references_patch" => "#{rev_id2}", "category" =>
       %{"name" => "#{name}.", "introduction" => "..", "subcategories" => ["existent"]},
@@ -321,11 +342,13 @@ defmodule CategoryPatchTest do
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}.'}),
-        (c)-[r1:UPDATE_REVISION]->(ucpr:UpdateCategoryPatchRevision {revision_id: #{rev_id2}}),
-        (c)-[r2:REVISION]->(cr:CategoryRevision {revision_id: #{rev_id}}),
-        (c)-[r3:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'}),
-        (c)-[r4:SUBCATEGORY]->(:Category {name: 'existent'})
-      DELETE r1, r2, r3, r4, c, ucpr, cr
+        (c)-[r1:CONTRIBUTOR {type: "insert"}]->(:User {access_token: 'at2'}),
+        (c)-[r2:UPDATE_REVISION]->(ucpr:UpdateCategoryPatchRevision {revision_id: #{rev_id2}}),
+        (ucpr)-[r3:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'}),
+        (c)-[r4:REVISION]->(cr:CategoryRevision {revision_id: #{rev_id}}),
+        (c)-[r5:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'}),
+        (c)-[r6:SUBCATEGORY]->(:Category {name: 'existent'})
+      DELETE r1, r2, r3, r4, r5, r6, c, ucpr, cr
     """)
   end
 
@@ -345,12 +368,15 @@ defmodule CategoryPatchTest do
     name = :rand.uniform(100_000_000)
     rev_id = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {access_token: 'at2'})
+
       CREATE (c:InsertCategoryPatch {
           name: '#{name}',
           introduction: '...',
           url: '#{name}',
           revision_id: #{rev_id}
-        })
+        }),
+        (c)-[:CONTRIBUTOR {type: "insert", date: 1}]->(u)
     """)
 
     conn =
@@ -369,8 +395,9 @@ defmodule CategoryPatchTest do
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}'}),
-        (c)-[r:CONTRIBUTOR {type: 'apply_insert'}]-()
-      DELETE r, c
+        (c)-[r1:CONTRIBUTOR {type: "insert", date: 1}]->(:User {access_token: 'at2'}),
+        (c)-[r2:CONTRIBUTOR {type: 'apply_insert'}]->(:User {access_token: 'at2'})
+      DELETE r1, r2, c
     """)
   end
 
@@ -378,12 +405,15 @@ defmodule CategoryPatchTest do
     name = :rand.uniform(100_000_000)
     rev_id = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {access_token: 'at2'})
+
       CREATE (c:InsertCategoryPatch {
           name: '#{name}',
           introduction: '...',
           url: '#{name}',
           revision_id: #{rev_id}
-        })
+        }),
+        (c)-[:CONTRIBUTOR {type: "insert", date: 1}]->(u)
     """)
 
     conn =
@@ -402,8 +432,9 @@ defmodule CategoryPatchTest do
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}'}),
-        (c)-[r:CONTRIBUTOR {type: 'apply_insert'}]-()
-      DELETE r, c
+        (c)-[r1:CONTRIBUTOR {type: 'insert'}]->(),
+        (c)-[r2:CONTRIBUTOR {type: 'apply_insert'}]->()
+      DELETE r1, r2, c
     """)
   end
 
@@ -443,6 +474,8 @@ defmodule CategoryPatchTest do
     rev_id = :rand.uniform(100_000_000)
     rev_id2 = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {access_token: 'at2'})
+
       CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}}),
         (ucp:UpdateCategoryPatch {
           name: '#{name}.#{name}',
@@ -451,7 +484,9 @@ defmodule CategoryPatchTest do
           revision_id: #{rev_id2},
           against_revision: #{rev_id}
         }),
-        (c)-[:UPDATE]->(ucp)
+        (c)-[:UPDATE]->(ucp),
+        (c)-[:CONTRIBUTOR {type: "insert", date: 1}]->(u),
+        (ucp)-[:CONTRIBUTOR {type: "update", date: 2}]->(u)
     """)
 
     conn =
@@ -473,8 +508,10 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, """
       MATCH (c1:Category {revision_id: #{rev_id2}}),
         (c1)-[r1:REVISION]->(c2:CategoryRevision {revision_id: #{rev_id}}),
-        (c1)-[r2:CONTRIBUTOR {type: 'apply_update'}]->(:User {access_token: 'at3'})
-      DELETE r1, r2, c1, c2
+        (c2)-[r2:CONTRIBUTOR {type: 'insert'}]->(:User {access_token: 'at2'}),
+        (c1)-[r3:CONTRIBUTOR {type: 'update'}]->(:User {access_token: 'at2'}),
+        (c1)-[r4:CONTRIBUTOR {type: 'apply_update'}]->(:User {access_token: 'at3'})
+      DELETE r1, r2, r3, r4, c1, c2
     """)
   end
 
@@ -732,6 +769,8 @@ defmodule CategoryPatchTest do
     rev_id = :rand.uniform(100_000_000)
     rev_id2 = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {access_token: 'at2'})
+
       CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}}),
         (ucp1:UpdateCategoryPatch {
           name: '#{name}.#{name}',
@@ -748,7 +787,10 @@ defmodule CategoryPatchTest do
           against_revision: #{rev_id}
         }),
         (c)-[:UPDATE]->(ucp1),
-        (c)-[:UPDATE]->(ucp2)
+        (c)-[:UPDATE]->(ucp2),
+        (c)-[:CONTRIBUTOR {type: "insert", date: 1}]->(u),
+        (ucp1)-[:CONTRIBUTOR {type: "update", date: 2}]->(u),
+        (ucp2)-[:CONTRIBUTOR {type: "update", date: 3}]->(u)
     """)
     data = %{"category" => %{"name" => "#{name}...#{name}", "introduction" => "."}, "revision_id" => rev_id}
 
