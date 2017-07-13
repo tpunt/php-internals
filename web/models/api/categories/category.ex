@@ -759,6 +759,17 @@ defmodule PhpInternals.Api.Categories.Category do
         COLLECT(supercats) AS unused
         #{linked_categories_propagate}
 
+      OPTIONAL MATCH (category)-[r5:UPDATE_REVISION]->(ucpr:UpdateCategoryPatchRevision)
+      DELETE r5
+
+      WITH category,
+        r,
+        old_user,
+        user,
+        category_revision,
+        ucpr
+        #{linked_categories_propagate}
+
       CREATE (old_category:CategoryRevision {
           name: category.name,
           introduction: category.introduction,
@@ -772,6 +783,10 @@ defmodule PhpInternals.Api.Categories.Category do
 
       FOREACH (ignored IN CASE category_revision WHEN NULL THEN [] ELSE [1] END |
         CREATE (old_category)-[:REVISION]->(category_revision)
+      )
+
+      FOREACH (ignored IN CASE ucpr WHEN NULL THEN [] ELSE [1] END |
+        CREATE (old_category)-[:UPDATE_REVISION]->(ucpr)
       )
 
       SET category.name = {new_name},
@@ -892,7 +907,7 @@ defmodule PhpInternals.Api.Categories.Category do
         COLLECT(subcats2) AS unused
         #{linked_categories_propagate}
 
-      OPTIONAL MATCH (category)<-[r7:SUBCATEGORY]-(supercats2:Category)
+      OPTIONAL MATCH (cp)<-[r7:SUBCATEGORY]-(supercats2:Category)
       DELETE r7
 
       WITH category,
@@ -902,6 +917,18 @@ defmodule PhpInternals.Api.Categories.Category do
         cp,
         category_revision,
         COLLECT(supercats2) AS unused
+        #{linked_categories_propagate}
+
+      OPTIONAL MATCH (category)-[r8:UPDATE_REVISION]->(ucpr:UpdateCategoryPatchRevision)
+      DELETE r8
+
+      WITH category,
+        r,
+        old_user,
+        user,
+        cp,
+        category_revision,
+        ucpr
         #{linked_categories_propagate}
 
       CREATE (old_category:CategoryRevision {
@@ -918,6 +945,10 @@ defmodule PhpInternals.Api.Categories.Category do
 
       FOREACH (ignored IN CASE category_revision WHEN NULL THEN [] ELSE [1] END |
         CREATE (old_category)-[:REVISION]->(category_revision)
+      )
+
+      FOREACH (ignored IN CASE ucpr WHEN NULL THEN [] ELSE [1] END |
+        CREATE (old_category)-[:UPDATE_REVISION]->(ucpr)
       )
 
       REMOVE cp:UpdateCategoryPatch
@@ -1008,7 +1039,7 @@ defmodule PhpInternals.Api.Categories.Category do
     fetch(old_category["url"], "full")
   end
 
-  defp linked_categories_query_builder(nil, nil, _name), do: {"", "", %{}}
+  defp linked_categories_query_builder(nil, nil, _name), do: {"", "", %{}, ""}
 
   defp linked_categories_query_builder(nil = _subcategories, supercategories, name) do
     linked_categories_query_builder([], supercategories, name)
@@ -1067,7 +1098,27 @@ defmodule PhpInternals.Api.Categories.Category do
 
           WITH cp
 
-          RETURN cp as category
+          OPTIONAL MATCH (cp)-[:SUBCATEGORY]->(sc:Category)
+
+          WITH cp,
+            COLLECT(CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END) AS scs
+
+          OPTIONAL MATCH (pc:Category)-[:SUBCATEGORY]->(cp)
+
+          WITH cp,
+            scs,
+            COLLECT(CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END) AS pcs
+
+          RETURN {
+            name: cp.name,
+            url: cp.url,
+            introduction: cp.introduction,
+            revision_id: cp.revision_id,
+            subcategories: scs,
+            supercategories: pcs,
+            symbols: [],
+            articles: []
+          } as category
         """
 
         {:ok, List.first Neo4j.query!(Neo4j.conn, query, params)}
