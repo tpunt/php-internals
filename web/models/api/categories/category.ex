@@ -1148,57 +1148,79 @@ defmodule PhpInternals.Api.Categories.Category do
           {:error, 400, "Cannot apply patch due to revision ID mismatch"}
         else
           query = """
-            MATCH (old_category:Category {url: {category_url}}),
-              (old_category)-[r1:UPDATE]->(new_category:UpdateCategoryPatch {revision_id: {patch_revision_id}}),
+            MATCH (category:Category {url: {category_url}}),
+              (category)-[r:CONTRIBUTOR]->(old_user:User),
+              (category)-[:UPDATE]->(ucp:UpdateCategoryPatch {revision_id: {patch_revision_id}}),
               (user:User {username: {username}})
 
-            CREATE (new_category)-[:REVISION]->(old_category),
+            OPTIONAL MATCH (category)-[r3:REVISION]->(category_revision:CategoryRevision)
+            DELETE r3
+
+            WITH category, r, old_user, ucp, user, category_revision
+
+            OPTIONAL MATCH (category)-[r4:UPDATE_REVISION]->(ucpr:UpdateCategoryPatchRevision)
+            DELETE r4
+
+            WITH category, r, old_user, ucp, user, category_revision, ucpr
+
+            OPTIONAL MATCH (category)-[r5:SUBCATEGORY]->(subcats:Category)
+            DELETE r5
+
+            WITH category, r, old_user, ucp, user, category_revision, ucpr, COLLECT(subcats) AS unused
+
+            OPTIONAL MATCH (category)<-[r6:SUBCATEGORY]-(supcats:Category)
+            DELETE r6
+
+            WITH category, r, old_user, ucp, user, category_revision, ucpr, COLLECT(supcats) AS unused
+
+            OPTIONAL MATCH (ucp)-[:SUBCATEGORY]->(sc:Category)
+
+            WITH category, r, old_user, ucp, user, category_revision, ucpr, COLLECT(sc) AS scs
+
+            OPTIONAL MATCH (ucp)<-[:SUBCATEGORY]-(pc:Category)
+
+            WITH category, r, old_user, ucp, user, category_revision, ucpr, scs, COLLECT(pc) AS pcs
+
+            CREATE (old_category:CategoryRevision {
+                name: category.name,
+                introduction: category.introduction,
+                url: category.url,
+                revision_id: category.revision_id
+              }),
+              (old_category)-[:CONTRIBUTOR {type: r.type, date: r.date}]->(old_user),
+              (category)-[:REVISION]->(old_category),
               (new_category)-[:CONTRIBUTOR {type: "apply_update", date: timestamp()}]->(user)
 
-            REMOVE new_category:UpdateCategoryPatch
-            SET new_category:Category
-
-            REMOVE old_category:Category
-            SET old_category:CategoryRevision
-
-            DELETE r1
-
-            WITH old_category, new_category
-
-            OPTIONAL MATCH (n)-[r2:CATEGORY]->(old_category)
-            OPTIONAL MATCH (old_category)-[r3:UPDATE]->(ucp:UpdateCategoryPatch)
-            OPTIONAL MATCH (old_category)<-[r4:DELETE]-(user2:User)
-            OPTIONAL MATCH (pc:Category)-[r5:SUBCATEGORY]->(old_category)
-            OPTIONAL MATCH (old_category)-[r6:SUBCATEGORY]->(sc:Category)
-
-            DELETE r2, r3, r4, r5, r6
-
-            WITH new_category, COLLECT(n) AS ns, COLLECT(ucp) AS ucps, user2, COLLECT(pc) AS pcs, COLLECT(sc) AS scs
-
-            FOREACH (n IN ns |
-              MERGE (n)-[:CATEGORY]->(new_category)
+            FOREACH (ignored IN CASE category_revision WHEN NULL THEN [] ELSE [1] END |
+              CREATE (old_category)-[:REVISION]->(category_revision)
             )
 
-            FOREACH (ucp IN ucps |
-              MERGE (new_category)-[:UPDATE]->(ucp)
-            )
-
-            FOREACH (ignored IN CASE user2 WHEN NULL THEN [] ELSE [1] END |
-              MERGE (new_category)<-[:DELETE]-(user2)
-            )
-
-            FOREACH (pc IN pcs |
-              MERGE (pc)-[:SUBCATEGORY]->(new_category)
+            FOREACH (ignored IN CASE ucpr WHEN NULL THEN [] ELSE [1] END |
+              CREATE (old_category)-[:UPDATE_REVISION]->(ucpr)
             )
 
             FOREACH (sc IN scs |
-              MERGE (new_category)-[:SUBCATEGORY]->(sc)
+              CREATE (category)-[:SUBCATEGORY]->(sc)
             )
 
-            RETURN new_category as category
+            FOREACH (pc IN pcs |
+              CREATE (category)<-[:SUBCATEGORY]-(pc)
+            )
+
+            SET category.name = ucp.name,
+              category.introduction = ucp.introduction,
+              category.url = ucp.url,
+              category.revision_id = ucp.revision_id
+
+            DELETE r
+            DETACH DELETE ucp
+
+            RETURN category.url AS category_url
           """
 
-          {:ok, List.first Neo4j.query!(Neo4j.conn, query, params)}
+          %{"category_url" => category_url} = List.first Neo4j.query!(Neo4j.conn, query, params)
+
+          {:ok, fetch(category_url, "full")}
         end
       end
     end
