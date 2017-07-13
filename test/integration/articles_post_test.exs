@@ -10,7 +10,7 @@ defmodule ArticlesPostTest do
   @doc """
   POST /api/articles -H 'authorization:at3'
   """
-  test "authorised article creation" do
+  test "authorised article creation (with series name)" do
     art_name = :rand.uniform(100_000_000)
     data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".", "series_name" => "a",
       "body" => "...", "categories" => ["existent"]}}
@@ -25,6 +25,31 @@ defmodule ArticlesPostTest do
     assert %{"article" =>
       %{"title" => art_name2a, "url" => art_name2b, "excerpt" => ".", "body" => "...",
         "date" => _date, "series_name" => "a"}}
+          = Poison.decode!(response.resp_body)
+    assert String.to_integer(art_name2a) === art_name
+    assert String.to_integer(art_name2b) === art_name
+
+    Neo4j.query!(Neo4j.conn, "MATCH (a:Article {title: '#{art_name}'})-[r]-() DELETE r, a")
+  end
+
+  @doc """
+  POST /api/articles -H 'authorization:at3'
+  """
+  test "authorised article creation (without series name)" do
+    art_name = :rand.uniform(100_000_000)
+    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".", "series_name" => "",
+      "body" => "...", "categories" => ["existent"]}}
+
+    conn =
+      conn(:post, "/api/articles", data)
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "at3")
+    response = Router.call(conn, @opts)
+
+    assert response.status === 201
+    assert %{"article" =>
+      %{"title" => art_name2a, "url" => art_name2b, "excerpt" => ".", "body" => "...",
+        "date" => _date, "series_name" => ""}}
           = Poison.decode!(response.resp_body)
     assert String.to_integer(art_name2a) === art_name
     assert String.to_integer(art_name2b) === art_name

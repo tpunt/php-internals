@@ -3,6 +3,12 @@ defmodule PhpInternals.Utilities do
   @max_result_limit 100
   @default_ordering "ASC"
 
+  def is_url_friendly_opt?(""), do: {:ok, ""}
+
+  def is_url_friendly_opt?(name) do
+    is_url_friendly?(name)
+  end
+
   def is_url_friendly?(name) do
     with true <- String.length(name) < 50,
          new_name <- make_url_friendly(name),
