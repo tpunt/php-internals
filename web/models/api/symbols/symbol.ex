@@ -22,6 +22,18 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     "additional_information"
   ]
 
+  defp special_required_fields("function"), do: ["return_type", "definition"]
+
+  defp special_required_fields(type) when type in ["macro", "type", "variable"], do: []
+
+  defp special_optional_fields("function"), do: ["parameters", "return_description"]
+
+  defp special_optional_fields("macro"), do: ["parameters", "definition"]
+
+  defp special_optional_fields("type"), do: ["members", "definition"]
+
+  defp special_optional_fields("variable"), do: []
+
   def valid_fields?(symbol) do
     with {:ok} <- valid_type_field?(symbol),
          {:ok} <- contains_required_fields?(symbol),
@@ -223,30 +235,6 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     else
       {:error, "Required fields are missing (expecting: #{Enum.join(all_required_fields, ", ")})"}
     end
-  end
-
-  defp special_required_fields("function") do
-    ["return_type", "definition"]
-  end
-
-  defp special_required_fields(type) when type in ["macro", "type", "variable"] do
-    []
-  end
-
-  defp special_optional_fields("function") do
-    ["parameters", "return_description"]
-  end
-
-  defp special_optional_fields("macro") do
-    ["parameters", "definition"]
-  end
-
-  defp special_optional_fields("type") do
-    ["members", "definition"]
-  end
-
-  defp special_optional_fields("variable") do
-    []
   end
 
   def contains_only_expected_fields?(%{"type" => type} = symbol) do
