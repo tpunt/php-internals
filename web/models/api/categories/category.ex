@@ -93,7 +93,11 @@ defmodule PhpInternals.Api.Categories.Category do
     end)
 
     if validated do
-      {:ok, %{"subcategories" => value}}
+      if MapSet.size(MapSet.new(value)) === length(value) do
+        {:ok, %{"subcategories" => value}}
+      else
+        {:error, "Duplicate subcategory names given"}
+      end
     else
       {:error, "Invalid subcategory name(s) given"}
     end
@@ -105,7 +109,11 @@ defmodule PhpInternals.Api.Categories.Category do
     end)
 
     if validated do
-      {:ok, %{"supercategories" => value}}
+      if MapSet.size(MapSet.new(value)) === length(value) do
+        {:ok, %{"supercategories" => value}}
+      else
+        {:error, "Duplicate supercategory names given"}
+      end
     else
       {:error, "Invalid supercategory name(s) given"}
     end

@@ -667,4 +667,24 @@ defmodule SymbolsPostTest do
     assert %{"error" => %{"message" => "The additional information field should have a length of 2000 or less"}}
       = Poison.decode!(response.resp_body)
   end
+
+  @doc """
+  POST /api/symbols -H authorization: at2
+  """
+  test "Invalid symbol insert (duplicate category names)" do
+    data = %{"symbol" => %{"name" => ".", "description" => ".", "definition" => ".",
+      "source_location" => ".", "type" => "macro", "categories" => ["existent", "existent"],
+      "declaration" => ".."}}
+
+    conn =
+      conn(:post, "/api/symbols", data)
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "at2")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 400
+    assert %{"error" => %{"message" => "Duplicate category names given"}}
+      = Poison.decode!(response.resp_body)
+  end
 end

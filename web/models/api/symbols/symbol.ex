@@ -182,7 +182,11 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end)
 
     if validated do
-      {:ok, %{"categories" => value}}
+      if MapSet.size(MapSet.new(value)) === length(value) do
+        {:ok, %{"categories" => value}}
+      else
+        {:error, "Duplicate category names given"}
+      end
     else
       {:error, "Invalid category name(s) given"}
     end

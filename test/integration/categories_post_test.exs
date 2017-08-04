@@ -348,4 +348,42 @@ defmodule CategoriesPostTest do
     assert %{"error" => %{"message" => "The introduction field should have a length of between 1 and 6000 (inclusive)"}}
       = Poison.decode!(response.resp_body)
   end
+
+  @doc """
+  POST /api/categories -H 'authorization: at3'
+  """
+  test "Authorised invalid attempt at inserting a new category (duplicate subcategories)" do
+    name = :rand.uniform(100_000_000)
+    data = %{"category" => %{"name": "#{name}", "introduction": "...",
+      "subcategories": ["existent", "existent"]}}
+    conn =
+      conn(:post, "/api/categories", data)
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "at3")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 400
+    assert %{"error" => %{"message" => "Duplicate subcategory names given"}}
+      = Poison.decode!(response.resp_body)
+  end
+
+  @doc """
+  POST /api/categories -H 'authorization: at3'
+  """
+  test "Authorised invalid attempt at inserting a new category (duplicate supercategories)" do
+    name = :rand.uniform(100_000_000)
+    data = %{"category" => %{"name": "#{name}", "introduction": "...",
+      "supercategories": ["existent", "existent"]}}
+    conn =
+      conn(:post, "/api/categories", data)
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "at3")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 400
+    assert %{"error" => %{"message" => "Duplicate supercategory names given"}}
+      = Poison.decode!(response.resp_body)
+  end
 end
