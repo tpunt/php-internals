@@ -26,9 +26,4 @@ defmodule PhpInternals.ConnCase do
       @endpoint PhpInternals.Endpoint
     end
   end
-
-  setup tags do
-
-    {:ok, conn: Phoenix.ConnTest.build_conn()}
-  end
 end

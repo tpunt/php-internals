@@ -27,7 +27,6 @@ defmodule PhpInternals.Web do
       use Phoenix.Controller
 
       import PhpInternals.Router.Helpers
-      import PhpInternals.Gettext
     end
   end
 
@@ -39,8 +38,6 @@ defmodule PhpInternals.Web do
       import Phoenix.Controller, only: [get_csrf_token: 0, get_flash: 2, view_module: 1]
 
       import PhpInternals.Router.Helpers
-      import PhpInternals.ErrorHelpers
-      import PhpInternals.Gettext
     end
   end
 
@@ -53,7 +50,6 @@ defmodule PhpInternals.Web do
   def channel do
     quote do
       use Phoenix.Channel
-      import PhpInternals.Gettext
     end
   end
 
