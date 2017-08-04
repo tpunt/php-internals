@@ -134,11 +134,6 @@ defmodule PhpInternals.Api.Categories.CategoryView do
     |> Map.merge(render_linked_categories(category["subcategories"], category["supercategories"]))
   end
 
-  # used in symbols view
-  def render("category_overview.json", %{category: category}) do
-    %{name: category["name"], url: category["url"]}
-  end
-
   def render("category_full.json", %{category: %{"category" => category}}) do
     %{
       name: category["name"],

@@ -581,7 +581,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       MATCH (c:Category)<-[:CATEGORY]-(symbol:Symbol)<-[:DELETE]-(:User)
       RETURN {
         symbol: symbol,
-        categories: collect({name: c.name, url: c.url})
+        categories: collect({category: {name: c.name, url: c.url}})
       } AS symbol_delete
     """
 
@@ -593,7 +593,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       MATCH (c:Category)<-[:CATEGORY]-(s:SymbolDeleted)
       RETURN {
         symbol: s,
-        categories: collect({name: c.name, url: c.url})
+        categories: collect({category: {name: c.name, url: c.url}})
       } AS symbol
     """
 
