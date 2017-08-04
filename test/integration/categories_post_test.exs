@@ -100,6 +100,8 @@ defmodule CategoriesPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
+    assert %{"error" => %{"message" => "Required fields are missing (expecting: name, introduction)"}}
+      = Poison.decode!(response.resp_body)
     assert [] === Neo4j.query!(Neo4j.conn, """
       MATCH (c {name: '#{name}'})
       WHERE HEAD(LABELS(c)) IN ['Category', 'InsertCategoryPatch']
@@ -231,6 +233,8 @@ defmodule CategoriesPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
+    assert %{"error" => %{"message" => "Required fields are missing (expecting: name, introduction)"}}
+      = Poison.decode!(response.resp_body)
     assert [] === Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'}) RETURN c")
   end
 
