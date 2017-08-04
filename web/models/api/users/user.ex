@@ -148,17 +148,22 @@ defmodule PhpInternals.Api.Users.User do
     query = """
       MATCH (u:User {username: {username}}),
         (u)<-[cr:CONTRIBUTOR]-(cn)
+
+      WITH cn,
+        cr,
+        CASE WHEN HEAD(LABELS(cn)) IN [
+          'Category',
+          'InsertCategoryPatch',
+          'UpdateCategoryPatch',
+          'CategoryDeleted',
+          'CategoryRevision'
+        ] THEN 'category' ELSE 'symbol' END AS filter
+
       RETURN {
         type: cr.type,
         date: cr.date,
-        towards: cn,
-        filter: CASE WHEN HEAD(LABELS(cn)) IN [
-            'Category',
-            'InsertCategoryPatch',
-            'UpdateCategoryPatch',
-            'CategoryDeleted'
-          ] THEN 'category' ELSE 'symbol'
-        END
+        towards: CASE WHEN filter = 'category' THEN {category: cn} ELSE cn END,
+        filter: filter
       } AS contribution
       ORDER BY cr.#{order_by} #{ordering}
       SKIP #{offset}
