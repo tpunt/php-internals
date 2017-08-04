@@ -686,7 +686,7 @@ defmodule PhpInternals.Api.Categories.Category do
           CASE s WHEN NULL THEN NULL ELSE {symbol: {name: s.name, url: s.url, type: s.type, id: s.id}} END
         ) AS symbols
 
-      OPTIONAL MATCH (a:Article)-[:CATEGORY]->(c), (a)-[:AUTHOR]->(u:User)
+      OPTIONAL MATCH (a:Article)-[:CATEGORY]->(c), (a)-[:CONTRIBUTOR {type: "insert"}]->(u:User)
       OPTIONAL MATCH (a)-[:CATEGORY]->(ac:Category)
 
       WITH c,

@@ -1,6 +1,7 @@
 defmodule PhpInternals.Api.Users.UserView do
   use PhpInternals.Web, :view
 
+  alias PhpInternals.Api.Articles.ArticleView
   alias PhpInternals.Api.Users.UserView
   alias PhpInternals.Api.Categories.CategoryView
   alias PhpInternals.Api.Symbols.SymbolView
@@ -23,10 +24,13 @@ defmodule PhpInternals.Api.Users.UserView do
     contributions =
       contributions
       |> Enum.map(fn %{"contribution" => %{"filter" => filter, "towards" => towards} = data} ->
-          if filter === "category" do
-            Map.put(data, "towards", CategoryView.render("show_overview.json", %{category: towards}))
-          else
-            Map.put(data, "towards", SymbolView.render("show_overview.json", %{symbol: towards}))
+          case filter do
+            "category" ->
+              Map.put(data, "towards", CategoryView.render("show_overview.json", %{category: towards}))
+            "article" ->
+              Map.put(data, "towards", ArticleView.render("show_brief_overview.json", %{article: towards}))
+            "symbol" ->
+              Map.put(data, "towards", SymbolView.render("show_overview.json", %{symbol: towards}))
           end
         end)
 

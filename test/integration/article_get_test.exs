@@ -42,7 +42,7 @@ defmodule ArticleGetTest do
           series_name: '#{ser_name}',
           series_url: '#{ser_name}'
         }),
-        (a)-[:AUTHOR]->(u),
+        (a)-[:CONTRIBUTOR {type: "insert", date: 1}]->(u),
         (a)-[:CATEGORY]->(c)
     """)
     conn = conn(:get, "/api/articles/#{ser_name}")

@@ -38,4 +38,11 @@ defmodule PhpInternals.Api.Articles.ArticleView do
     |> Map.merge(%{author: UserView.render("user_overview.json", %{user: %{"user" => article["user"]}})})
     |> Map.merge(CategoryView.render("index_overview.json", %{categories: article["categories"]}))
   end
+
+  # Used in users view for showing article contributions
+  def render("show_brief_overview.json", %{article: article}) do
+    %{article:
+      %{title: article["title"], url: article["url"], date: article["date"],
+        series_name: article["series_name"], series_url: article["series_url"]}}
+  end
 end

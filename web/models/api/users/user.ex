@@ -152,12 +152,15 @@ defmodule PhpInternals.Api.Users.User do
       WITH cn,
         cr,
         CASE WHEN HEAD(LABELS(cn)) IN [
-          'Category',
-          'InsertCategoryPatch',
-          'UpdateCategoryPatch',
-          'CategoryDeleted',
-          'CategoryRevision'
-        ] THEN 'category' ELSE 'symbol' END AS filter
+            'Category',
+            'InsertCategoryPatch',
+            'UpdateCategoryPatch',
+            'CategoryDeleted',
+            'CategoryRevision'
+          ] THEN 'category'
+          WHEN HEAD(LABELS(cn)) = 'Article' THEN 'article'
+          ELSE 'symbol'
+        END AS filter
 
       RETURN {
         type: cr.type,

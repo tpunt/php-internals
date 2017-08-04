@@ -71,7 +71,7 @@ defmodule ArticlesGetTest do
       MATCH (c:Category {url: 'existent'})
       CREATE (u:User {id: #{user_id}, username: '#{user_id}', name: '#{user_id}', privilege_level: 3}),
         (a:Article {title: '#{art_name}', url: '#{art_name}', excerpt: '.', body: '.', date: timestamp()}),
-        (a)-[:AUTHOR]->(u),
+        (a)-[:CONTRIBUTOR {type: "insert", date: 1}]->(u),
         (a)-[:CATEGORY]->(c)
     """)
 
@@ -99,7 +99,7 @@ defmodule ArticlesGetTest do
       MATCH (c:Category {url: 'existent'})
       CREATE (u:User {id: #{user_id}, username: '#{user_id}', name: '#{user_id}', privilege_level: 3}),
         (a:Article {title: '#{art_name}', url: '#{art_name}', excerpt: '.', body: '.', date: timestamp()}),
-        (a)-[:AUTHOR]->(u),
+        (a)-[:CONTRIBUTOR {type: "insert", date: 1}]->(u),
         (a)-[:CATEGORY]->(c)
     """)
 
@@ -127,7 +127,7 @@ defmodule ArticlesGetTest do
       MATCH (c:Category {url: 'existent'})
       CREATE (u:User {id: #{user_id}, username: '#{user_id}', name: '#{user_id}', privilege_level: 3}),
         (a:Article {title: '#{art_name}', url: '#{art_name}', excerpt: '.', body: '.', date: timestamp()}),
-        (a)-[:AUTHOR]->(u),
+        (a)-[:CONTRIBUTOR {type: "insert", date: 1}]->(u),
         (a)-[:CATEGORY]->(c)
     """)
 

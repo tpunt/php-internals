@@ -39,7 +39,7 @@ defmodule PhpInternals.Api.Articles.Article do
   def valid?(article_url) do
     query = """
       MATCH (article:Article {url: {url}}),
-        (article)-[arel:AUTHOR]->(u:User),
+        (article)-[arel:CONTRIBUTOR {type: "insert"}]->(u:User),
         (article)-[crel:CATEGORY]->(category:Category)
       RETURN article,
         collect({category: category}) AS categories,
@@ -65,7 +65,7 @@ defmodule PhpInternals.Api.Articles.Article do
   def valid_series?(series_url) do
     query = """
       MATCH (a:Article {series_url: {series_url}}),
-        (a)-[arel:AUTHOR]->(u:User),
+        (a)-[arel:CONTRIBUTOR {type: "insert"}]->(u:User),
         (a)-[crel:CATEGORY]->(category:Category)
       RETURN {
           title: a.title,
@@ -105,7 +105,7 @@ defmodule PhpInternals.Api.Articles.Article do
   def valid_in_series?(series_url, article_url) do
     query = """
       MATCH (article:Article {series_url: {series_url}, url: {url}}),
-        (article)-[arel:AUTHOR]->(u:User),
+        (article)-[arel:CONTRIBUTOR {type: "insert"}]->(u:User),
         (article)-[crel:CATEGORY]->(category:Category)
       RETURN article,
         collect({category: category}) AS categories,
@@ -147,13 +147,13 @@ defmodule PhpInternals.Api.Articles.Article do
         if author_filter === nil do
           "MATCH (a:Article)"
         else
-          "MATCH (a:Article)-[:AUTHOR]->(:User {username: {username}})"
+          "MATCH (a:Article)-[:CONTRIBUTOR {type: \"insert\"}]->(:User {username: {username}})"
         end
       else
         if author_filter === nil do
           "MATCH (a:Article)-[:CATEGORY]->(:Category {url: {category_url}})"
         else
-          "MATCH (:User {username: {username}})<-[:AUTHOR]-(a:Article)-[:CATEGORY]->(:Category {url: {category_url}})"
+          "MATCH (:User {username: {username}})<-[:CONTRIBUTOR {type: \"insert\"}]-(a:Article)-[:CATEGORY]->(:Category {url: {category_url}})"
         end
       end
 
@@ -178,7 +178,7 @@ defmodule PhpInternals.Api.Articles.Article do
         end
 
     query3 = """
-      MATCH (a)-[arel:AUTHOR]->(u:User), (a)-[crel:CATEGORY]->(c:Category)
+      MATCH (a)-[arel:CONTRIBUTOR {type: "insert"}]->(u:User), (a)-[crel:CATEGORY]->(c:Category)
       WITH a, u, COLLECT({category: {name: c.name, url: c.url}}) AS categories
       ORDER BY a.#{order_by} #{ordering}
       WITH COLLECT({
@@ -216,6 +216,8 @@ defmodule PhpInternals.Api.Articles.Article do
 
   def insert(article, username) do
     query1 = """
+      MATCH (user:User {username: {username}})
+
       CREATE (article:Article {
         title: {title},
         url: {url},
@@ -224,14 +226,15 @@ defmodule PhpInternals.Api.Articles.Article do
         excerpt: {excerpt},
         body: {body},
         date: timestamp()
-      })
+      }),
+      (article)-[:CONTRIBUTOR {type: "insert", date: article.timestamp}]->(user)
     """
 
     {query2, params1, _counter} =
       article["categories"]
       |> Enum.reduce({"", %{}, 0}, fn (cat, {q, p, c}) ->
           query = """
-            WITH article
+            WITH article, user
             MATCH (c#{c}:Category {url: {cat_#{c}}})
             CREATE (article)-[:CATEGORY]->(c#{c})
           """
@@ -239,11 +242,9 @@ defmodule PhpInternals.Api.Articles.Article do
         end)
 
     query3 = """
-      WITH article
-      MATCH (article)-[:CATEGORY]->(c:Category),
-        (user:User {username: {username}})
-      MERGE (article)-[:AUTHOR]->(user)
-      RETURN article, user, collect({category: {name: c.name, url:c.url}}) as categories
+      WITH article, user
+      MATCH (article)-[:CATEGORY]->(c:Category)
+      RETURN article, user, COLLECT({category: {name: c.name, url:c.url}}) as categories
     """
 
     query = query1 <> query2 <> query3
@@ -295,7 +296,7 @@ defmodule PhpInternals.Api.Articles.Article do
 
     query3 = """
       WITH article
-      MATCH (user:User)<-[:AUTHOR]-(article)-[:CATEGORY]->(c:Category)
+      MATCH (user:User)<-[:CONTRIBUTOR {type: "insert"}]-(article)-[:CATEGORY]->(c:Category)
       RETURN article, user, collect({category: {name: c.name, url: c.url}}) as categories
     """
 
