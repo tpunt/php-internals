@@ -1,6 +1,6 @@
 # PhpInternals
 
-This is the server application to the phpinternals.net website - a website that provides resource on PHP's internals.
+This is the server application for the [phpinternals.net](https://phpinternals.net) website - a place that provides resources on PHP's internals.
 
 The technology stack for the server application is as follows:
  - Elixir
