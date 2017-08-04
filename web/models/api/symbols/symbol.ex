@@ -1,7 +1,7 @@
 defmodule PhpInternals.Api.Symbols.Symbol do
   use PhpInternals.Web, :model
 
-  @valid_order_bys ["name"]
+  @valid_order_bys ["name", "date"]
   @default_order_by "name"
 
   @valid_symbol_types ["macro", "function", "variable", "type"]
@@ -416,10 +416,14 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   end
 
   def fetch_all(order_by, ordering, offset, limit, symbol_type, category_filter, search_term, full_search) do
-    query1 = "MATCH (s:Symbol)"
-    query2 = if category_filter === nil, do: "", else: ", (c:Category {url: {category_url}})"
-    query3 = ", (s)-[:CATEGORY]->(c)"
-    {query4, search_term} =
+    {variable_match, order_by, variable_with} =
+      if order_by === "date" do
+        {", (s)-[scr:CONTRIBUTOR]->(u:User)", "scr.date", ", scr"}
+      else
+        {"", "s.#{order_by}", ""}
+      end
+    filter_by_category = if category_filter === nil, do: "", else: ", (c:Category {url: {category_url}})"
+    {search_by_symbol_name, search_term} =
       if search_term === nil do
         {"", search_term}
       else
@@ -439,7 +443,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         {where_query <> column <> " =~ {search_term}", search_term}
       end
 
-    query5 =
+    search_by_symbol_type =
       if symbol_type === "all" do
         ""
       else
@@ -450,9 +454,12 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         end
       end
 
-    query6 = """
-      WITH COLLECT({category: {name: c.name, url: c.url}}) AS categories, s
-      ORDER BY s.#{order_by} #{ordering}
+    query = """
+      MATCH (s:Symbol) #{filter_by_category}, (s)-[:CATEGORY]->(c) #{variable_match}
+      #{search_by_symbol_name}
+      #{search_by_symbol_type}
+      WITH COLLECT({category: {name: c.name, url: c.url}}) AS categories, s #{variable_with}
+      ORDER BY #{order_by} #{ordering}
       WITH COLLECT({
         symbol: {
           symbol: {
@@ -473,8 +480,6 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         }
       } AS result
     """
-
-    query = query1 <> query2 <> query3 <> query4 <> query5 <> query6
 
     params = %{category_url: category_filter, search_term: search_term}
 
