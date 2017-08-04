@@ -18,9 +18,14 @@ defmodule PhpInternals.ConnCase do
   using do
     quote do
       # Import conveniences for testing with connections
-      use Phoenix.ConnTest
+      # use Phoenix.ConnTest
 
       import PhpInternals.Router.Helpers
+
+      alias PhpInternals.Router
+      alias Neo4j.Sips, as: Neo4j
+
+      @opts Router.init([])
 
       # The default endpoint for testing
       @endpoint PhpInternals.Endpoint

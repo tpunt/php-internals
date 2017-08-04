@@ -1,11 +1,7 @@
 defmodule CategoryPatchTest do
   use ExUnit.Case, async: true
   use Plug.Test
-
-  alias PhpInternals.Router
-  alias Neo4j.Sips, as: Neo4j
-
-  @opts Router.init([])
+  use PhpInternals.ConnCase
 
   test "Unauthenticated non-existent category patch" do
     conn = conn(:patch, "/api/categories/non-existent")

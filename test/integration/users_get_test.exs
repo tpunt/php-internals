@@ -1,10 +1,7 @@
 defmodule UsersGetTest do
   use ExUnit.Case, async: true
   use Plug.Test
-
-  alias PhpInternals.Router
-
-  @opts Router.init([])
+  use PhpInternals.ConnCase
 
   @doc """
   GET /api/users

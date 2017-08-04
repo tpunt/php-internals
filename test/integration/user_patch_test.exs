@@ -1,11 +1,7 @@
 defmodule UserPatchTest do
   use ExUnit.Case, async: true
   use Plug.Test
-
-  alias PhpInternals.Router
-  alias Neo4j.Sips, as: Neo4j
-
-  @opts Router.init([])
+  use PhpInternals.ConnCase
 
   @doc """
   PATCH /api/users/existent
