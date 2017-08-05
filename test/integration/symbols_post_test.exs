@@ -289,15 +289,15 @@ defmodule SymbolsPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "The description field should have a length of between 1 and 1000 (inclusive)"}}
+    assert %{"error" => %{"message" => "The description field should have a length of between 1 and 3000 (inclusive)"}}
       = Poison.decode!(response.resp_body)
   end
 
   @doc """
   POST /api/symbols -H authorization: at2
   """
-  test "Invalid symbol insert (description field length > 1000)" do
-    data = %{"symbol" => %{"name" => "a", "description" => String.duplicate("a", 1001),
+  test "Invalid symbol insert (description field length > 3000)" do
+    data = %{"symbol" => %{"name" => "a", "description" => String.duplicate("a", 3001),
       "definition" => ".", "source_location" => ".", "type" => "macro",
       "categories" => ["existent"], "declaration" => "."}}
 
@@ -309,7 +309,7 @@ defmodule SymbolsPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "The description field should have a length of between 1 and 1000 (inclusive)"}}
+    assert %{"error" => %{"message" => "The description field should have a length of between 1 and 3000 (inclusive)"}}
       = Poison.decode!(response.resp_body)
   end
 

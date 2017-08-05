@@ -125,10 +125,10 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   end
 
   def validate_field("description", value) do
-    if String.length(value) > 0 and String.length(value) < 1_001 do
+    if String.length(value) > 0 and String.length(value) < 3_001 do
       {:ok, %{"description" => value}}
     else
-      {:error, "The description field should have a length of between 1 and 1000 (inclusive)"}
+      {:error, "The description field should have a length of between 1 and 3000 (inclusive)"}
     end
   end
 
