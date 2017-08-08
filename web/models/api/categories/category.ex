@@ -1,6 +1,8 @@
 defmodule PhpInternals.Api.Categories.Category do
   use PhpInternals.Web, :model
 
+  alias PhpInternals.Cache.ResultCache
+
   @required_fields ["name", "introduction"]
   @optional_fields ["subcategories", "supercategories"]
 
@@ -218,6 +220,15 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
+  def valid_cache?(nil = _category_url), do: {:ok, nil}
+
+  def valid_cache?(category_url) do
+    key = "categories/#{category_url}?overview"
+    ResultCache.fetch(key, fn ->
+      valid?(category_url)
+    end)
+  end
+
   def valid?(nil = _category_url), do: {:ok, nil}
 
   def valid?(category_url) do
@@ -292,6 +303,20 @@ defmodule PhpInternals.Api.Categories.Category do
     else
       {:error, 400, "A category cannot be deleted whilst linked to symbols or articles"}
     end
+  end
+
+  def fetch_all_cache(order_by, ordering, offset, limit, nil = _search_term, _full_search) do
+    key = "categories?#{order_by}#{ordering}#{offset}#{limit}"
+    ResultCache.fetch(key, fn ->
+      fetch_all(order_by, ordering, offset, limit, nil, false)
+    end)
+  end
+
+  def fetch_all_cache(order_by, ordering, offset, limit, search_term, full_search) do
+    key = "categories?#{order_by}#{ordering}#{offset}#{limit}#{search_term}#{full_search}"
+    ResultCache.fetch(key, fn ->
+      fetch_all(order_by, ordering, offset, limit, search_term, full_search)
+    end)
   end
 
   def fetch_all(order_by, ordering, offset, limit, nil = _search_term, _full_search) do
@@ -626,6 +651,20 @@ defmodule PhpInternals.Api.Categories.Category do
     params = %{category_url: category_url}
 
     List.first Neo4j.query!(Neo4j.conn, query, params)
+  end
+
+  def fetch_cache(category_url, "normal") do
+    key = "categories/#{category_url}?normal"
+    ResultCache.fetch(key, fn ->
+      fetch(category_url, "normal")
+    end)
+  end
+
+  def fetch_cache(category_url, "full") do
+    key = "categories/#{category_url}?full"
+    ResultCache.fetch(key, fn ->
+      fetch(category_url, "full")
+    end)
   end
 
   def fetch(category_url, "normal") do

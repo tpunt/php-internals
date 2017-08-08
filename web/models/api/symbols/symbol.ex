@@ -1,6 +1,8 @@
 defmodule PhpInternals.Api.Symbols.Symbol do
   use PhpInternals.Web, :model
 
+  alias PhpInternals.Cache.ResultCache
+
   @valid_order_bys ["name", "date"]
   @default_order_by "name"
 
@@ -287,6 +289,13 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
+  def valid_cache?(symbol_id) do
+    key = "symbols/#{symbol_id}"
+    ResultCache.fetch(key, fn ->
+      valid?(symbol_id)
+    end)
+  end
+
   def valid?(symbol_id) do
     query = "MATCH (symbol:Symbol {id: {symbol_id}}) RETURN symbol"
     params = %{symbol_id: symbol_id}
@@ -413,6 +422,13 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     else
       {:ok}
     end
+  end
+
+  def fetch_all_cache(order_by, ordering, offset, limit, symbol_type, category_filter, search_term, full_search) do
+    key = "symbols?#{order_by}#{ordering}#{offset}#{limit}#{symbol_type}#{category_filter}#{search_term}#{full_search}"
+    ResultCache.fetch(key, fn ->
+      fetch_all(order_by, ordering, offset, limit, symbol_type, category_filter, search_term, full_search)
+    end)
   end
 
   def fetch_all(order_by, ordering, offset, limit, symbol_type, category_filter, search_term, full_search) do
@@ -607,6 +623,13 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     """
 
     Neo4j.query!(Neo4j.conn, query)
+  end
+
+  def fetch_cache(symbol_id, "normal") do
+    key = "symbols/#{symbol_id}?normal"
+    ResultCache.fetch(key, fn ->
+      fetch(symbol_id, "normal")
+    end)
   end
 
   def fetch(symbol_id, "normal") do

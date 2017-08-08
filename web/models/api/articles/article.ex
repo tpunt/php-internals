@@ -1,6 +1,8 @@
 defmodule PhpInternals.Api.Articles.Article do
   use PhpInternals.Web, :model
 
+  alias PhpInternals.Cache.ResultCache
+
   @default_order_by "date"
   @required_fields ["title", "body", "categories", "excerpt", "series_name"]
   @optional_fields [] # "tags"
@@ -36,6 +38,13 @@ defmodule PhpInternals.Api.Articles.Article do
     end
   end
 
+  def valid_cache?(article_url) do
+    key = "articles/#{article_url}"
+    ResultCache.fetch(key, fn ->
+      valid?(article_url)
+    end)
+  end
+
   def valid?(article_url) do
     query = """
       MATCH (article:Article {url: {url}}),
@@ -60,6 +69,13 @@ defmodule PhpInternals.Api.Articles.Article do
 
       {:ok, %{"article" => article}}
     end
+  end
+
+  def valid_series_cache?(series_url) do
+    key = "articles/series=#{series_url}"
+    ResultCache.fetch(key, fn ->
+      valid_series?(series_url)
+    end)
   end
 
   def valid_series?(series_url) do
@@ -102,6 +118,13 @@ defmodule PhpInternals.Api.Articles.Article do
     end
   end
 
+  def valid_in_series_cache?(series_url, article_url) do
+    key = "articles/#{series_url}/#{article_url}"
+    ResultCache.fetch(key, fn ->
+      valid_in_series?(series_url, article_url)
+    end)
+  end
+
   def valid_in_series?(series_url, article_url) do
     query = """
       MATCH (article:Article {series_url: {series_url}, url: {url}}),
@@ -139,6 +162,13 @@ defmodule PhpInternals.Api.Articles.Article do
           {:ok}
       end
     end
+  end
+
+  def fetch_all_cache(order_by, ordering, offset, limit, category_filter, author_filter, search_term, full_search) do
+    key = "articles?#{order_by}#{ordering}#{offset}#{limit}#{category_filter}#{author_filter}#{search_term}#{full_search}"
+    ResultCache.fetch(key, fn ->
+      fetch_all(order_by, ordering, offset, limit, category_filter, author_filter, search_term, full_search)
+    end)
   end
 
   def fetch_all(order_by, ordering, offset, limit, category_filter, author_filter, search_term, full_search) do
