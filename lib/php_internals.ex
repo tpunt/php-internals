@@ -9,7 +9,8 @@ defmodule PhpInternals do
     children = [
       supervisor(PhpInternals.Endpoint, []),
       worker(Neo4j.Sips, [Application.get_env(:neo4j_sips, Neo4j)]),
-      supervisor(PhpInternals.Cache.Supervisor, [])
+      supervisor(PhpInternals.Cache.Supervisor, []),
+      supervisor(PhpInternals.Stats.Supervisor, [])
     ]
 
     # See http://elixir-lang.org/docs/stable/elixir/Supervisor.html

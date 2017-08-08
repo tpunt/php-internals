@@ -4,6 +4,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   alias PhpInternals.Api.Categories.Category
   alias PhpInternals.Utilities
   alias PhpInternals.Api.Users.User
+  alias PhpInternals.Stats.Counter
 
   def index(%{user: %{privilege_level: 0}} = conn, %{"patches" => _scope}) do
     conn
@@ -50,6 +51,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
          {:ok, ordering} <- Utilities.valid_ordering?(params["ordering"]),
          {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
+      Counter.exec(["incr", "visits:categories"])
       all_categories = Category.fetch_all_cache(order_by, ordering, offset, limit, params["search"], params["full_search"])
       render(conn, "index_overview.json", categories: all_categories["result"])
     else
@@ -162,6 +164,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   def show(conn, %{"category_name" => category_url} = params) do
     with {:ok, view_type} <- Category.valid_show_view_type?(params["view"]),
          {:ok, category} <- Category.valid_cache?(category_url) do
+      Counter.exec(["incr", "visits:categories:#{category_url}"])
       case view_type do
         "overview" -> render(conn, "show_overview.json", category: category)
         "normal" -> render(conn, "show.json", category: Category.fetch_cache(category_url, "normal"))

@@ -5,6 +5,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
   alias PhpInternals.Api.Articles.Article
   alias PhpInternals.Api.Users.User
   alias PhpInternals.Utilities
+  alias PhpInternals.Stats.Counter
 
   def index(conn, params) do
     with {:ok, order_by} <- Article.valid_order_by?(params["order_by"]),
@@ -13,6 +14,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]),
          {:ok, _category} <- Category.valid_cache?(params["category"]),
          {:ok, _user} <- User.valid?(params["author"]) do
+      Counter.exec(["incr", "visits:articles"])
       articles = Article.fetch_all_cache(order_by, ordering, offset, limit, params["category"], params["author"], params["search"], params["full_search"])
       render(conn, "index.json", articles: articles["result"])
     else
@@ -25,6 +27,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
 
   def show(conn, %{"series_name" => series_url, "article_name" => article_url}) do
     with {:ok, article} <- Article.valid_in_series_cache?(series_url, article_url) do
+      Counter.exec(["incr", "visits:articles:#{series_url}:#{article_url}"])
       conn
       |> put_status(200)
       |> render("show_full.json", article: article)
@@ -39,12 +42,14 @@ defmodule PhpInternals.Api.Articles.ArticleController do
   def show(conn, %{"article_name" => article_url}) do
     case Article.valid_series_cache?(article_url) do
       {:ok, articles} ->
+        Counter.exec(["incr", "visits:articles:#{article_url}"])
         conn
         |> put_status(200)
         |> render("index.json", articles: articles)
       _ ->
         case Article.valid_cache?(article_url) do
           {:ok, article} ->
+            Counter.exec(["incr", "visits:articles::#{article_url}"])
             conn
             |> put_status(200)
             |> render("show_full.json", article: article)

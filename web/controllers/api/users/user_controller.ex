@@ -3,12 +3,14 @@ defmodule PhpInternals.Api.Users.UserController do
 
   alias PhpInternals.Api.Users.User
   alias PhpInternals.Utilities
+  alias PhpInternals.Stats.Counter
 
   def index(conn, params) do
     with {:ok, order_by} <- User.valid_order_by?(params["order_by"]),
          {:ok, ordering} <- Utilities.valid_ordering?(params["ordering"]),
          {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
+      Counter.exec(["incr", "visits:users"])
       users = User.fetch_all_cache(order_by, ordering, offset, limit, params["search"])
       conn
       |> put_status(200)
@@ -42,6 +44,7 @@ defmodule PhpInternals.Api.Users.UserController do
 
   def show(conn, %{"username" => username}) do
     with {:ok, user} <- User.valid?(username) do
+      Counter.exec(["incr", "visits:users:#{username}"])
       conn
       |> put_status(200)
       |> render("show_full.json", user: user)
