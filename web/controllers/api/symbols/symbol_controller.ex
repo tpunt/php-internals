@@ -51,8 +51,8 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
          {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]),
          {:ok, type} <- Symbol.valid_type?(params["type"]),
-         {:ok, _category} <- Category.valid?(params["category"]) do
-      results = Symbol.fetch_all(order_by, ordering, offset, limit, type, params["category"], params["search"], params["full_search"])
+         {:ok, _category} <- Category.valid_cache?(params["category"]) do
+      results = Symbol.fetch_all_cache(order_by, ordering, offset, limit, type, params["category"], params["search"], params["full_search"])
       render(conn, "index.json", symbols: results["result"])
     else
       {:error, status_code, error} ->
@@ -88,7 +88,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
   def show(conn, %{"symbol_id" => symbol_id, "patches" => "delete"}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, _symbol} <- Symbol.valid?(symbol_id),
+         {:ok, _symbol} <- Symbol.valid_cache?(symbol_id),
          {:ok, symbol} <- Symbol.has_delete_patch?(symbol_id) do
       render(conn, "show_delete.json", symbol: symbol)
     else
@@ -102,7 +102,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   def show(conn, %{"symbol_id" => symbol_id, "patches" => "update", "patch_id" => patch_id}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
          {:ok, patch_id} <- Utilities.valid_id?(patch_id),
-         {:ok, _symbol} <- Symbol.valid?(symbol_id),
+         {:ok, _symbol} <- Symbol.valid_cache?(symbol_id),
          {:ok, symbol} <- Symbol.update_patch_exists?(symbol_id, patch_id) do
       render(conn, "show_specific_update.json", symbol: symbol)
     else
@@ -115,7 +115,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
   def show(conn, %{"symbol_id" => symbol_id, "patches" => "update"}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, _symbol} <- Symbol.valid?(symbol_id) do
+         {:ok, _symbol} <- Symbol.valid_cache?(symbol_id) do
       render(conn, "show_updates.json", symbol: Symbol.fetch_update_patches_for(symbol_id))
     else
       {:error, status_code, error} ->
@@ -145,11 +145,11 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   def show(conn, %{"symbol_id" => symbol_id} = params) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
          {:ok, view_type} <- Symbol.valid_view_type?(params["view"]),
-         {:ok, symbol} <- Symbol.valid?(symbol_id) do
+         {:ok, symbol} <- Symbol.valid_cache?(symbol_id) do
       if view_type === "overview" do
         render(conn, "show_overview.json", symbol: symbol)
       else
-        render(conn, "show.json", symbol: Symbol.fetch(symbol_id, view_type))
+        render(conn, "show.json", symbol: Symbol.fetch_cache(symbol_id, view_type))
       end
     else
       {:error, status_code, status} ->

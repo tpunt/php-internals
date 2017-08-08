@@ -1,6 +1,8 @@
 defmodule PhpInternals.Api.Users.User do
   use PhpInternals.Web, :model
 
+  alias PhpInternals.Cache.ResultCache
+
   @valid_fields ["name", "avatar_url", "blog_url", "email", "bio", "location", "github_url"]
   @admin_valid_fields ["privilege_level", "access_token"] # "username" ?
   @patch_limit 20
@@ -25,7 +27,7 @@ defmodule PhpInternals.Api.Users.User do
   end
 
   def valid?(username) do
-    user = fetch_by_username(username)
+    user = fetch_by_username_cache(username)
 
     if user === nil do
       {:error, 404, "The specified user does not exist"}
@@ -77,6 +79,13 @@ defmodule PhpInternals.Api.Users.User do
     {:ok}
   end
 
+  def fetch_all_cache(order_by, ordering, offset, limit, search_term) do
+    key = "users?#{order_by}#{ordering}#{offset}#{limit}#{search_term}"
+    ResultCache.fetch(key, fn ->
+      fetch_all(order_by, ordering, offset, limit, search_term)
+    end)
+  end
+
   def fetch_all(order_by, ordering, offset, limit, search_term) do
     {where_query, search_term} =
       if search_term !== nil do
@@ -117,6 +126,13 @@ defmodule PhpInternals.Api.Users.User do
     List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
+  def fetch_by_username_cache(username) do
+    key = "users/#{username}"
+    ResultCache.fetch(key, 10, fn ->
+      fetch_by_username(username)
+    end)
+  end
+
   def fetch_by_username(username) do
     query = """
       MATCH (user:User {username: {username}})
@@ -126,6 +142,13 @@ defmodule PhpInternals.Api.Users.User do
     params = %{username: username}
 
     List.first Neo4j.query!(Neo4j.conn, query, params)
+  end
+
+  def fetch_by_token_cache(access_token) do
+    key = "users/token=#{access_token}"
+    ResultCache.fetch(key, 10, fn ->
+      fetch_by_username(access_token)
+    end)
   end
 
   def fetch_by_token(access_token) do
@@ -142,6 +165,13 @@ defmodule PhpInternals.Api.Users.User do
     params = %{access_token: access_token}
 
     List.first Neo4j.query!(Neo4j.conn, query, params)
+  end
+
+  def fetch_contributions_for_cache(username, order_by, ordering, offset, limit) do
+    key = "users/#{username}/contributions?#{order_by}#{ordering}#{offset}#{limit}"
+    ResultCache.fetch(key, 120, fn ->
+      fetch_contributions_for(username, order_by, ordering, offset, limit)
+    end)
   end
 
   def fetch_contributions_for(username, order_by, ordering, offset, limit) do

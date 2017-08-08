@@ -9,7 +9,7 @@ defmodule PhpInternals.Api.Users.UserController do
          {:ok, ordering} <- Utilities.valid_ordering?(params["ordering"]),
          {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
-      users = User.fetch_all(order_by, ordering, offset, limit, params["search"])
+      users = User.fetch_all_cache(order_by, ordering, offset, limit, params["search"])
       conn
       |> put_status(200)
       |> render("index.json", users: users["result"])
@@ -27,7 +27,7 @@ defmodule PhpInternals.Api.Users.UserController do
          {:ok, ordering} <- Utilities.valid_ordering?(params["ordering"]),
          {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
-      contributions = User.fetch_contributions_for(username, order_by, ordering, offset, limit)
+      contributions = User.fetch_contributions_for_cache(username, order_by, ordering, offset, limit)
 
       conn
       |> put_status(200)
