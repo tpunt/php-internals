@@ -52,6 +52,10 @@ defmodule PhpInternals.Router do
       get "/:provider/callback", AuthController, :callback
       delete "/logout", AuthController, :logout
     end
+
+    scope "/contributions", Contributions do
+      get "/", ContributionController, :index
+    end
   end
 
   scope "/", PhpInternals.Site, as: :site do
