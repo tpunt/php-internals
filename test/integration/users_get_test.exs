@@ -6,7 +6,7 @@ defmodule UsersGetTest do
   @doc """
   GET /api/users
   """
-  test "list an existing user" do
+  test "list all users" do
     conn =
       conn(:get, "/api/users", %{})
       |> put_req_header("content-type", "application/json")
