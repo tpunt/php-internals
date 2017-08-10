@@ -37,7 +37,6 @@ defmodule PhpInternals.Router do
     end
 
     scope "/users", Users do
-      get "/:username/contributions", UserController, :show_contributions
       get "/:username", UserController, :show
       patch "/:username", UserController, :update
       get "/", UserController, :index

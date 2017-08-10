@@ -128,8 +128,8 @@ defmodule CategoryPatchTest do
           against_revision: #{rev_id}
         }),
         (c)-[:UPDATE]->(cp),
-        (c)-[:CONTRIBUTOR {type: "insert", date: 1, time: 3}]->(u),
-        (cp)-[:CONTRIBUTOR {type: "update", date: 2, time: 4}]->(u)
+        (c)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 3}]->(u),
+        (cp)-[:CONTRIBUTOR {type: "update", date: 20170810, time: 4}]->(u)
     """)
     data = %{"review" => "1", "references_patch" => "#{rev_id2}", "category" =>
       %{"name" => "#{name}.", "introduction" => "....."}, "revision_id" => rev_id2}
@@ -180,7 +180,7 @@ defmodule CategoryPatchTest do
       MATCH (u:User {access_token: 'at2'})
 
       CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}}),
-        (c)-[:CONTRIBUTOR {type: "insert", date: 1, time: 2}]->(u)
+        (c)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 2}]->(u)
     """)
     data = %{"category" => %{"name" => "#{name}", "introduction" => "."}, "revision_id" => rev_id}
 
@@ -215,7 +215,7 @@ defmodule CategoryPatchTest do
       MATCH (u:User {access_token: 'at2'})
 
       CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}}),
-        (c)-[:CONTRIBUTOR {type: "insert", date: 1, time: 2}]->(u)
+        (c)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 2}]->(u)
     """)
     data = %{"category" => %{"name" => "#{name}", "introduction" => ".", "subcategories" => ["existent"]},
       "revision_id" => rev_id}
@@ -231,7 +231,7 @@ defmodule CategoryPatchTest do
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}'}),
         (c)-[:REVISION]->(cr:CategoryRevision {revision_id: #{rev_id}}),
-        (cr)-[:CONTRIBUTOR {type: "insert", date: 1, time: 2}]->(:User {access_token: 'at2'}),
+        (cr)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 2}]->(:User {access_token: 'at2'}),
         (c)-[:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'}),
         (c)-[:SUBCATEGORY]->(:Category {name: 'existent'})
       RETURN c
@@ -240,7 +240,7 @@ defmodule CategoryPatchTest do
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}'}),
         (c)-[r1:REVISION]-(cr:CategoryRevision {revision_id: #{rev_id}}),
-        (cr)-[r2:CONTRIBUTOR {type: "insert", date: 1, time: 2}]->(:User {access_token: 'at2'}),
+        (cr)-[r2:CONTRIBUTOR {type: "insert", date: 20170810, time: 2}]->(:User {access_token: 'at2'}),
         (c)-[r3:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'}),
         (c)-[r4:SUBCATEGORY]->(:Category {name: 'existent'})
       DELETE r1, r2, r3, r4, c, cr
@@ -263,8 +263,8 @@ defmodule CategoryPatchTest do
           against_revision: #{rev_id}
         }),
         (c)-[:UPDATE]->(cp),
-        (c)-[:CONTRIBUTOR {type: "insert", date: 1, time: 3}]->(u),
-        (cp)-[:CONTRIBUTOR {type: "update", date: 2, time: 4}]->(u)
+        (c)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 3}]->(u),
+        (cp)-[:CONTRIBUTOR {type: "update", date: 20170810, time: 4}]->(u)
     """)
     data = %{"references_patch" => "#{rev_id2}", "category" =>
       %{"name" => "#{name}.", "introduction" => ".."}, "revision_id" => rev_id2}
@@ -312,8 +312,8 @@ defmodule CategoryPatchTest do
           against_revision: #{rev_id}
         }),
         (c)-[:UPDATE]->(cp),
-        (c)-[:CONTRIBUTOR {type: "insert", date: 1, time: 3}]->(u),
-        (cp)-[:CONTRIBUTOR {type: "update", date: 2, time: 4}]->(u)
+        (c)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 3}]->(u),
+        (cp)-[:CONTRIBUTOR {type: "update", date: 20170810, time: 4}]->(u)
     """)
     data = %{"references_patch" => "#{rev_id2}", "category" =>
       %{"name" => "#{name}.", "introduction" => "..", "subcategories" => ["existent"]},
@@ -372,7 +372,7 @@ defmodule CategoryPatchTest do
           url: '#{name}',
           revision_id: #{rev_id}
         }),
-        (c)-[:CONTRIBUTOR {type: "insert", date: 1, time: 2}]->(u)
+        (c)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 2}]->(u)
     """)
 
     conn =
@@ -391,7 +391,7 @@ defmodule CategoryPatchTest do
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}'}),
-        (c)-[r1:CONTRIBUTOR {type: "insert", date: 1, time: 2}]->(:User {access_token: 'at2'}),
+        (c)-[r1:CONTRIBUTOR {type: "insert", date: 20170810, time: 2}]->(:User {access_token: 'at2'}),
         (c)-[r2:CONTRIBUTOR {type: 'apply_insert'}]->(:User {access_token: 'at2'})
       DELETE r1, r2, c
     """)
@@ -409,7 +409,7 @@ defmodule CategoryPatchTest do
           url: '#{name}',
           revision_id: #{rev_id}
         }),
-        (c)-[:CONTRIBUTOR {type: "insert", date: 1, time: 2}]->(u)
+        (c)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 2}]->(u)
     """)
 
     conn =
@@ -481,8 +481,8 @@ defmodule CategoryPatchTest do
           against_revision: #{rev_id}
         }),
         (c)-[:UPDATE]->(ucp),
-        (c)-[:CONTRIBUTOR {type: "insert", date: 1, time: 3}]->(u),
-        (ucp)-[:CONTRIBUTOR {type: "update", date: 2, time: 4}]->(u)
+        (c)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 3}]->(u),
+        (ucp)-[:CONTRIBUTOR {type: "update", date: 20170810, time: 4}]->(u)
     """)
 
     conn =
@@ -784,9 +784,9 @@ defmodule CategoryPatchTest do
         }),
         (c)-[:UPDATE]->(ucp1),
         (c)-[:UPDATE]->(ucp2),
-        (c)-[:CONTRIBUTOR {type: "insert", date: 1, time: 4}]->(u),
-        (ucp1)-[:CONTRIBUTOR {type: "update", date: 2, time: 5}]->(u),
-        (ucp2)-[:CONTRIBUTOR {type: "update", date: 3, time: 6}]->(u)
+        (c)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 4}]->(u),
+        (ucp1)-[:CONTRIBUTOR {type: "update", date: 20170810, time: 5}]->(u),
+        (ucp2)-[:CONTRIBUTOR {type: "update", date: 20170810, time: 6}]->(u)
     """)
     data = %{"category" => %{"name" => "#{name}...#{name}", "introduction" => "."}, "revision_id" => rev_id}
 

@@ -46,7 +46,7 @@ defmodule ArticleDeleteTest do
           series_name: '',
           series_url: ''
         }),
-        (a)-[:CONTRIBUTOR {type: "insert", date: 1, time: 2}]->(u),
+        (a)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 2}]->(u),
         (a)-[:CATEGORY]->(c)
     """)
 
@@ -61,7 +61,7 @@ defmodule ArticleDeleteTest do
       MATCH (u:User {id: 3}),
         (c:Category {url: 'existent'}),
         (ad:ArticleDeleted {url: '#{art_name}'}),
-        (ad)-[:CONTRIBUTOR {type: "insert", date: 1, time: 2}]->(u),
+        (ad)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 2}]->(u),
         (ad)-[:CATEGORY]->(c)
       RETURN ad
     """)

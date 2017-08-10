@@ -23,25 +23,6 @@ defmodule PhpInternals.Api.Users.UserController do
     end
   end
 
-  def show_contributions(conn, %{"username" => username} = params) do
-    with {:ok, user} <- User.valid?(username),
-         {:ok, order_by} <- User.valid_order_by?(params["order_by"]),
-         {:ok, ordering} <- Utilities.valid_ordering?(params["ordering"]),
-         {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
-         {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
-      contributions = User.fetch_contributions_for_cache(username, order_by, ordering, offset, limit)
-
-      conn
-      |> put_status(200)
-      |> render("show_contributions.json", %{user: user, contributions: contributions})
-    else
-      {:error, status_code, error} ->
-        conn
-        |> put_status(status_code)
-        |> render(PhpInternals.ErrorView, "error.json", error: error)
-    end
-  end
-
   def show(conn, %{"username" => username}) do
     with {:ok, user} <- User.valid?(username) do
       Counter.exec(["incr", "visits:users:#{username}"])

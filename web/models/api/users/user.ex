@@ -171,47 +171,6 @@ defmodule PhpInternals.Api.Users.User do
     List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def fetch_contributions_for_cache(username, order_by, ordering, offset, limit) do
-    key = "users/#{username}/contributions?#{order_by}#{ordering}#{offset}#{limit}"
-    ResultCache.fetch(key, 120, fn ->
-      fetch_contributions_for(username, order_by, ordering, offset, limit)
-    end)
-  end
-
-  def fetch_contributions_for(username, order_by, ordering, offset, limit) do
-    query = """
-      MATCH (u:User {username: {username}}),
-        (u)<-[cr:CONTRIBUTOR]-(cn)
-
-      WITH cn,
-        cr,
-        CASE WHEN HEAD(LABELS(cn)) IN [
-            'Category',
-            'InsertCategoryPatch',
-            'UpdateCategoryPatch',
-            'CategoryDeleted',
-            'CategoryRevision'
-          ] THEN 'category'
-          WHEN HEAD(LABELS(cn)) = 'Article' THEN 'article'
-          ELSE 'symbol'
-        END AS filter
-
-      RETURN {
-        type: cr.type,
-        date: cr.date,
-        towards: CASE WHEN filter = 'category' THEN {category: cn} ELSE cn END,
-        filter: filter
-      } AS contribution
-      ORDER BY cr.#{order_by} #{ordering}
-      SKIP #{offset}
-      LIMIT #{limit}
-    """
-
-    params = %{username: username, order_by: order_by, ordering: ordering, offset: offset, limit: limit}
-
-    Neo4j.query!(Neo4j.conn, query, params)
-  end
-
   def update_token(username, access_token) do
     query = """
       MATCH (u:User {username: {username}})
