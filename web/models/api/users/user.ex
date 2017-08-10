@@ -22,8 +22,12 @@ defmodule PhpInternals.Api.Users.User do
     end
   end
 
-  def valid?(nil = username) do
+  def valid_optional?(nil = username) do
     {:ok, username}
+  end
+
+  def valid_optional?(username) do
+    valid?(username)
   end
 
   def valid?(username) do

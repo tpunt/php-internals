@@ -13,7 +13,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
          {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]),
          {:ok, _category} <- Category.valid_cache?(params["category"]),
-         {:ok, _user} <- User.valid?(params["author"]) do
+         {:ok, _user} <- User.valid_optional?(params["author"]) do
       Counter.exec(["incr", "visits:articles"])
       articles = Article.fetch_all_cache(order_by, ordering, offset, limit, params["category"], params["author"], params["search"], params["full_search"])
       render(conn, "index.json", articles: articles["result"])
