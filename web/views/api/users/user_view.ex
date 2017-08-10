@@ -20,23 +20,6 @@ defmodule PhpInternals.Api.Users.UserView do
     %{user: render_one(user, UserView, "user_full.json")}
   end
 
-  def render("show_contributions.json", %{user: user, contributions: contributions}) do
-    contributions =
-      contributions
-      |> Enum.map(fn %{"contribution" => %{"filter" => filter, "towards" => towards} = data} ->
-          case filter do
-            "category" ->
-              Map.put(data, "towards", CategoryView.render("show_overview.json", %{category: towards}))
-            "article" ->
-              Map.put(data, "towards", ArticleView.render("show_brief_overview.json", %{article: towards}))
-            "symbol" ->
-              Map.put(data, "towards", SymbolView.render("show_overview.json", %{symbol: towards}))
-          end
-        end)
-
-    Map.merge(render("show_overview.json", user: user), %{"contributions" => contributions})
-  end
-
   def render("user_overview.json", %{user: %{"user" => user}}) do
     %{
       username: user["username"],
