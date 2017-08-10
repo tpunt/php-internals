@@ -85,7 +85,7 @@ defmodule CategoryGetTest do
           introduction: '...',
           url: '#{name}',
           revision_id: #{rev_id}
-        })-[:CONTRIBUTOR {type: 'insert', date: timestamp()}]->(u)
+        })-[:CONTRIBUTOR {type: 'insert', date: 1, time: timestamp()}]->(u)
     """)
 
     conn =
@@ -126,7 +126,7 @@ defmodule CategoryGetTest do
           against_revision: #{rev_id}
         }),
         (c)-[:UPDATE]->(ucp),
-        (ucp)-[:CONTRIBUTOR {type: 'insert', date: timestamp()}]->(u)
+        (ucp)-[:CONTRIBUTOR {type: 'insert', date: 1, time: timestamp()}]->(u)
     """)
 
     conn =
@@ -189,7 +189,7 @@ defmodule CategoryGetTest do
           against_revision: #{rev_id}
         }),
         (c)-[:UPDATE]->(ucp),
-        (ucp)-[:CONTRIBUTOR {type: 'insert', date: timestamp()}]->(u)
+        (ucp)-[:CONTRIBUTOR {type: 'insert', date: 1, time: timestamp()}]->(u)
     """)
 
     conn =

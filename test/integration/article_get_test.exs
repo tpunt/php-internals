@@ -12,7 +12,7 @@ defmodule ArticleGetTest do
 
     assert response.status === 200
     assert %{"article" => %{"title" => "existent", "url" => "existent", "excerpt" => ".",
-      "body" => ".", "date" => _date}} = Poison.decode!(response.resp_body)
+      "body" => ".", "time" => _time}} = Poison.decode!(response.resp_body)
   end
 
   @doc """
@@ -42,7 +42,7 @@ defmodule ArticleGetTest do
           series_name: '#{ser_name}',
           series_url: '#{ser_name}'
         }),
-        (a)-[:CONTRIBUTOR {type: "insert", date: 1}]->(u),
+        (a)-[:CONTRIBUTOR {type: "insert", date: 1, time: 2}]->(u),
         (a)-[:CATEGORY]->(c)
     """)
     conn = conn(:get, "/api/articles/#{ser_name}")
@@ -50,7 +50,7 @@ defmodule ArticleGetTest do
 
     assert response.status === 200
     assert %{"articles" => [%{"article" => %{"title" => art_name2a, "url" => art_name2b,
-      "excerpt" => ".", "date" => _date, "series_name" => ser_name2a, "series_url" => ser_name2b}}]}
+      "excerpt" => ".", "time" => _time, "series_name" => ser_name2a, "series_url" => ser_name2b}}]}
         = Poison.decode!(response.resp_body)
     assert String.to_integer(art_name2a) === art_name
     assert String.to_integer(art_name2b) === art_name

@@ -2,6 +2,7 @@ defmodule PhpInternals.Api.Categories.Category do
   use PhpInternals.Web, :model
 
   alias PhpInternals.Cache.ResultCache
+  alias PhpInternals.Utilities
 
   @required_fields ["name", "introduction"]
   @optional_fields ["subcategories", "supercategories"]
@@ -784,7 +785,7 @@ defmodule PhpInternals.Api.Categories.Category do
           url: {url},
           revision_id: {rev_id}
         }),
-        (c)-[:CONTRIBUTOR {type: "insert", date: timestamp()}]->(user)
+        (c)-[:CONTRIBUTOR {type: "insert", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
         #{linked_categories_join}
 
       WITH c
@@ -884,7 +885,7 @@ defmodule PhpInternals.Api.Categories.Category do
         ucpr
 
       MATCH (category)-[r:CONTRIBUTOR]->(old_user:User)
-      CREATE (old_category)-[:CONTRIBUTOR {type: r.type, date: r.date}]->(old_user)
+      CREATE (old_category)-[:CONTRIBUTOR {type: r.type, date: r.date, time: r.time}]->(old_user)
       DELETE r
 
       WITH category,
@@ -894,7 +895,7 @@ defmodule PhpInternals.Api.Categories.Category do
         ucpr,
         COLLECT(old_user) AS unused
 
-      CREATE (category)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
+      CREATE (category)-[:CONTRIBUTOR {type: "update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
 
       FOREACH (ignored IN CASE category_revision WHEN NULL THEN [] ELSE [1] END |
         CREATE (old_category)-[:REVISION]->(category_revision)
@@ -942,7 +943,7 @@ defmodule PhpInternals.Api.Categories.Category do
           against_revision: {against_rev}
         }),
         (category)-[:UPDATE]->(ucp),
-        (ucp)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
+        (ucp)-[:CONTRIBUTOR {type: "update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
         #{linked_categories_join}
     """
 
@@ -1049,7 +1050,7 @@ defmodule PhpInternals.Api.Categories.Category do
         old_category
 
       MATCH (category)-[r:CONTRIBUTOR]->(old_user:User)
-      CREATE (old_category)-[:CONTRIBUTOR {type: r.type, date: r.date}]->(old_user)
+      CREATE (old_category)-[:CONTRIBUTOR {type: r.type, date: r.date, time: r.time}]->(old_user)
       DELETE r
 
       WITH category,
@@ -1060,7 +1061,7 @@ defmodule PhpInternals.Api.Categories.Category do
         old_category,
         COLLECT(old_user) AS unused
 
-      CREATE (category)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
+      CREATE (category)-[:CONTRIBUTOR {type: "update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
 
       FOREACH (ignored IN CASE category_revision WHEN NULL THEN [] ELSE [1] END |
         CREATE (old_category)-[:REVISION]->(category_revision)
@@ -1131,7 +1132,7 @@ defmodule PhpInternals.Api.Categories.Category do
           against_revision: {against_rev}
         }),
         (category)-[:UPDATE]->(new_ucp),
-        (new_ucp)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user),
+        (new_ucp)-[:CONTRIBUTOR {type: "update", date: #{Utilities.get_date()}, time: timestamp()}]->(user),
         (new_ucp)-[:UPDATE_REVISION]->(old_ucp)
         #{linked_categories_join}
 
@@ -1211,7 +1212,7 @@ defmodule PhpInternals.Api.Categories.Category do
           REMOVE cp:InsertCategoryPatch
           SET cp:Category
 
-          CREATE (cp)-[:CONTRIBUTOR {type: "apply_insert", date: timestamp()}]->(user)
+          CREATE (cp)-[:CONTRIBUTOR {type: "apply_insert", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
 
           WITH cp
 
@@ -1364,7 +1365,7 @@ defmodule PhpInternals.Api.Categories.Category do
               r2
 
             MATCH (category)-[r:CONTRIBUTOR]->(old_user:User)
-            CREATE (old_category)-[:CONTRIBUTOR {type: r.type, date: r.date}]->(old_user)
+            CREATE (old_category)-[:CONTRIBUTOR {type: r.type, date: r.date, time: r.time}]->(old_user)
             DELETE r
 
             WITH category,
@@ -1379,8 +1380,8 @@ defmodule PhpInternals.Api.Categories.Category do
               r2,
               COLLECT(old_user) AS unused
 
-            CREATE (category)-[:CONTRIBUTOR {type: "apply_update", date: timestamp()}]->(new_user),
-              (category)-[:CONTRIBUTOR {type: r2.type, date: r2.date}]->(user)
+            CREATE (category)-[:CONTRIBUTOR {type: "apply_update", date: #{Utilities.get_date()}, time: timestamp()}]->(new_user),
+              (category)-[:CONTRIBUTOR {type: r2.type, date: r2.date, time: r2.time}]->(user)
 
             FOREACH (ignored IN CASE category_revision WHEN NULL THEN [] ELSE [1] END |
               CREATE (old_category)-[:REVISION]->(category_revision)
@@ -1436,8 +1437,8 @@ defmodule PhpInternals.Api.Categories.Category do
             (user:User {username: {username}})
           REMOVE c:Category
           SET c:CategoryDeleted
-          CREATE (c)-[:CONTRIBUTOR {type: "delete", date: timestamp()}]->(user2),
-            (c)-[:CONTRIBUTOR {type: "apply_delete", date: timestamp()}]->(user)
+          CREATE (c)-[:CONTRIBUTOR {type: "delete", date: #{Utilities.get_date()}, time: timestamp()}]->(user2),
+            (c)-[:CONTRIBUTOR {type: "apply_delete", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
           DELETE r
         """
 
@@ -1464,7 +1465,7 @@ defmodule PhpInternals.Api.Categories.Category do
           (user:User {username: {username}})
         REMOVE cp:InsertCategoryPatch
         SET cp:InsertCategoryPatchDeleted
-        CREATE (cp)-[:CONTRIBUTOR {type: "discard_insert", date: timestamp()}]->(user)
+        CREATE (cp)-[:CONTRIBUTOR {type: "discard_insert", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
       """
 
       Neo4j.query!(Neo4j.conn, query, params)
@@ -1495,7 +1496,7 @@ defmodule PhpInternals.Api.Categories.Category do
             (c)-[:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
           REMOVE cp:UpdateCategoryPatch
           SET cp:UpdateCategoryPatchDeleted
-          CREATE (cp)-[:CONTRIBUTOR {type: "discard_update", date: timestamp()}]->(user)
+          CREATE (cp)-[:CONTRIBUTOR {type: "discard_update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
         """
         Neo4j.query!(Neo4j.conn, query, params)
 
@@ -1542,7 +1543,7 @@ defmodule PhpInternals.Api.Categories.Category do
         (user:User {username: {username}})
       REMOVE c:Category
       SET c:CategoryDeleted
-      CREATE (c)-[:CONTRIBUTOR {type: "delete", date: timestamp()}]->(user)
+      CREATE (c)-[:CONTRIBUTOR {type: "delete", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
     """
 
     params = %{url: category_url, username: username}
@@ -1573,7 +1574,7 @@ defmodule PhpInternals.Api.Categories.Category do
       SET sd:Category
       DELETE r1, r2
 
-      CREATE (s)-[:CONTRIBUTOR {type: "undo_delete", date: timestamp()}]->(u)
+      CREATE (s)-[:CONTRIBUTOR {type: "undo_delete", date: #{Utilities.get_date()}, time: timestamp()}]->(u)
     """
 
     params = %{url: category_url, username: username}

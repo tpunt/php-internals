@@ -20,7 +20,7 @@ defmodule ArticlesPostTest do
     assert response.status === 201
     assert %{"article" =>
       %{"title" => art_name2a, "url" => art_name2b, "excerpt" => ".", "body" => "...",
-        "date" => _date, "series_name" => "a"}}
+        "time" => _time, "series_name" => "a"}}
           = Poison.decode!(response.resp_body)
     assert String.to_integer(art_name2a) === art_name
     assert String.to_integer(art_name2b) === art_name
@@ -45,7 +45,7 @@ defmodule ArticlesPostTest do
     assert response.status === 201
     assert %{"article" =>
       %{"title" => art_name2a, "url" => art_name2b, "excerpt" => ".", "body" => "...",
-        "date" => _date, "series_name" => ""}}
+        "time" => _time, "series_name" => ""}}
           = Poison.decode!(response.resp_body)
     assert String.to_integer(art_name2a) === art_name
     assert String.to_integer(art_name2b) === art_name

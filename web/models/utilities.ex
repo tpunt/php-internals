@@ -101,4 +101,15 @@ defmodule PhpInternals.Utilities do
   def revision_ids_match?(id1, id2) do
     if id1 === id2, do: {:ok}, else: {:error, 400, "Revision ID mismatch"}
   end
+
+  def get_date() do
+    {{year, month, day}, _} = :calendar.now_to_datetime(:os.timestamp)
+
+    month = String.pad_leading(Integer.to_string(month), 2, "0")
+    day = String.pad_leading(Integer.to_string(day), 2, "0")
+
+    {date, _} = Integer.parse("#{year}#{month}#{day}")
+
+    date
+  end
 end

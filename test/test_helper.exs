@@ -24,7 +24,7 @@ defmodule PopulateDatabase do
         (a:Article {title: 'existent', url: 'existent', body: '.', series_name: '', excerpt: '.'}),
         (s)-[:CATEGORY]->(c),
         (a)-[:CATEGORY]->(c),
-        (a)-[:CONTRIBUTOR {type: "insert", date: 1}]->(u)
+        (a)-[:CONTRIBUTOR {type: "insert", date: 1, time: 2}]->(u)
     """
 
     Neo4j.query!(Neo4j.conn, query)

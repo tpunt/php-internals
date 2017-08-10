@@ -22,7 +22,7 @@ defmodule ArticlePatchTest do
           body: '...',
           date: timestamp()
         }),
-        (a)-[:CONTRIBUTOR {type: "insert", date: 1}]->(u),
+        (a)-[:CONTRIBUTOR {type: "insert", date: 1, time: 2}]->(u),
         (a)-[:CATEGORY]->(c),
         (:Category {
           name: '#{cat_name}',
@@ -43,7 +43,7 @@ defmodule ArticlePatchTest do
     assert response.status === 200
     assert %{"article" =>
       %{"title" => art_name2a, "url" => art_name2b, "excerpt" => "...", "body" => ".",
-        "date" => _date, "categories" => categories, "author" => %{"username" => "user3"},
+        "time" => _time, "categories" => categories, "author" => %{"username" => "user3"},
         "series_name" => ser_name2}}
           = Poison.decode!(response.resp_body)
     assert [%{"category" => %{"name" => cat_name2a, "url" => cat_name2b}}] = categories
@@ -74,7 +74,7 @@ defmodule ArticlePatchTest do
           body: '...',
           date: timestamp()
         }),
-        (a)-[:CONTRIBUTOR {type: "insert", date: 1}]->(u),
+        (a)-[:CONTRIBUTOR {type: "insert", date: 1, time: 2}]->(u),
         (a)-[:CATEGORY]->(c),
         (:Category {
           name: '#{cat_name}',
@@ -95,7 +95,7 @@ defmodule ArticlePatchTest do
     assert response.status === 200
     assert %{"article" =>
       %{"title" => art_name2a, "url" => art_name2b, "excerpt" => "...", "body" => ".",
-        "date" => _date, "categories" => categories, "author" => %{"username" => "user3"},
+        "time" => _time, "categories" => categories, "author" => %{"username" => "user3"},
         "series_name" => ""}}
           = Poison.decode!(response.resp_body)
     assert [%{"category" => %{"name" => cat_name2a, "url" => cat_name2b}}] = categories
@@ -126,7 +126,7 @@ defmodule ArticlePatchTest do
           body: '...',
           date: timestamp()
         }),
-        (a)-[:CONTRIBUTOR {type: "insert", date: 1}]->(u),
+        (a)-[:CONTRIBUTOR {type: "insert", date: 1, time: 2}]->(u),
         (a)-[:CATEGORY]->(c),
         (:Category {
           name: '#{cat_name}',

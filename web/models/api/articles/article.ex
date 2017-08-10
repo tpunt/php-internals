@@ -2,8 +2,9 @@ defmodule PhpInternals.Api.Articles.Article do
   use PhpInternals.Web, :model
 
   alias PhpInternals.Cache.ResultCache
+  alias PhpInternals.Utilities
 
-  @default_order_by "date"
+  @default_order_by "time"
   @required_fields ["title", "body", "categories", "excerpt", "series_name"]
   @optional_fields [] # "tags"
 
@@ -86,14 +87,14 @@ defmodule PhpInternals.Api.Articles.Article do
       RETURN {
           title: a.title,
           url: a.url,
-          date: a.date,
+          time: a.time,
           excerpt: a.excerpt,
           series_name: a.series_name,
           series_url: a.series_url
         } AS article,
         collect({category: category}) as categories,
         {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
-      ORDER BY article.date ASC
+      ORDER BY article.time ASC
     """
 
     params = %{series_url: series_url}
@@ -215,7 +216,7 @@ defmodule PhpInternals.Api.Articles.Article do
         article: {
           title: a.title,
           url: a.url,
-          date: a.date,
+          time: a.time,
           excerpt: a.excerpt,
           series_name: a.series_name,
           series_url: a.series_url,
@@ -255,9 +256,10 @@ defmodule PhpInternals.Api.Articles.Article do
         series_url: {series_url},
         excerpt: {excerpt},
         body: {body},
-        date: timestamp()
+        date: #{Utilities.get_date()},
+        time: timestamp()
       }),
-      (article)-[:CONTRIBUTOR {type: "insert", date: article.timestamp}]->(user)
+      (article)-[:CONTRIBUTOR {type: "insert", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
     """
 
     {query2, params1, _counter} =

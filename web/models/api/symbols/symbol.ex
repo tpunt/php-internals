@@ -2,6 +2,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   use PhpInternals.Web, :model
 
   alias PhpInternals.Cache.ResultCache
+  alias PhpInternals.Utilities
 
   @valid_order_bys ["name", "date"]
   @default_order_by "name"
@@ -752,7 +753,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       WITH s
       MATCH (s)-[crel:CATEGORY]->(category:Category),
         (user:User {username: {username}})
-      MERGE (s)-[:CONTRIBUTOR {type: "insert", date: timestamp()}]->(user)
+      MERGE (s)-[:CONTRIBUTOR {type: "insert", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
       RETURN {
         symbol: s,
         categories: COLLECT({category: {name: category.name, url: category.url}})
@@ -809,7 +810,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
           #{query2}
         }),
         (new_symbol)-[:REVISION]->(old_symbol),
-        (new_symbol)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
+        (new_symbol)-[:CONTRIBUTOR {type: "update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
     """
 
     {queries, params1, _counter} =
@@ -891,7 +892,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
           #{query2}
         }),
         (old_symbol)-[:UPDATE]->(new_symbol),
-        (new_symbol)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
+        (new_symbol)-[:CONTRIBUTOR {type: "update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
     """
 
     {queries, params1, _counter} =
@@ -975,7 +976,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       query2 = """
         CREATE (new_symbol:Symbol {#{query2}}),
           (new_symbol)-[:REVISION]->(old_symbol),
-          (new_symbol)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user),
+          (new_symbol)-[:CONTRIBUTOR {type: "update", date: #{Utilities.get_date()}, time: timestamp()}]->(user),
           (new_symbol)-[:UPDATE_REVISION]->(symbol_patch)
       """
 
@@ -1071,7 +1072,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       CREATE (new_symbol:UpdateSymbolPatch {id: {symbol_id}, against_revision: {against_revision}, #{query2}}),
         (old_symbol)-[:UPDATE]->(new_symbol),
         (new_symbol)-[:UPDATE_REVISION]->(symbol_patch),
-        (new_symbol)-[:CONTRIBUTOR {type: "update", date: timestamp()}]->(user)
+        (new_symbol)-[:CONTRIBUTOR {type: "update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
     """
 
     {queries, params1, _counter} =
@@ -1129,7 +1130,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         (user:User {username: {username}})
       REMOVE s:InsertSymbolPatch
       SET s:Symbol
-      MERGE (s)-[:CONTRIBUTOR {type: "apply_insert", date: timestamp()}]->(user)
+      MERGE (s)-[:CONTRIBUTOR {type: "apply_insert", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
       RETURN {
         symbol: s,
         categories: COLLECT({category: {name: category.name, url: category.url}})
@@ -1180,7 +1181,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
         MATCH (new_symbol)-[:CATEGORY]->(category:Category),
           (user:User {username: {username}})
-        MERGE (new_symbol)-[:CONTRIBUTOR {type: "apply_update", date: timestamp()}]->(user)
+        MERGE (new_symbol)-[:CONTRIBUTOR {type: "apply_update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
         RETURN {
           symbol: new_symbol,
           categories: COLLECT({category: {name: category.name, url: category.url}})
@@ -1210,8 +1211,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       SET s:SymbolDeleted
 
       DELETE r
-      CREATE (s)-[:CONTRIBUTOR {type: "delete", date: timestamp()}]->(u),
-        (s)-[:CONTRIBUTOR {type: "apply_delete", date: timestamp()}]->(u2)
+      CREATE (s)-[:CONTRIBUTOR {type: "delete", date: #{Utilities.get_date()}, time: timestamp()}]->(u),
+        (s)-[:CONTRIBUTOR {type: "apply_delete", date: #{Utilities.get_date()}, time: timestamp()}]->(u2)
 
       RETURN s
     """
@@ -1234,7 +1235,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
           (user:User {username: {username}})
         REMOVE isp:InsertSymbolPatch
         SET isp:InsertSymbolPatchDeleted
-        MERGE (isp)-[:CONTRIBUTOR {type: "discard_insert", date: timestamp()}]->(user)
+        MERGE (isp)-[:CONTRIBUTOR {type: "discard_insert", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
       """
 
       params = %{symbol_id: symbol_id, username: username}
@@ -1255,7 +1256,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
           (user:User {username: {username}})
         REMOVE usp:UpdateSymbolPatch
         SET usp:UpdateSymbolPatchDeleted
-        MERGE (usp)-[:CONTRIBUTOR {type: "discard_update", date: timestamp()}]->(user)
+        MERGE (usp)-[:CONTRIBUTOR {type: "discard_update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
       """
 
       params = %{revision_id: patch_revision_id, username: username}
@@ -1297,7 +1298,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         (u:User {username: {username}})
       REMOVE s:Symbol
       SET s:SymbolDeleted
-      CREATE (s)-[:CONTRIBUTOR {type: "delete", date: timestamp()}]->(u)
+      CREATE (s)-[:CONTRIBUTOR {type: "delete", date: #{Utilities.get_date()}, time: timestamp()}]->(u)
     """
 
     params = %{symbol_id: symbol_id, username: username}
@@ -1328,7 +1329,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       SET sd:Symbol
       DELETE r1, r2
 
-      CREATE (s)-[:CONTRIBUTOR {type: "undo_delete", date: timestamp()}]->(u)
+      CREATE (s)-[:CONTRIBUTOR {type: "undo_delete", date: #{Utilities.get_date()}, time: timestamp()}]->(u)
     """
 
     params = %{symbol_id: symbol_id, username: username}
