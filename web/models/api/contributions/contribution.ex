@@ -106,6 +106,7 @@ defmodule PhpInternals.Api.Contributions.Contribution do
       WITH COLLECT({
           type: cr.type,
           date: cr.date,
+          time: cr.time,
           towards: CASE WHEN filter = 'category' THEN {category: cn} ELSE cn END,
           filter: filter,
           author: {
@@ -161,6 +162,7 @@ defmodule PhpInternals.Api.Contributions.Contribution do
       WITH COLLECT(CASE cr WHEN NULL THEN NULL ELSE {
           type: cr.type,
           date: cr.date,
+          time: cr.time,
           towards: CASE WHEN filter = 'category' THEN {category: cn} ELSE cn END,
           filter: filter
         } END) AS contributions
