@@ -1,6 +1,15 @@
 defmodule PhpInternals.Api.Contributions.Contribution do
   use PhpInternals.Web, :model
 
+  alias PhpInternals.Cache.ResultCache
+
+  def fetch_all_overview_cache(offset, limit) do
+    key = "contributions?overview&#{offset}&#{limit}"
+    ResultCache.fetch(key, 60, fn ->
+      fetch_all_overview(offset, limit)
+    end)
+  end
+
   def fetch_all_overview(offset, limit) do
     query = """
       MATCH (u:User)
@@ -36,6 +45,13 @@ defmodule PhpInternals.Api.Contributions.Contribution do
     List.first Neo4j.query!(Neo4j.conn, query)
   end
 
+  def fetch_all_overview_for_cache(username) do
+    key = "contributions?overview&#{username}"
+    ResultCache.fetch(key, 60, fn ->
+      fetch_all_overview_for(username)
+    end)
+  end
+
   def fetch_all_overview_for(username) do
     query = """
       MATCH (u:User {username: {username}})
@@ -58,6 +74,13 @@ defmodule PhpInternals.Api.Contributions.Contribution do
     params = %{username: username}
 
     List.first Neo4j.query!(Neo4j.conn, query, params)
+  end
+
+  def fetch_all_normal_cache(offset, limit) do
+    key = "contributions?normal&#{offset}&#{limit}"
+    ResultCache.fetch(key, 60, fn ->
+      fetch_all_normal(offset, limit)
+    end)
   end
 
   def fetch_all_normal(offset, limit) do
@@ -106,6 +129,13 @@ defmodule PhpInternals.Api.Contributions.Contribution do
     params = %{offset: offset, limit: limit}
 
     List.first Neo4j.query!(Neo4j.conn, query, params)
+  end
+
+  def fetch_all_normal_for_cache(username, offset, limit) do
+    key = "contributions?normal&#{username}&#{offset}&#{limit}"
+    ResultCache.fetch(key, 60, fn ->
+      fetch_all_normal_for(username, offset, limit)
+    end)
   end
 
   def fetch_all_normal_for(username, offset, limit) do
