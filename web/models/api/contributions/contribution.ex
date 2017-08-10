@@ -7,7 +7,7 @@ defmodule PhpInternals.Api.Contributions.Contribution do
       OPTIONAL MATCH (u)<-[:CONTRIBUTOR]-(c)
 
       WITH {
-          user: {
+          author: {
             username: u.username,
             name: u.name,
             privilege_level: u.privilege_level,
@@ -43,17 +43,21 @@ defmodule PhpInternals.Api.Contributions.Contribution do
 
       WHERE cr.time > timestamp() - 31556952000
 
-      RETURN {
-        contribution_count: COUNT(cr),
-        date: cr.date
-      } AS day
+      WITH cr.date AS date, COUNT(cr) AS contribution_count
 
-      ORDER BY day.date ASC
+      ORDER BY date ASC
+
+      RETURN COLLECT(CASE date WHEN NULL THEN NULL ELSE {
+        day: {
+          contribution_count: contribution_count,
+          date: date
+        }
+      } END) AS result
     """
 
     params = %{username: username}
 
-    Neo4j.query!(Neo4j.conn, query, params)
+    List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
   def fetch_all_normal(offset, limit) do
@@ -81,7 +85,7 @@ defmodule PhpInternals.Api.Contributions.Contribution do
           date: cr.date,
           towards: CASE WHEN filter = 'category' THEN {category: cn} ELSE cn END,
           filter: filter,
-          user: {
+          author: {
             username: u.username,
             name: u.name,
             privilege_level: u.privilege_level,
@@ -124,12 +128,12 @@ defmodule PhpInternals.Api.Contributions.Contribution do
 
       ORDER BY cr.date DESC
 
-      WITH COLLECT({
+      WITH COLLECT(CASE cr WHEN NULL THEN NULL ELSE {
           type: cr.type,
           date: cr.date,
           towards: CASE WHEN filter = 'category' THEN {category: cn} ELSE cn END,
           filter: filter
-        }) AS contributions
+        } END) AS contributions
 
       RETURN {
         contributions: contributions[#{offset}..#{offset + limit}],

@@ -21,10 +21,12 @@ defmodule PopulateDatabase do
           type: 'macro',
           revision_id: 123
         }),
-        (a:Article {title: 'existent', url: 'existent', body: '.', series_name: '', excerpt: '.'}),
+        (a:Article {title: 'existent', url: 'existent', body: '.', series_name: '', excerpt: '.', date: 20170810, time: 2}),
         (s)-[:CATEGORY]->(c),
         (a)-[:CATEGORY]->(c),
-        (a)-[:CONTRIBUTOR {type: "insert", date: 1, time: 2}]->(u)
+        (c)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 1499974146854}]->(u),
+        (s)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 1499974146854}]->(u),
+        (a)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 1499974146854}]->(u)
     """
 
     Neo4j.query!(Neo4j.conn, query)

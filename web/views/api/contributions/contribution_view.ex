@@ -50,9 +50,9 @@ defmodule PhpInternals.Api.Contributions.ContributionView do
     %{contribution: render_one(contributor, ContributionView, "contribution_normal_for_user.json")}
   end
 
-  def render("contribution_overview.json", %{contribution: %{"contribution_count" => contribution_count, "user" => user}}) do
+  def render("contribution_overview.json", %{contribution: %{"contribution_count" => contribution_count, "author" => author}}) do
     %{
-      user: UserView.render("user_overview.json", %{user: %{"user" => user}}),
+      author: UserView.render("user_overview.json", %{user: %{"user" => author}}),
       contribution_count: contribution_count
     }
   end
@@ -66,7 +66,7 @@ defmodule PhpInternals.Api.Contributions.ContributionView do
 
   def render("contribution_normal.json", %{contribution: contribution}) do
     contribution = Map.put(contribution, "date", render_date(contribution["date"]))
-    contribution = Map.put(contribution, "user", UserView.render("user_overview.json", %{user: %{"user" => contribution["user"]}}))
+    contribution = Map.put(contribution, "author", UserView.render("user_overview.json", %{user: %{"user" => contribution["author"]}}))
 
     case contribution["filter"] do
       "category" ->

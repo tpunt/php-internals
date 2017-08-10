@@ -22,7 +22,7 @@ defmodule ArticlePatchTest do
           body: '...',
           date: timestamp()
         }),
-        (a)-[:CONTRIBUTOR {type: "insert", date: 1, time: 2}]->(u),
+        (a)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 2}]->(u),
         (a)-[:CATEGORY]->(c),
         (:Category {
           name: '#{cat_name}',
@@ -74,7 +74,7 @@ defmodule ArticlePatchTest do
           body: '...',
           date: timestamp()
         }),
-        (a)-[:CONTRIBUTOR {type: "insert", date: 1, time: 2}]->(u),
+        (a)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 2}]->(u),
         (a)-[:CATEGORY]->(c),
         (:Category {
           name: '#{cat_name}',
@@ -126,7 +126,7 @@ defmodule ArticlePatchTest do
           body: '...',
           date: timestamp()
         }),
-        (a)-[:CONTRIBUTOR {type: "insert", date: 1, time: 2}]->(u),
+        (a)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 2}]->(u),
         (a)-[:CATEGORY]->(c),
         (:Category {
           name: '#{cat_name}',

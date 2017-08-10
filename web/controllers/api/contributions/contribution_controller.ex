@@ -8,7 +8,7 @@ defmodule PhpInternals.Api.Contributions.ContributionController do
   def index(conn, %{"view" => "overview", "author" => username}) do
     with {:ok, _username} <- User.valid?(username) do
       contributions = Contribution.fetch_all_overview_for(username)
-      render(conn, "index_overview_for_user.json", contributions: contributions)
+      render(conn, "index_overview_for_user.json", contributions: contributions["result"])
     else
       {:error, status_code, error} ->
         conn

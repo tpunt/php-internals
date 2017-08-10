@@ -1,10 +1,7 @@
 defmodule PhpInternals.Api.Users.UserView do
   use PhpInternals.Web, :view
 
-  alias PhpInternals.Api.Articles.ArticleView
   alias PhpInternals.Api.Users.UserView
-  alias PhpInternals.Api.Categories.CategoryView
-  alias PhpInternals.Api.Symbols.SymbolView
   alias PhpInternals.Api.UtilitiesView
 
   def render("index.json", %{users: %{"users" => users, "meta" => meta}}) do
