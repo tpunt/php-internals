@@ -83,10 +83,10 @@ defmodule PhpInternals.Api.Categories.Category do
   end
 
   def validate_field("introduction", value) do
-    if String.length(value) > 0 and String.length(value) < 6_001 do
+    if String.length(value) > 0 and String.length(value) < 15_001 do
       {:ok, %{"introduction" => value}}
     else
-      {:error, "The introduction field should have a length of between 1 and 6000 (inclusive)"}
+      {:error, "The introduction field should have a length of between 1 and 15000 (inclusive)"}
     end
   end
 

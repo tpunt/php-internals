@@ -327,15 +327,15 @@ defmodule CategoriesPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "The introduction field should have a length of between 1 and 6000 (inclusive)"}}
+    assert %{"error" => %{"message" => "The introduction field should have a length of between 1 and 15000 (inclusive)"}}
       = Poison.decode!(response.resp_body)
   end
 
   @doc """
   POST /api/categories -H 'authorization: at3'
   """
-  test "invalid category insert (introduction field length > 6000)" do
-    data = %{"category" => %{"introduction" => String.duplicate("a", 6_001), "name" => "a"}}
+  test "invalid category insert (introduction field length > 15000)" do
+    data = %{"category" => %{"introduction" => String.duplicate("a", 15_001), "name" => "a"}}
 
     conn =
       conn(:post, "/api/categories", data)
@@ -345,7 +345,7 @@ defmodule CategoriesPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "The introduction field should have a length of between 1 and 6000 (inclusive)"}}
+    assert %{"error" => %{"message" => "The introduction field should have a length of between 1 and 15000 (inclusive)"}}
       = Poison.decode!(response.resp_body)
   end
 
