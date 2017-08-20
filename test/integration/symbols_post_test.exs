@@ -249,17 +249,17 @@ defmodule SymbolsPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "The declaration field should have a length of between 1 and 150 (inclusive)"}}
+    assert %{"error" => %{"message" => "The declaration field should have a length of between 1 and 200 (inclusive)"}}
       = Poison.decode!(response.resp_body)
   end
 
   @doc """
   POST /api/symbols -H authorization: at2
   """
-  test "Invalid symbol insert (declaration field length > 150)" do
+  test "Invalid symbol insert (declaration field length > 200)" do
     data = %{"symbol" => %{"name" => "a", "description" => ".",
       "definition" => ".", "source_location" => ".", "type" => "macro",
-      "categories" => ["existent"], "declaration" => String.duplicate("a", 151)}}
+      "categories" => ["existent"], "declaration" => String.duplicate("a", 201)}}
 
     conn =
       conn(:post, "/api/symbols", data)
@@ -269,7 +269,7 @@ defmodule SymbolsPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "The declaration field should have a length of between 1 and 150 (inclusive)"}}
+    assert %{"error" => %{"message" => "The declaration field should have a length of between 1 and 200 (inclusive)"}}
       = Poison.decode!(response.resp_body)
   end
 

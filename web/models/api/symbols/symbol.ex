@@ -120,10 +120,10 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   end
 
   def validate_field("declaration", value) do
-    if String.length(value) > 0 and String.length(value) < 151 do
+    if String.length(value) > 0 and String.length(value) < 201 do
       {:ok, %{"declaration" => value}}
     else
-      {:error, "The declaration field should have a length of between 1 and 150 (inclusive)"}
+      {:error, "The declaration field should have a length of between 1 and 200 (inclusive)"}
     end
   end
 
