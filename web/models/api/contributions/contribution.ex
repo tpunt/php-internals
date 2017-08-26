@@ -101,7 +101,7 @@ defmodule PhpInternals.Api.Contributions.Contribution do
           ELSE 'symbol'
         END AS filter
 
-      ORDER BY cr.date DESC
+      ORDER BY cr.date DESC, cr.time DESC
 
       WITH COLLECT({
           type: cr.type,
@@ -157,7 +157,7 @@ defmodule PhpInternals.Api.Contributions.Contribution do
           ELSE 'symbol'
         END AS filter
 
-      ORDER BY cr.date DESC
+      ORDER BY cr.date DESC, cr.time DESC
 
       WITH COLLECT(CASE cr WHEN NULL THEN NULL ELSE {
           type: cr.type,
