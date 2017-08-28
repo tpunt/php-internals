@@ -53,7 +53,7 @@ defmodule CategoriesGetTest do
   GET /api/categories?search=~&full_search=true
   """
   test "search all categories by body" do
-    conn = conn(:get, "/api/categories", %{"search" => "~", "full_search" => 1})
+    conn = conn(:get, "/api/categories", %{"search" => "~", "full_search" => "1"})
     response = Router.call(conn, @opts)
 
     assert response.status === 200

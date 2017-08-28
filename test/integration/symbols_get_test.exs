@@ -161,7 +161,7 @@ defmodule SymbolsGetTest do
   GET /api/symbols?search=~&full_search=true
   """
   test "search all symbols by description" do
-    conn = conn(:get, "/api/symbols", %{"search" => "~", "full_search" => 1})
+    conn = conn(:get, "/api/symbols", %{"search" => "~", "full_search" => "1"})
     response = Router.call(conn, @opts)
 
     assert response.status === 200

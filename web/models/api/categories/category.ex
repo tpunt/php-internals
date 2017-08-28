@@ -364,21 +364,21 @@ defmodule PhpInternals.Api.Categories.Category do
   end
 
   def fetch_all(order_by, ordering, offset, limit, search_term, full_search) do
-    {column, search_term} =
-      if full_search do
-        {"introduction", "(?i).*#{search_term}.*"}
+    {where_query, search_term} =
+      if String.first(search_term) === "=" do
+        {"WHERE c.name =~ {search_term}", "(?i)#{String.slice(search_term, 1..-1)}"}
       else
-        if String.first(search_term) === "=" do
-          {"name", "(?i)#{String.slice(search_term, 1..-1)}"}
+        if full_search === "1" do
+          {"WHERE (c.name =~ {search_term} OR c.introduction =~ {search_term})", "(?i).*#{search_term}.*"}
         else
-          {"name", "(?i).*#{search_term}.*"}
+          {"WHERE c.name =~ {search_term} ", "(?i).*#{search_term}.*"}
         end
       end
 
     query = """
       MATCH (c:Category)
 
-      WHERE c.#{column} =~ {search_term}
+      #{where_query}
 
       WITH c
 

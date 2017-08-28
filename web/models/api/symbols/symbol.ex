@@ -444,20 +444,15 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       if search_term === nil do
         {"", search_term}
       else
-        where_query = "WHERE s."
-
-        {column, search_term} =
-          if full_search do
-            {"description", "(?i).*#{search_term}.*"}
+        if String.first(search_term) === "=" do
+          {"WHERE s.name =~ {search_term}", "(?i)#{String.slice(search_term, 1..-1)}"}
+        else
+          if full_search === "1" do
+            {"WHERE (s.name =~ {search_term} OR s.description =~ {search_term})", "(?i).*#{search_term}.*"}
           else
-            if String.first(search_term) === "=" do
-              {"name", "(?i)#{String.slice(search_term, 1..-1)}"}
-            else
-              {"name", "(?i).*#{search_term}.*"}
-            end
+            {"WHERE s.name =~ {search_term} ", "(?i).*#{search_term}.*"}
           end
-
-        {where_query <> column <> " =~ {search_term}", search_term}
+        end
       end
 
     search_by_symbol_type =
