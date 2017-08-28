@@ -369,7 +369,7 @@ defmodule PhpInternals.Api.Categories.Category do
         {"WHERE c.name =~ {search_term}", "(?i)#{String.slice(search_term, 1..-1)}"}
       else
         if full_search === "1" do
-          {"WHERE (c.name =~ {search_term} OR c.introduction =~ {search_term})", "(?i).*#{search_term}.*"}
+          {"WHERE (c.name =~ {search_term} OR c.introduction =~ {search_term})", "(?ims).*#{search_term}.*"}
         else
           {"WHERE c.name =~ {search_term} ", "(?i).*#{search_term}.*"}
         end

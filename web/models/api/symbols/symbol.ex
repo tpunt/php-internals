@@ -448,7 +448,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
           {"WHERE s.name =~ {search_term}", "(?i)#{String.slice(search_term, 1..-1)}"}
         else
           if full_search === "1" do
-            {"WHERE (s.name =~ {search_term} OR s.description =~ {search_term})", "(?i).*#{search_term}.*"}
+            {"WHERE (s.name =~ {search_term} OR s.description =~ {search_term})", "(?ims).*#{search_term}.*"}
           else
             {"WHERE s.name =~ {search_term} ", "(?i).*#{search_term}.*"}
           end
