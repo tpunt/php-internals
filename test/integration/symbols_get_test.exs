@@ -141,7 +141,8 @@ defmodule SymbolsGetTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert %{"symbols" => [%{"symbol" => %{"url" => "existent"}}]} = Poison.decode! response.resp_body
+    assert %{"symbols" => [%{"symbol" => %{"url" => "existent"}}], "meta" => _}
+      = Poison.decode! response.resp_body
   end
 
   @doc """

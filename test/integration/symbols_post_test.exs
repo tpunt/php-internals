@@ -143,6 +143,13 @@ defmodule SymbolsPostTest do
 
     assert response.status === 200
 
+    conn = conn(:get, "/api/symbols", %{"search" => "=#{sym_name}"})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"symbols" => [%{"symbol" => %{"type" => "macro"}}], "meta" => _}
+      = Poison.decode! response.resp_body
+
     Neo4j.query!(Neo4j.conn, "MATCH (s:Symbol {name: '#{sym_name}'})-[r]-() DELETE r, s")
   end
 

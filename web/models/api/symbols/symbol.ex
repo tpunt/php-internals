@@ -820,10 +820,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result)
     else
       key_id = "symbols/#{params2.id}?normal"
-      key_url = "symbols/#{result["symbol"]["symbol"]["url"]}"
-      ResultCache.invalidate(key_url)
-      new_symbol = ResultCache.set(key_url, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
-      ResultCache.set(key_id, new_symbol)
+      new_symbol = ResultCache.set(key_id, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
       ResultCache.flush("symbols")
       new_symbol
     end
