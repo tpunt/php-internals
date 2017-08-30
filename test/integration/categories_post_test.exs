@@ -35,6 +35,11 @@ defmodule CategoriesPostTest do
       RETURN c
     """)
 
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 404
+
     Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatch {name: '#{name}'})-[r]-() DELETE r, c")
   end
 
@@ -58,6 +63,11 @@ defmodule CategoriesPostTest do
       RETURN c
     """)
 
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 404
+
     Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatch {name: '#{name}'})-[r]-() DELETE r, c")
   end
 
@@ -79,6 +89,11 @@ defmodule CategoriesPostTest do
         (c)-[:CONTRIBUTOR {type: 'insert'}]->(:User {access_token: 'at3'})
       RETURN c
     """)
+
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 404
 
     Neo4j.query!(Neo4j.conn, "MATCH (c:InsertCategoryPatch {name: '#{name}'})-[r]-() DELETE r, c")
   end
@@ -124,6 +139,11 @@ defmodule CategoriesPostTest do
       RETURN c
     """)
 
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+
     Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'})-[r]-() DELETE r, c")
   end
 
@@ -145,6 +165,11 @@ defmodule CategoriesPostTest do
         (c)-[:CONTRIBUTOR {type: 'insert'}]->(:User {access_token: 'at3'})
       RETURN c
     """)
+
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
 
     Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'})-[r]-() DELETE r, c")
   end
@@ -170,6 +195,11 @@ defmodule CategoriesPostTest do
       RETURN c
     """)
 
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+
     Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'})-[r]-() DELETE r, c")
   end
 
@@ -193,6 +223,11 @@ defmodule CategoriesPostTest do
         (:Category {name: 'existent'})-[:SUBCATEGORY]->(c)
       RETURN c
     """)
+
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
 
     Neo4j.query!(Neo4j.conn, "MATCH (c:Category {name: '#{name}'})-[r]-() DELETE r, c")
   end
@@ -259,7 +294,7 @@ defmodule CategoriesPostTest do
       CREATE (user:User {username: '#{name}', access_token: '#{name}', privilege_level: 1}),
         (c:UpdateCategoryPatch)
       FOREACH (ignored in RANGE(1, 20) |
-        CREATE (c)-[:CONTRIBUTOR]->(user)
+        CREATE (c)-[:CONTRIBUTOR {date: 20170830, time: 2}]->(user)
       )
     """)
 

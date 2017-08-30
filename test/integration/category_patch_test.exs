@@ -45,6 +45,11 @@ defmodule CategoryPatchTest do
       RETURN c
     """)
 
+    conn = conn(:get, "/api/categories/#{name}?view=full", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
+
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {revision_id: #{rev_id}})-[r1]-(),
         (c)-[:UPDATE]->(ucp:UpdateCategoryPatch)-[r2]-()
@@ -75,11 +80,16 @@ defmodule CategoryPatchTest do
         RETURN c
       """)
 
-      Neo4j.query!(Neo4j.conn, """
-        MATCH (c:Category {revision_id: #{rev_id}})-[r1]-(),
-          (c)-[:UPDATE]->(ucp:UpdateCategoryPatch)-[r2]-()
-        DELETE r1, r2, c, ucp
-      """)
+    conn = conn(:get, "/api/categories/#{name}?view=full", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {revision_id: #{rev_id}})-[r1]-(),
+        (c)-[:UPDATE]->(ucp:UpdateCategoryPatch)-[r2]-()
+      DELETE r1, r2, c, ucp
+    """)
   end
 
   test "Authorised update existing category review 3" do
@@ -105,11 +115,16 @@ defmodule CategoryPatchTest do
         RETURN c
       """)
 
-      Neo4j.query!(Neo4j.conn, """
-        MATCH (c:Category {revision_id: #{rev_id}})-[r1]-(),
-          (c)-[:UPDATE]->(ucp:UpdateCategoryPatch)-[r2]-()
-        DELETE r1, r2, c, ucp
-      """)
+    conn = conn(:get, "/api/categories/#{name}?view=full", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {revision_id: #{rev_id}})-[r1]-(),
+        (c)-[:UPDATE]->(ucp:UpdateCategoryPatch)-[r2]-()
+      DELETE r1, r2, c, ucp
+    """)
   end
 
   test "Authorised update existing category review 4" do
@@ -150,6 +165,11 @@ defmodule CategoryPatchTest do
       RETURN c
     """)
 
+    conn = conn(:get, "/api/categories/#{name}?view=full", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
+
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {revision_id: #{rev_id}}),
         (c)-[r1:UPDATE]->(ucp:UpdateCategoryPatch),
@@ -184,6 +204,10 @@ defmodule CategoryPatchTest do
     """)
     data = %{"category" => %{"name" => "#{name}", "introduction" => "."}, "revision_id" => rev_id}
 
+    # prime the cache
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    Router.call(conn, @opts)
+
     conn =
       conn(:patch, "/api/categories/#{name}", data)
       |> put_req_header("authorization", "at2")
@@ -198,6 +222,11 @@ defmodule CategoryPatchTest do
         (c)-[r2:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at2'})
       RETURN c
     """)
+
+    conn = conn(:get, "/api/categories/#{name}?view=full", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}'}),
@@ -220,6 +249,10 @@ defmodule CategoryPatchTest do
     data = %{"category" => %{"name" => "#{name}", "introduction" => ".", "subcategories" => ["existent"]},
       "revision_id" => rev_id}
 
+    # prime the cache
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    Router.call(conn, @opts)
+
     conn =
       conn(:patch, "/api/categories/#{name}", data)
       |> put_req_header("authorization", "at3")
@@ -236,6 +269,11 @@ defmodule CategoryPatchTest do
         (c)-[:SUBCATEGORY]->(:Category {name: 'existent'})
       RETURN c
     """)
+
+    conn = conn(:get, "/api/categories/#{name}?view=full", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}'}),
@@ -269,6 +307,10 @@ defmodule CategoryPatchTest do
     data = %{"references_patch" => "#{rev_id2}", "category" =>
       %{"name" => "#{name}.", "introduction" => ".."}, "revision_id" => rev_id2}
 
+    # prime the cache
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    Router.call(conn, @opts)
+
     conn =
       conn(:patch, "/api/categories/#{name}", data)
       |> put_req_header("authorization", "at3")
@@ -284,6 +326,17 @@ defmodule CategoryPatchTest do
         (c)-[:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'})
       RETURN c
     """)
+
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert response2.status === 404
+
+    conn = conn(:get, "/api/categories/#{name}.?view=full", %{})
+    response3 = Router.call(conn, @opts)
+
+    assert response3.status === 200
+    assert Poison.decode!(response3.resp_body) === Poison.decode!(response.resp_body)
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}.'}),
@@ -319,6 +372,10 @@ defmodule CategoryPatchTest do
       %{"name" => "#{name}.", "introduction" => "..", "subcategories" => ["existent"]},
         "revision_id" => rev_id2}
 
+    # prime the cache
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    Router.call(conn, @opts)
+
     conn =
       conn(:patch, "/api/categories/#{name}", data)
       |> put_req_header("authorization", "at3")
@@ -335,6 +392,17 @@ defmodule CategoryPatchTest do
         (c)-[:SUBCATEGORY]->(:Category {name: 'existent'})
       RETURN c
     """)
+
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert response2.status === 404
+
+    conn = conn(:get, "/api/categories/#{name}.?view=full", %{})
+    response3 = Router.call(conn, @opts)
+
+    assert response3.status === 200
+    assert Poison.decode!(response3.resp_body) === Poison.decode!(response.resp_body)
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}.'}),
@@ -389,6 +457,12 @@ defmodule CategoryPatchTest do
       RETURN c
     """)
 
+    conn = conn(:get, "/api/categories/#{name}?view=full", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert response2.status === 200
+    assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
+
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}'}),
         (c)-[r1:CONTRIBUTOR {type: "insert", date: 20170810, time: 2}]->(:User {access_token: 'at2'}),
@@ -425,6 +499,12 @@ defmodule CategoryPatchTest do
         (c)-[r:CONTRIBUTOR {type: 'apply_insert'}]->(:User {access_token: 'at3'})
       RETURN c
     """)
+
+    conn = conn(:get, "/api/categories/#{name}?view=full", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert response2.status === 200
+    assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}'}),
@@ -485,6 +565,10 @@ defmodule CategoryPatchTest do
         (ucp)-[:CONTRIBUTOR {type: "update", date: 20170810, time: 4}]->(u)
     """)
 
+    # prime the cache
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    Router.call(conn, @opts)
+
     conn =
       conn(:patch, "/api/categories/#{name}", %{"apply_patch" => "update,#{rev_id2}"})
       |> put_req_header("authorization", "at3")
@@ -500,6 +584,17 @@ defmodule CategoryPatchTest do
         (c1)-[r:CONTRIBUTOR {type: 'apply_update'}]->(:User {access_token: 'at3'})
       RETURN c2
     """)
+
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert response2.status === 404
+
+    conn = conn(:get, "/api/categories/#{name}.#{name}?view=full", %{})
+    response3 = Router.call(conn, @opts)
+
+    assert response3.status === 200
+    assert Poison.decode!(response3.resp_body) === Poison.decode!(response.resp_body)
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c1:Category {revision_id: #{rev_id2}}),
@@ -601,6 +696,10 @@ defmodule CategoryPatchTest do
         (c)<-[:DELETE]-(u)
     """)
 
+    # prime the cache
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    Router.call(conn, @opts)
+
     conn =
       conn(:patch, "/api/categories/#{name}", %{"apply_patch" => "delete"})
       |> put_req_header("authorization", "at3")
@@ -613,6 +712,11 @@ defmodule CategoryPatchTest do
         (c)-[:CONTRIBUTOR {type: 'apply_delete'}]->(:User {access_token: 'at3'})
       RETURN c
     """)
+
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert response2.status === 404
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:CategoryDeleted {revision_id: #{rev_id}})-[r]-()
@@ -743,7 +847,7 @@ defmodule CategoryPatchTest do
       CREATE (user:User {username: '#{name}', access_token: '#{name}', privilege_level: 1}),
         (c:UpdateCategoryPatch)
       FOREACH (ignored in RANGE(1, 20) |
-        CREATE (c)-[:CONTRIBUTOR]->(user)
+        CREATE (c)-[:CONTRIBUTOR {date: 20170830, time: 2}]->(user)
       )
     """)
 
@@ -790,6 +894,10 @@ defmodule CategoryPatchTest do
     """)
     data = %{"category" => %{"name" => "#{name}...#{name}", "introduction" => "."}, "revision_id" => rev_id}
 
+    # prime the cache
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    Router.call(conn, @opts)
+
     conn =
       conn(:patch, "/api/categories/#{name}", data)
       |> put_req_header("authorization", "at3")
@@ -807,6 +915,17 @@ defmodule CategoryPatchTest do
         (c)-[:CONTRIBUTOR]->(:User {access_token: 'at3'})
       RETURN c
     """)
+
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert response2.status === 404
+
+    conn = conn(:get, "/api/categories/#{name}...#{name}?view=full", %{})
+    response3 = Router.call(conn, @opts)
+
+    assert response3.status === 200
+    assert Poison.decode!(response3.resp_body) === Poison.decode!(response.resp_body)
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}...#{name}'})-[r]-(),

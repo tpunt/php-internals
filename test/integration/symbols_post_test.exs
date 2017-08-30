@@ -136,6 +136,13 @@ defmodule SymbolsPostTest do
       RETURN s
     """)
 
+    body = Poison.decode!(response.resp_body)
+
+    conn = conn(:get, "/api/symbols/#{body["symbol"]["symbol_id"]}", %{})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+
     Neo4j.query!(Neo4j.conn, "MATCH (s:Symbol {name: '#{sym_name}'})-[r]-() DELETE r, s")
   end
 
@@ -163,6 +170,13 @@ defmodule SymbolsPostTest do
       RETURN s
     """)
 
+    body = Poison.decode!(response.resp_body)
+
+    conn = conn(:get, "/api/symbols/#{body["symbol"]["symbol_id"]}", %{})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+
     Neo4j.query!(Neo4j.conn, "MATCH (s:Symbol {name: '#{sym_name}'})-[r]-() DELETE r, s")
   end
 
@@ -175,7 +189,7 @@ defmodule SymbolsPostTest do
       CREATE (user:User {username: '#{name}', access_token: '#{name}', privilege_level: 1}),
         (c:UpdateCategoryPatch)
       FOREACH (ignored in RANGE(1, 20) |
-        CREATE (c)-[:CONTRIBUTOR]->(user)
+        CREATE (c)-[:CONTRIBUTOR {date: 20170830, time: 2}]->(user)
       )
     """)
 

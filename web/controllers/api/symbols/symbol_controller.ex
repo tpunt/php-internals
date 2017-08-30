@@ -54,8 +54,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
          {:ok, type} <- Symbol.valid_type?(params["type"]),
          {:ok, _category} <- Category.valid_cache?(params["category"]) do
       Counter.exec(["incr", "visits:symbols"])
-      results = Symbol.fetch_all_cache(order_by, ordering, offset, limit, type, params["category"], params["search"], params["full_search"])
-      render(conn, "index.json", symbols: results["result"])
+      send_resp(conn, 200, Symbol.fetch_all_cache(order_by, ordering, offset, limit, type, params["category"], params["search"], params["full_search"]))
     else
       {:error, status_code, error} ->
         conn
@@ -150,9 +149,9 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
          {:ok, symbol} <- Symbol.valid_cache?(symbol_id) do
       Counter.exec(["incr", "visits:symbols:#{symbol_id}"])
       if view_type === "overview" do
-        render(conn, "show_overview.json", symbol: symbol)
+        send_resp(conn, 200, symbol)
       else
-        render(conn, "show.json", symbol: Symbol.fetch_cache(symbol_id, view_type))
+        send_resp(conn, 200, Symbol.fetch_cache(symbol_id, view_type))
       end
     else
       {:error, status_code, status} ->
@@ -223,7 +222,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
       if is_integer(return) do
         send_resp(conn, return, "")
       else
-        render(conn, "show.json", symbol: return)
+        send_resp(conn, 200, return)
       end
     else
       {:error, status_code, message} ->
@@ -317,9 +316,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
 
       status_code = if review === 0, do: 201, else: 202
 
-      conn
-      |> put_status(status_code)
-      |> render("show.json", symbol: symbol)
+      send_resp(conn, status_code, symbol)
     else
       {:error, status_code, status} ->
         conn
@@ -351,9 +348,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
           |> put_status(status_code)
           |> render(PhpInternals.ErrorView, "error.json", error: error)
         {:ok, status_code, symbol} ->
-          conn
-          |> put_status(status_code)
-          |> render("show.json", symbol: symbol)
+          send_resp(conn, status_code, symbol)
       end
     else
       {:error, status_code, error} ->
@@ -371,9 +366,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
       Symbol.soft_delete(symbol_id, review, conn.user.username)
 
       status_code = if review == 0, do: 204, else: 202
-
-      conn
-      |> send_resp(status_code, "")
+      send_resp(conn, status_code, "")
     else
       {:error, status_code, error} ->
         conn

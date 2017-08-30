@@ -3,6 +3,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
   alias PhpInternals.Cache.ResultCache
   alias PhpInternals.Utilities
+  alias PhpInternals.Api.Categories.CategoryView
 
   @required_fields ["name", "introduction"]
   @optional_fields ["subcategories", "supercategories"]
@@ -225,9 +226,17 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def valid_cache?(category_url) do
     key = "categories/#{category_url}?overview"
-    ResultCache.fetch(key, fn ->
-      valid?(category_url)
-    end)
+    case ResultCache.get(key) do
+      {:not_found} ->
+        case valid?(category_url) do
+          {:ok, category} ->
+            response = Phoenix.View.render_to_string(CategoryView, "show_overview.json", category: category)
+            ResultCache.set(key, response)
+            {:ok, response}
+          error -> error
+        end
+      {:found, response} -> {:ok, response}
+    end
   end
 
   def valid?(nil = _category_url), do: {:ok, nil}
@@ -307,17 +316,25 @@ defmodule PhpInternals.Api.Categories.Category do
   end
 
   def fetch_all_cache(order_by, ordering, offset, limit, nil = _search_term, _full_search) do
-    key = "categories?#{order_by}#{ordering}#{offset}#{limit}"
+    key = "categories?#{order_by}&#{ordering}&#{offset}&#{limit}&&0"
     ResultCache.fetch(key, fn ->
-      fetch_all(order_by, ordering, offset, limit, nil, false)
+      all_categories = fetch_all(order_by, ordering, offset, limit, nil, false)
+      ResultCache.group("categories", key)
+      Phoenix.View.render_to_string(CategoryView, "index_overview.json", categories: all_categories["result"])
     end)
   end
 
   def fetch_all_cache(order_by, ordering, offset, limit, search_term, full_search) do
-    key = "categories?#{order_by}#{ordering}#{offset}#{limit}#{search_term}#{full_search}"
-    ResultCache.fetch(key, fn ->
-      fetch_all(order_by, ordering, offset, limit, search_term, full_search)
-    end)
+    # Don't bother caching search terms...
+    # key = "categories?#{order_by}&#{ordering}&#{offset}&#{limit}&#{search_term}&#{full_search}"
+    # ResultCache.fetch(key, fn ->
+    #   all_categories = fetch_all(order_by, ordering, offset, limit, search_term, full_search)
+    #   ResultCache.group("categories", key)
+    #   Phoenix.View.render_to_string(CategoryView, "index_overview.json", categories: all_categories["result"])
+    # end)
+
+    all_categories = fetch_all(order_by, ordering, offset, limit, search_term, full_search)
+    Phoenix.View.render_to_string(CategoryView, "index_overview.json", categories: all_categories["result"])
   end
 
   def fetch_all(order_by, ordering, offset, limit, nil = _search_term, _full_search) do
@@ -656,16 +673,24 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def fetch_cache(category_url, "normal") do
     key = "categories/#{category_url}?normal"
-    ResultCache.fetch(key, fn ->
-      fetch(category_url, "normal")
-    end)
+    case ResultCache.get(key) do
+      {:not_found} ->
+        category = fetch(category_url, "normal")
+        response = Phoenix.View.render_to_string(CategoryView, "show.json", category: category)
+        ResultCache.set(key, response)
+      {:found, response} -> response
+    end
   end
 
   def fetch_cache(category_url, "full") do
     key = "categories/#{category_url}?full"
-    ResultCache.fetch(key, fn ->
-      fetch(category_url, "full")
-    end)
+    case ResultCache.get(key) do
+      {:not_found} ->
+        category = fetch(category_url, "full")
+        response = Phoenix.View.render_to_string(CategoryView, "show_full.json", category: category)
+        ResultCache.set(key, response)
+      {:found, response} -> response
+    end
   end
 
   def fetch(category_url, "normal") do
@@ -822,7 +847,16 @@ defmodule PhpInternals.Api.Categories.Category do
         username: username
       })
 
-    List.first Neo4j.query!(Neo4j.conn, query, params)
+    new_category = List.first Neo4j.query!(Neo4j.conn, query, params)
+
+    if review === 1 do
+      Phoenix.View.render_to_string(CategoryView, "show.json", category: new_category)
+    else
+      key = "categories/#{category["url_name"]}?normal"
+      new_category = ResultCache.set(key, Phoenix.View.render_to_string(CategoryView, "show.json", category: new_category))
+      ResultCache.flush("categories")
+      new_category
+    end
   end
 
   def update(old_category, new_category, 0 = _review, username, nil = _patch_revision_id) do
@@ -923,7 +957,15 @@ defmodule PhpInternals.Api.Categories.Category do
 
     Neo4j.query!(Neo4j.conn, query, params)
 
-    fetch(new_category["url"], "full")
+    category = fetch(new_category["url"], "full")
+
+    new_key = "categories/#{new_category["url"]}?full"
+    ResultCache.invalidate("categories/#{old_category["url"]}?overview")
+    ResultCache.invalidate("categories/#{old_category["url"]}?normal")
+    ResultCache.invalidate("categories/#{old_category["url"]}?full")
+    category = ResultCache.set(new_key, Phoenix.View.render_to_string(CategoryView, "show_full.json", category: category))
+    ResultCache.flush("categories")
+    category
   end
 
   def update(old_category, new_category, 1 = _review, username, nil = _patch_revision_id) do
@@ -960,7 +1002,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
     Neo4j.query!(Neo4j.conn, query, params)
 
-    fetch(old_category["url"], "full")
+    fetch_cache(old_category["url"], "full")
   end
 
   def update(old_category, new_category, 0 = _review, username, patch_revision_id) do
@@ -1093,7 +1135,15 @@ defmodule PhpInternals.Api.Categories.Category do
 
     Neo4j.query!(Neo4j.conn, query, params)
 
-    fetch(new_category["url"], "full")
+    category = fetch(new_category["url"], "full")
+
+    new_key = "categories/#{new_category["url"]}?full"
+    ResultCache.invalidate("categories/#{old_category["url"]}?overview")
+    ResultCache.invalidate("categories/#{old_category["url"]}?normal")
+    ResultCache.invalidate("categories/#{old_category["url"]}?full")
+    category = ResultCache.set(new_key, Phoenix.View.render_to_string(CategoryView, "show_full.json", category: category))
+    ResultCache.flush("categories")
+    category
   end
 
   def update(old_category, new_category, 1 = _review, username, patch_revision_id) do
@@ -1154,7 +1204,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
     Neo4j.query!(Neo4j.conn, query, params)
 
-    fetch(old_category["url"], "full")
+    fetch_cache(old_category["url"], "full")
   end
 
   defp linked_categories_query_builder(nil, nil, _name), do: {"", "", %{}, ""}
@@ -1239,7 +1289,12 @@ defmodule PhpInternals.Api.Categories.Category do
           } as category
         """
 
-        {:ok, List.first Neo4j.query!(Neo4j.conn, query, params)}
+        new_category = List.first Neo4j.query!(Neo4j.conn, query, params)
+
+        key = "categories/#{category_url}?full"
+        new_category = ResultCache.set(key, Phoenix.View.render_to_string(CategoryView, "show_full.json", category: new_category))
+        ResultCache.flush("categories")
+        {:ok, new_category}
       end
     end
   end
@@ -1408,9 +1463,16 @@ defmodule PhpInternals.Api.Categories.Category do
             DETACH DELETE ucp
           """
 
-          List.first Neo4j.query!(Neo4j.conn, query, params)
+          Neo4j.query!(Neo4j.conn, query, params)
 
-          {:ok, fetch(category["cp"]["url"], "full")}
+          ResultCache.invalidate("categories/#{category["c"]["url"]}?overview")
+          ResultCache.invalidate("categories/#{category["c"]["url"]}?normal")
+          ResultCache.invalidate("categories/#{category["c"]["url"]}?full")
+          key = "categories/#{category["cp"]["url"]}?full"
+          new_category = fetch(category["cp"]["url"], "full")
+          new_category = ResultCache.set(key, Phoenix.View.render_to_string(CategoryView, "show_full.json", category: new_category))
+          ResultCache.flush("categories")
+          {:ok, new_category}
         end
       end
     end
@@ -1443,6 +1505,11 @@ defmodule PhpInternals.Api.Categories.Category do
         """
 
         Neo4j.query!(Neo4j.conn, query, params)
+
+        ResultCache.invalidate("categories/#{category_url}?overview")
+        ResultCache.invalidate("categories/#{category_url}?normal")
+        ResultCache.invalidate("categories/#{category_url}?full")
+        ResultCache.flush("categories")
 
         {:ok, 204}
       end
@@ -1549,6 +1616,10 @@ defmodule PhpInternals.Api.Categories.Category do
     params = %{url: category_url, username: username}
 
     Neo4j.query!(Neo4j.conn, query, params)
+
+    ResultCache.invalidate("categories/#{category_url}?overview")
+    ResultCache.invalidate("categories/#{category_url}?normal")
+    ResultCache.invalidate("categories/#{category_url}?full")
   end
 
   def soft_delete(category_url, _review = 1, username) do

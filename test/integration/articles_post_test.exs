@@ -25,6 +25,12 @@ defmodule ArticlesPostTest do
     assert String.to_integer(art_name2a) === art_name
     assert String.to_integer(art_name2b) === art_name
 
+    conn = conn(:get, "/api/articles/#{art_name}", data)
+    response2 = Router.call(conn, @opts)
+
+    assert response2.status === 200
+    assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
+
     Neo4j.query!(Neo4j.conn, "MATCH (a:Article {title: '#{art_name}'})-[r]-() DELETE r, a")
   end
 
@@ -49,6 +55,12 @@ defmodule ArticlesPostTest do
           = Poison.decode!(response.resp_body)
     assert String.to_integer(art_name2a) === art_name
     assert String.to_integer(art_name2b) === art_name
+
+    conn = conn(:get, "/api/articles/#{art_name}", data)
+    response2 = Router.call(conn, @opts)
+
+    assert response2.status === 200
+    assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
 
     Neo4j.query!(Neo4j.conn, "MATCH (a:Article {title: '#{art_name}'})-[r]-() DELETE r, a")
   end

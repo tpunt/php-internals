@@ -53,7 +53,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
       Counter.exec(["incr", "visits:categories"])
       all_categories = Category.fetch_all_cache(order_by, ordering, offset, limit, params["search"], params["full_search"])
-      render(conn, "index_overview.json", categories: all_categories["result"])
+      send_resp(conn, 200, all_categories)
     else
       {:error, status_code, error} ->
         conn
@@ -166,9 +166,9 @@ defmodule PhpInternals.Api.Categories.CategoryController do
          {:ok, category} <- Category.valid_cache?(category_url) do
       Counter.exec(["incr", "visits:categories:#{category_url}"])
       case view_type do
-        "overview" -> render(conn, "show_overview.json", category: category)
-        "normal" -> render(conn, "show.json", category: Category.fetch_cache(category_url, "normal"))
-        "full" -> render(conn, "show_full.json", category: Category.fetch_cache(category_url, "full"))
+        "overview" -> send_resp(conn, 200, category)
+        "normal" -> send_resp(conn, 200, Category.fetch_cache(category_url, "normal"))
+        "full" -> send_resp(conn, 200, Category.fetch_cache(category_url, "full"))
       end
     else
       {:error, status_code, error} ->
@@ -238,7 +238,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
       if is_integer(return) do
         send_resp(conn, return, "")
       else
-        render(conn, "show.json", category: return)
+        send_resp(conn, 200, return)
       end
     else
       {:error, status_code, message} ->
@@ -342,10 +342,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
         |> Category.insert(review, conn.user.username)
 
       status_code = if review === 0, do: 201, else: 202
-
-      conn
-      |> put_status(status_code)
-      |> render("show.json", category: category)
+      send_resp(conn, status_code, category)
     else
       {:error, status_code, message} ->
         conn
@@ -373,10 +370,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
       new_category = Map.merge(new_category, %{"url" => new_url})
       new_category = Category.update(old_category, new_category, review, conn.user.username, refs_patch)
       status_code = if review === 0, do: 200, else: 202
-
-      conn
-      |> put_status(status_code)
-      |> render("show_full.json", category: new_category)
+      send_resp(conn, status_code, new_category)
     else
       {:error, status_code, error} ->
         conn

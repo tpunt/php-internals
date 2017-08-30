@@ -58,6 +58,11 @@ defmodule CategoryDeleteTest do
       RETURN c
     """)
 
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}'})-[r]-()
       DELETE r, c
@@ -83,6 +88,10 @@ defmodule CategoryDeleteTest do
   test "Authorised delete for a category" do
     name = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}'})")
+
+    # prime the cache
+    conn = conn(:get, "/api/categories/#{name}", %{})
+    Router.call(conn, @opts)
 
     conn =
       conn(:delete, "/api/categories/#{name}")
@@ -143,7 +152,7 @@ defmodule CategoryDeleteTest do
       CREATE (user:User {username: '#{name}', access_token: '#{name}', privilege_level: 1}),
         (c:UpdateCategoryPatch)
       FOREACH (ignored in RANGE(1, 20) |
-        CREATE (c)-[:CONTRIBUTOR]->(user)
+        CREATE (c)-[:CONTRIBUTOR {date: 20170830, time: 2}]->(user)
       )
     """)
 

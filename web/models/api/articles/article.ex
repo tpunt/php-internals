@@ -3,6 +3,7 @@ defmodule PhpInternals.Api.Articles.Article do
 
   alias PhpInternals.Cache.ResultCache
   alias PhpInternals.Utilities
+  alias PhpInternals.Api.Articles.ArticleView
 
   @default_order_by "time"
   @required_fields ["title", "body", "categories", "excerpt", "series_name"]
@@ -40,10 +41,18 @@ defmodule PhpInternals.Api.Articles.Article do
   end
 
   def valid_cache?(article_url) do
-    key = "articles/#{article_url}"
-    ResultCache.fetch(key, fn ->
-      valid?(article_url)
-    end)
+    key = "articles//#{article_url}"
+    case ResultCache.get(key) do
+      {:not_found} ->
+        case valid?(article_url) do
+          {:ok, article} ->
+            response = Phoenix.View.render_to_string(ArticleView, "show_full.json", article: article)
+            ResultCache.set(key, response)
+            {:ok, response}
+          error -> error
+        end
+      {:found, response} -> {:ok, response}
+    end
   end
 
   def valid?(article_url) do
@@ -53,7 +62,12 @@ defmodule PhpInternals.Api.Articles.Article do
         (article)-[crel:CATEGORY]->(category:Category)
       RETURN article,
         collect({category: category}) AS categories,
-        {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
+        {
+          username: u.username,
+          name: u.name,
+          privilege_level: u.privilege_level,
+          avatar_url: u.avatar_url
+        } AS user
     """
 
     params = %{url: article_url}
@@ -73,10 +87,18 @@ defmodule PhpInternals.Api.Articles.Article do
   end
 
   def valid_series_cache?(series_url) do
-    key = "articles/series=#{series_url}"
-    ResultCache.fetch(key, fn ->
-      valid_series?(series_url)
-    end)
+    key = "articles/#{series_url}"
+    case ResultCache.get(key) do
+      {:not_found} ->
+        case valid_series?(series_url) do
+          {:ok, articles} ->
+            response = Phoenix.View.render_to_string(ArticleView, "index.json", articles: articles)
+            ResultCache.set(key, response)
+            {:ok, response}
+          error -> error
+        end
+      {:found, response} -> {:ok, response}
+    end
   end
 
   def valid_series?(series_url) do
@@ -93,7 +115,12 @@ defmodule PhpInternals.Api.Articles.Article do
           series_url: a.series_url
         } AS article,
         collect({category: category}) as categories,
-        {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
+        {
+          username: u.username,
+          name: u.name,
+          privilege_level: u.privilege_level,
+          avatar_url: u.avatar_url
+        } AS user
       ORDER BY article.time ASC
     """
 
@@ -121,9 +148,17 @@ defmodule PhpInternals.Api.Articles.Article do
 
   def valid_in_series_cache?(series_url, article_url) do
     key = "articles/#{series_url}/#{article_url}"
-    ResultCache.fetch(key, fn ->
-      valid_in_series?(series_url, article_url)
-    end)
+    case ResultCache.get(key) do
+      {:not_found} ->
+        case valid_in_series?(series_url, article_url) do
+          {:ok, article} ->
+            response = Phoenix.View.render_to_string(ArticleView, "show_full.json", article: article)
+            ResultCache.set(key, response)
+            {:ok, response}
+          error -> error
+        end
+      {:found, response} -> {:ok, response}
+    end
   end
 
   def valid_in_series?(series_url, article_url) do
@@ -166,9 +201,11 @@ defmodule PhpInternals.Api.Articles.Article do
   end
 
   def fetch_all_cache(order_by, ordering, offset, limit, category_filter, author_filter, search_term, full_search) do
-    key = "articles?#{order_by}#{ordering}#{offset}#{limit}#{category_filter}#{author_filter}#{search_term}#{full_search}"
+    key = "articles?#{order_by}&#{ordering}&#{offset}&#{limit}&#{category_filter}&#{author_filter}&#{search_term}&#{full_search}"
     ResultCache.fetch(key, fn ->
-      fetch_all(order_by, ordering, offset, limit, category_filter, author_filter, search_term, full_search)
+      articles = fetch_all(order_by, ordering, offset, limit, category_filter, author_filter, search_term, full_search)
+      ResultCache.group("articles", key)
+      Phoenix.View.render_to_string(ArticleView, "index.json", articles: articles["result"])
     end)
   end
 
@@ -295,15 +332,20 @@ defmodule PhpInternals.Api.Articles.Article do
 
     [result] = Neo4j.query!(Neo4j.conn, query, params)
 
-    article =
+    new_article =
       result["article"]
       |> Map.merge(%{"user" => result["user"]})
       |> Map.merge(%{"categories" => result["categories"]})
 
-    %{"article" => article}
+    new_article = %{"article" => new_article}
+
+    key = "articles/#{article["series_url"]}/#{article["url"]}"
+    new_article = ResultCache.set(key, Phoenix.View.render_to_string(ArticleView, "show_full.json", article: new_article))
+    ResultCache.flush("articles")
+    new_article
   end
 
-  def update(article, article_url) do
+  def update(article, article_series, article_url) do
     query1 = """
       MATCH (article:Article {url: {old_url}})-[r:CATEGORY]->(:Category)
       SET article.url = {new_url},
@@ -348,15 +390,21 @@ defmodule PhpInternals.Api.Articles.Article do
 
     [result] = Neo4j.query!(Neo4j.conn, query, params)
 
-    article =
+    updated_article =
       result["article"]
       |> Map.merge(%{"user" => result["user"]})
       |> Map.merge(%{"categories" => result["categories"]})
 
-    %{"article" => article}
+    updated_article = %{"article" => updated_article}
+
+    key = "articles/#{article["series_url"]}/#{article["url"]}"
+    updated_article = ResultCache.set(key, Phoenix.View.render_to_string(ArticleView, "show_full.json", article: updated_article))
+    ResultCache.flush("articles")
+    ResultCache.invalidate("articles/#{article_series}/#{article_url}")
+    updated_article
   end
 
-  def soft_delete(article_url) do
+  def soft_delete(article_series, article_url) do
     query = """
       MATCH (article:Article {url: {url}})
       REMOVE article:Article
@@ -366,5 +414,7 @@ defmodule PhpInternals.Api.Articles.Article do
     params = %{url: article_url}
 
     Neo4j.query!(Neo4j.conn, query, params)
+    ResultCache.invalidate("articles/#{article_series}/#{article_url}")
+    ResultCache.flush("articles")
   end
 end

@@ -2,6 +2,7 @@ defmodule PhpInternals.Api.Users.User do
   use PhpInternals.Web, :model
 
   alias PhpInternals.Cache.ResultCache
+  alias PhpInternals.Api.Users.UserView
 
   @valid_fields ["name", "avatar_url", "blog_url", "email", "bio", "location", "github_url"]
   @admin_valid_fields ["privilege_level", "access_token"] # "username" ?
@@ -83,11 +84,26 @@ defmodule PhpInternals.Api.Users.User do
     {:ok}
   end
 
-  def fetch_all_cache(order_by, ordering, offset, limit, search_term) do
-    key = "users?#{order_by}#{ordering}#{offset}#{limit}#{search_term}"
+  def fetch_all_cache(order_by, ordering, offset, limit, nil = search_term) do
+    key = "users?#{order_by}&#{ordering}&#{offset}&#{limit}&#{search_term}"
     ResultCache.fetch(key, fn ->
-      fetch_all(order_by, ordering, offset, limit, search_term)
+      all_users = fetch_all(order_by, ordering, offset, limit, search_term)
+      ResultCache.group("users", key)
+      Phoenix.View.render_to_string(UserView, "index.json", users: all_users["result"])
     end)
+  end
+
+  def fetch_all_cache(order_by, ordering, offset, limit, search_term) do
+    # Don't bother caching normal search terms...
+    # key = "users?#{order_by}&#{ordering}&#{offset}&#{limit}&#{search_term}"
+    # ResultCache.fetch(key, fn ->
+    #   all_users = fetch_all(order_by, ordering, offset, limit, search_term)
+    #   ResultCache.group("users", key)
+    #   Phoenix.View.render_to_string(UserView, "index.json", users: all_users["result"])
+    # end)
+
+    all_users = fetch_all(order_by, ordering, offset, limit, search_term)
+    Phoenix.View.render_to_string(UserView, "index.json", users: all_users["result"])
   end
 
   def fetch_all(order_by, ordering, offset, limit, search_term) do
@@ -132,9 +148,16 @@ defmodule PhpInternals.Api.Users.User do
 
   def fetch_by_username_cache(username) do
     key = "users/#{username}"
-    ResultCache.fetch(key, 10, fn ->
-      fetch_by_username(username)
-    end)
+    case ResultCache.get(key) do
+      {:not_found} ->
+        case fetch_by_username(username) do
+          nil ->
+            nil
+          user ->
+            ResultCache.set(key, Phoenix.View.render_to_string(UserView, "show_full.json", user: user))
+        end
+      {:found, response} -> response
+    end
   end
 
   def fetch_by_username(username) do
@@ -146,13 +169,6 @@ defmodule PhpInternals.Api.Users.User do
     params = %{username: username}
 
     List.first Neo4j.query!(Neo4j.conn, query, params)
-  end
-
-  def fetch_by_token_cache(access_token) do
-    key = "users/token=#{access_token}"
-    ResultCache.fetch(key, 10, fn ->
-      fetch_by_username(access_token)
-    end)
   end
 
   def fetch_by_token(access_token) do
@@ -202,6 +218,9 @@ defmodule PhpInternals.Api.Users.User do
     """
 
     Neo4j.query!(Neo4j.conn, query, auth_info)
+
+    ResultCache.invalidate("users/#{auth_info.username}")
+    ResultCache.flush("users")
   end
 
   def update(username, user) do
@@ -223,7 +242,12 @@ defmodule PhpInternals.Api.Users.User do
     query = query1 <> query2 <> query3
     params = Map.put(user, :username, username)
 
-    List.first Neo4j.query!(Neo4j.conn, query, params)
+    user = List.first Neo4j.query!(Neo4j.conn, query, params)
+
+    ResultCache.invalidate("users/#{username}")
+    ResultCache.flush("users")
+
+    user
   end
 
   def delete_token(username) do

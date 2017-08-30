@@ -170,7 +170,7 @@ defmodule SymbolGetTest do
           revision_id: #{sym_rev}
         }),
         (s)-[:CATEGORY]->(c),
-        (s)-[:CONTRIBUTOR]->(u)
+        (s)-[:CONTRIBUTOR {date: 20170830, time: 2}]->(u)
     """)
 
     conn =
@@ -238,7 +238,7 @@ defmodule SymbolGetTest do
           revision_id: #{sym_rev_b}
         }),
         (s2)-[:CATEGORY]->(c),
-        (s2)-[:CONTRIBUTOR]->(u),
+        (s2)-[:CONTRIBUTOR {date: 20170830, time: 2}]->(u),
         (s)-[:CATEGORY]->(c),
         (s)-[:UPDATE]->(s2)
     """)
@@ -317,7 +317,7 @@ defmodule SymbolGetTest do
           revision_id: #{sym_rev_b}
         }),
         (s2)-[:CATEGORY]->(c),
-        (s2)-[:CONTRIBUTOR]->(u),
+        (s2)-[:CONTRIBUTOR {date: 20170830, time: 2}]->(u),
         (s)-[:CATEGORY]->(c),
         (s)-[:UPDATE]->(s2)
     """)
@@ -399,7 +399,7 @@ defmodule SymbolGetTest do
           revision_id: #{sym_rev_b}
         }),
         (s2)-[:CATEGORY]->(c),
-        (s2)-[:CONTRIBUTOR]->(u),
+        (s2)-[:CONTRIBUTOR {date: 20170830, time: 2}]->(u),
         (s)-[:CATEGORY]->(c),
         (s)-[:UPDATE]->(s2)
     """)
@@ -507,7 +507,7 @@ defmodule SymbolGetTest do
           revision_id: #{sym_rev_b}
         }),
         (s2)-[:CATEGORY]->(c),
-        (s2)-[:CONTRIBUTOR]->(u),
+        (s2)-[:CONTRIBUTOR {date: 20170830, time: 2}]->(u),
         (s)-[:CATEGORY]->(c),
         (s)-[:UPDATE]->(s2),
         (s)<-[:DELETE]-(u)

@@ -31,8 +31,12 @@ defmodule ArticlePatchTest do
           revision_id: #{cat_rev_id}
         })
     """)
-    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => "...",
+    data = %{"article" => %{"title" => "#{art_name}2", "excerpt" => "...",
       "body" => ".", "categories" => ["#{cat_name}"], "series_name" => "#{ser_name}"}}
+
+    # prime the cache
+    conn = conn(:get, "/api/articles/#{art_name}", %{})
+    Router.call(conn, @opts)
 
     conn =
       conn(:patch, "/api/articles/#{art_name}", data)
@@ -47,13 +51,24 @@ defmodule ArticlePatchTest do
         "series_name" => ser_name2}}
           = Poison.decode!(response.resp_body)
     assert [%{"category" => %{"name" => cat_name2a, "url" => cat_name2b}}] = categories
-    assert String.to_integer(art_name2a) === art_name
-    assert String.to_integer(art_name2b) === art_name
+    assert art_name2a === "#{art_name}2"
+    assert art_name2b === "#{art_name}2"
     assert String.to_integer(cat_name2a) === cat_name
     assert String.to_integer(cat_name2b) === cat_name
     assert String.to_integer(ser_name2) === ser_name
 
-    Neo4j.query!(Neo4j.conn, "MATCH (a:Article {title: '#{art_name}'})-[r]-() DELETE r, a")
+    conn = conn(:get, "/api/articles/#{art_name}")
+    response2 = Router.call(conn, @opts)
+
+    assert response2.status === 404
+
+    conn = conn(:get, "/api/articles/#{art_name}2")
+    response2 = Router.call(conn, @opts)
+
+    assert response2.status === 200
+    assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
+
+    Neo4j.query!(Neo4j.conn, "MATCH (a:Article {title: '#{art_name}2'})-[r]-() DELETE r, a")
   end
 
   @doc """
@@ -86,6 +101,10 @@ defmodule ArticlePatchTest do
     data = %{"article" => %{"title" => "#{art_name}", "excerpt" => "...",
       "body" => ".", "categories" => ["#{cat_name}"], "series_name" => ""}}
 
+    # prime the cache
+    conn = conn(:get, "/api/articles/#{art_name}", %{})
+    Router.call(conn, @opts)
+
     conn =
       conn(:patch, "/api/articles/#{art_name}", data)
       |> put_req_header("content-type", "application/json")
@@ -103,6 +122,12 @@ defmodule ArticlePatchTest do
     assert String.to_integer(art_name2b) === art_name
     assert String.to_integer(cat_name2a) === cat_name
     assert String.to_integer(cat_name2b) === cat_name
+
+    conn = conn(:get, "/api/articles/#{art_name}")
+    response2 = Router.call(conn, @opts)
+
+    assert response2.status === 200
+    assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
 
     Neo4j.query!(Neo4j.conn, "MATCH (a:Article {title: '#{art_name}'})-[r]-() DELETE r, a")
   end

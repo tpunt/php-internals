@@ -50,6 +50,10 @@ defmodule ArticleDeleteTest do
         (a)-[:CATEGORY]->(c)
     """)
 
+    # prime the cache
+    conn = conn(:get, "/api/articles/#{art_name}", %{})
+    Router.call(conn, @opts)
+
     conn =
       conn(:delete, "/api/articles/#{art_name}")
       |> put_req_header("authorization", "at3")
@@ -65,6 +69,12 @@ defmodule ArticleDeleteTest do
         (ad)-[:CATEGORY]->(c)
       RETURN ad
     """)
+
+    conn = conn(:get, "/api/articles/#{art_name}")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 404
 
     Neo4j.query!(Neo4j.conn, "MATCH (a:ArticleDeleted {title: '#{art_name}'})-[r]-() DELETE r, a")
   end

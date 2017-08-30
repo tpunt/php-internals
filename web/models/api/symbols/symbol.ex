@@ -3,6 +3,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   alias PhpInternals.Cache.ResultCache
   alias PhpInternals.Utilities
+  alias PhpInternals.Api.Symbols.SymbolView
 
   @valid_order_bys ["name", "date"]
   @default_order_by "name"
@@ -291,10 +292,18 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   end
 
   def valid_cache?(symbol_id) do
-    key = "symbols/#{symbol_id}"
-    ResultCache.fetch(key, fn ->
-      valid?(symbol_id)
-    end)
+    key = "symbols/#{symbol_id}?overview"
+    case ResultCache.get(key) do
+      {:not_found} ->
+        case valid?(symbol_id) do
+          {:ok, symbol} ->
+            response = Phoenix.View.render_to_string(SymbolView, "show_overview.json", symbol: symbol)
+            ResultCache.set(key, response)
+            {:ok, response}
+          error -> error
+        end
+      {:found, response} -> {:ok, response}
+    end
   end
 
   def valid?(symbol_id) do
@@ -425,11 +434,35 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     end
   end
 
-  def fetch_all_cache(order_by, ordering, offset, limit, symbol_type, category_filter, search_term, full_search) do
-    key = "symbols?#{order_by}#{ordering}#{offset}#{limit}#{symbol_type}#{category_filter}#{search_term}#{full_search}"
+  def fetch_all_cache(order_by, ordering, offset, limit, symbol_type, category_filter, nil = search_term, full_search) do
+    key = "symbols?#{order_by}&#{ordering}&#{offset}&#{limit}&#{symbol_type}&#{category_filter}&#{search_term}&#{full_search}"
     ResultCache.fetch(key, fn ->
-      fetch_all(order_by, ordering, offset, limit, symbol_type, category_filter, search_term, full_search)
+      all_symbols = fetch_all(order_by, ordering, offset, limit, symbol_type, category_filter, search_term, full_search)
+      ResultCache.group("symbols", key)
+      Phoenix.View.render_to_string(SymbolView, "index.json", symbols: all_symbols["result"])
     end)
+  end
+
+  def fetch_all_cache(order_by, ordering, offset, limit, symbol_type, category_filter, search_term, full_search) do
+    if String.first(search_term) === "=" do
+      key = "symbols/#{String.slice(search_term, 1..-1)}"
+      case ResultCache.get(key) do
+        {:not_found} ->
+          all_symbols = fetch_all(order_by, ordering, offset, limit, symbol_type, category_filter, search_term, full_search)
+          response = Phoenix.View.render_to_string(SymbolView, "index.json", symbols: all_symbols["result"])
+
+          if all_symbols !== [] do
+            ResultCache.set(key, response)
+          else
+            response
+          end
+        {:found, response} -> response
+      end
+    else
+      # Don't bother caching normal search terms...
+      all_symbols = fetch_all(order_by, ordering, offset, limit, symbol_type, category_filter, search_term, full_search)
+      Phoenix.View.render_to_string(SymbolView, "index.json", symbols: all_symbols["result"])
+    end
   end
 
   def fetch_all(order_by, ordering, offset, limit, symbol_type, category_filter, search_term, full_search) do
@@ -623,9 +656,13 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def fetch_cache(symbol_id, "normal") do
     key = "symbols/#{symbol_id}?normal"
-    ResultCache.fetch(key, fn ->
-      fetch(symbol_id, "normal")
-    end)
+    case ResultCache.get(key) do
+      {:not_found} ->
+        symbol = fetch(symbol_id, "normal")
+        response = Phoenix.View.render_to_string(SymbolView, "show.json", symbol: symbol)
+        ResultCache.set(key, response)
+      {:found, response} -> response
+    end
   end
 
   def fetch(symbol_id, "normal") do
@@ -777,7 +814,19 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     params = Map.merge(params1, params2)
 
-    List.first Neo4j.query!(Neo4j.conn, query, params)
+    result = List.first Neo4j.query!(Neo4j.conn, query, params)
+
+    if review === 1 do
+      Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result)
+    else
+      key_id = "symbols/#{params2.id}?normal"
+      key_url = "symbols/#{result["symbol"]["symbol"]["url"]}"
+      ResultCache.invalidate(key_url)
+      new_symbol = ResultCache.set(key_url, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
+      ResultCache.set(key_id, new_symbol)
+      ResultCache.flush("symbols")
+      new_symbol
+    end
   end
 
   def update(old_symbol, new_symbol, 0 = _review, username, nil = _patch_revision_id) do
@@ -863,7 +912,18 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     params = Map.merge(params1, params2)
 
-    {:ok, 200, List.first Neo4j.query!(Neo4j.conn, query, params)}
+    result = List.first Neo4j.query!(Neo4j.conn, query, params)
+
+    key_id_overview = "symbols/#{old_symbol["id"]}?overview"
+    key_id_normal = "symbols/#{old_symbol["id"]}?normal"
+    ResultCache.invalidate("symbols/#{old_symbol["url"]}")
+    key_url = "symbols/#{new_symbol["url"]}"
+    new_symbol = ResultCache.set(key_url, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
+    ResultCache.set(key_id_overview, new_symbol)
+    ResultCache.set(key_id_normal, new_symbol)
+    ResultCache.flush("symbols")
+
+    {:ok, 200, new_symbol}
   end
 
   def update(old_symbol, new_symbol, 1, username, nil = _patch_revision_id) do
@@ -935,7 +995,9 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     params = Map.merge(params1, params2)
 
-    {:ok, 202, List.first Neo4j.query!(Neo4j.conn, query, params)}
+    result = List.first Neo4j.query!(Neo4j.conn, query, params)
+
+    {:ok, 202, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result)}
   end
 
   def update(old_symbol, new_symbol, 0 = _review, username, patch_revision_id) do
@@ -1039,7 +1101,18 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
       params = Map.merge(params1, params2)
 
-      {:ok, 200, List.first Neo4j.query!(Neo4j.conn, query, params)}
+      result = List.first Neo4j.query!(Neo4j.conn, query, params)
+
+      key_id_overview = "symbols/#{old_symbol["id"]}?overview"
+      key_id_normal = "symbols/#{old_symbol["id"]}?normal"
+      ResultCache.invalidate("symbols/#{old_symbol["url"]}")
+      key_url = "symbols/#{new_symbol["url"]}"
+      new_symbol = ResultCache.set(key_url, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
+      ResultCache.set(key_id_overview, new_symbol)
+      ResultCache.set(key_id_normal, new_symbol)
+      ResultCache.flush("symbols")
+
+      {:ok, 200, new_symbol}
     end
   end
 
@@ -1116,7 +1189,9 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     params = Map.merge(params1, params2)
 
-    {:ok, 202, List.first Neo4j.query!(Neo4j.conn, query, params)}
+    result = List.first Neo4j.query!(Neo4j.conn, query, params)
+
+    {:ok, 202, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result)}
   end
 
   def apply_patch?(symbol_id, %{"action" => "insert"}, username) do
@@ -1139,12 +1214,19 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     if result === nil do
       {:error, 404, "Insert patch not found"}
     else
-      {:ok, result}
+      key_id = "symbols/#{symbol_id}?normal"
+      key_url = "symbols/#{result["symbol"]["symbol"]["url"]}"
+      ResultCache.invalidate(key_url)
+      new_symbol = ResultCache.set(key_url, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
+      ResultCache.set(key_id, new_symbol)
+      ResultCache.flush("symbols")
+
+      {:ok, new_symbol}
     end
   end
 
   def apply_patch?(symbol_id, %{"action" => "update", "patch_revision_id" => patch_revision_id}, username) do
-    with {:ok, _symbol} <- update_patch_exists?(symbol_id, patch_revision_id),
+    with {:ok, symbol_patch} <- update_patch_exists?(symbol_id, patch_revision_id),
          {:ok} <- revision_ids_match?(symbol_id, patch_revision_id) do
       query = """
         MATCH (old_symbol:Symbol {id: {symbol_id}}),
@@ -1189,7 +1271,17 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         username: username
       }
 
-      {:ok, List.first Neo4j.query!(Neo4j.conn, query, params)}
+      result = List.first Neo4j.query!(Neo4j.conn, query, params)
+
+      key_id_overview = "symbols/#{symbol_id}?overview"
+      key_id_normal = "symbols/#{symbol_id}?normal"
+      ResultCache.invalidate("symbols/#{symbol_patch["symbol_update"]["symbol"]["url"]}")
+      key_url = "symbols/#{result["symbol"]["symbol"]["url"]}"
+      new_symbol = ResultCache.set(key_url, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
+      ResultCache.set(key_id_overview, new_symbol)
+      ResultCache.set(key_id_normal, new_symbol)
+      ResultCache.flush("symbols")
+      {:ok, new_symbol}
     else
       error ->
         error
@@ -1219,6 +1311,10 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     if result === [] do
       {:error, 404, "Delete patch not found"}
     else
+      ResultCache.invalidate("symbols/#{symbol_id}?overview")
+      ResultCache.invalidate("symbols/#{symbol_id}?normal")
+      ResultCache.flush("symbols")
+
       {:ok, 204}
     end
   end
@@ -1299,6 +1395,10 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     params = %{symbol_id: symbol_id, username: username}
 
     Neo4j.query!(Neo4j.conn, query, params)
+
+    ResultCache.invalidate("symbols/#{symbol_id}?overview")
+    ResultCache.invalidate("symbols/#{symbol_id}?normal")
+    ResultCache.flush("symbols")
   end
 
   def soft_delete(symbol_id, 1 = _review, username) do

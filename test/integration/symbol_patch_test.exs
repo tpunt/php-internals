@@ -136,6 +136,11 @@ defmodule SymbolPatchTest do
       RETURN su
     """)
 
+    conn = conn(:get, "/api/symbols/#{sym_id}", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert Poison.decode!(response.resp_body) === Poison.decode!(response2.resp_body)
+
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}})-[r1]-(),
         (su:UpdateSymbolPatch {name: '#{new_sym_name}'})-[r2]-()
@@ -187,6 +192,11 @@ defmodule SymbolPatchTest do
       RETURN su
     """)
 
+    conn = conn(:get, "/api/symbols/#{sym_id}", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert Poison.decode!(response.resp_body) === Poison.decode!(response2.resp_body)
+
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}})-[r1]-(),
         (su:UpdateSymbolPatch {name: '#{new_sym_name}'})-[r2]-()
@@ -220,6 +230,10 @@ defmodule SymbolPatchTest do
       "source_location" => "..","type" => "macro","categories" => ["existent"],
       "declaration" => ".."}, "revision_id" => sym_rev}
 
+    # prime the cache
+    conn = conn(:get, "/api/symbols/#{sym_id}", %{})
+    Router.call(conn, @opts)
+
     conn =
       conn(:patch, "/api/symbols/#{sym_id}", data)
       |> put_req_header("content-type", "application/json")
@@ -240,6 +254,11 @@ defmodule SymbolPatchTest do
         (s)-[:CONTRIBUTOR {type: 'update'}]->(:User {access_token: 'at3'})
       RETURN sr
     """)
+
+    conn = conn(:get, "/api/symbols/#{sym_id}", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert Poison.decode!(response.resp_body) === Poison.decode!(response2.resp_body)
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {name: '#{new_sym_name}'})-[r1]-(),
@@ -282,8 +301,12 @@ defmodule SymbolPatchTest do
         (s)-[:CATEGORY]->(c),
         (s)-[:UPDATE]->(su),
         (su)-[:CATEGORY]->(c),
-        (su)-[:CONTRIBUTOR]->(u)
+        (su)-[:CONTRIBUTOR {date: 20170830, time: 2}]->(u)
     """)
+
+    # prime the cache
+    conn = conn(:get, "/api/symbols/#{sym_id}", %{})
+    Router.call(conn, @opts)
 
     conn =
       conn(:patch, "/api/symbols/#{sym_id}", %{"apply_patch" => "update,#{sym_rev_b}"})
@@ -303,6 +326,11 @@ defmodule SymbolPatchTest do
         (s)-[:CONTRIBUTOR {type: 'apply_update'}]->(:User {access_token: 'at3'})
       RETURN sr
     """)
+
+    conn = conn(:get, "/api/symbols/#{sym_id}", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert Poison.decode!(response.resp_body) === Poison.decode!(response2.resp_body)
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev_b}})-[r1]-(),
@@ -345,7 +373,7 @@ defmodule SymbolPatchTest do
         (s)-[:CATEGORY]->(c),
         (s)-[:UPDATE]->(su),
         (su)-[:CATEGORY]->(c),
-        (su)-[:CONTRIBUTOR]->(u)
+        (su)-[:CONTRIBUTOR {date: 20170830, time: 2}]->(u)
     """)
 
     conn =
@@ -393,7 +421,7 @@ defmodule SymbolPatchTest do
           revision_id: #{sym_rev}
         }),
         (s)-[:CATEGORY]->(c),
-        (s)-[:CONTRIBUTOR]->(u)
+        (s)-[:CONTRIBUTOR {date: 20170830, time: 2}]->(u)
     """)
 
     conn =
@@ -411,6 +439,12 @@ defmodule SymbolPatchTest do
         (s)-[:CONTRIBUTOR {type: 'apply_insert'}]->(:User {access_token: 'at3'})
       RETURN s
     """)
+
+    conn = conn(:get, "/api/symbols/#{sym_id}", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert response2.status === 200
+    assert Poison.decode!(response.resp_body) === Poison.decode!(response2.resp_body)
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}})-[r]-()
@@ -438,7 +472,7 @@ defmodule SymbolPatchTest do
           revision_id: #{sym_rev}
         }),
         (s)-[:CATEGORY]->(c),
-        (s)-[:CONTRIBUTOR]->(u)
+        (s)-[:CONTRIBUTOR {date: 20170830, time: 2}]->(u)
     """)
 
     conn =
@@ -485,6 +519,10 @@ defmodule SymbolPatchTest do
         (s)<-[:DELETE]-(u)
     """)
 
+    # prime the cache
+    conn = conn(:get, "/api/symbols/#{sym_id}", %{})
+    Router.call(conn, @opts)
+
     conn =
       conn(:patch, "/api/symbols/#{sym_id}", %{"apply_patch" => "delete"})
       |> put_req_header("authorization", "at3")
@@ -500,6 +538,11 @@ defmodule SymbolPatchTest do
         (sd)-[:CONTRIBUTOR {type: 'apply_delete'}]->(:User {access_token: 'at3'})
       RETURN sd
     """)
+
+    conn = conn(:get, "/api/symbols/#{sym_id}", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert response2.status === 404
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (sd:SymbolDeleted {revision_id: #{sym_rev}})-[r]-()
@@ -641,6 +684,10 @@ defmodule SymbolPatchTest do
       "type" => "macro","categories" => ["existent"], "declaration" => ".."},
       "revision_id" => rev_id2}
 
+    # prime the cache
+    conn = conn(:get, "/api/symbols/#{rev_id}", %{})
+    Router.call(conn, @opts)
+
     conn =
       conn(:patch, "/api/symbols/#{rev_id}", data)
       |> put_req_header("authorization", "at3")
@@ -655,6 +702,11 @@ defmodule SymbolPatchTest do
         (s)-[:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'})
       RETURN s
     """)
+
+    conn = conn(:get, "/api/symbols/#{rev_id}", %{})
+    response2 = Router.call(conn, @opts)
+
+    assert Poison.decode!(response.resp_body) === Poison.decode!(response2.resp_body)
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (sr:SymbolRevision {revision_id: #{rev_id}})-[r1]-(),
@@ -674,7 +726,7 @@ defmodule SymbolPatchTest do
       CREATE (user:User {username: '#{name}', access_token: '#{name}', privilege_level: 1}),
         (c:UpdateCategoryPatch)
       FOREACH (ignored in RANGE(1, 20) |
-        CREATE (c)-[:CONTRIBUTOR]->(user)
+        CREATE (c)-[:CONTRIBUTOR {date: 20170830, time: 2}]->(user)
       )
     """)
 

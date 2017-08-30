@@ -80,6 +80,11 @@ defmodule SymbolDeleteTest do
       RETURN s
     """)
 
+    conn = conn(:get, "/api/symbols/#{sym_id}", %{})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}})-[r1]-(),
         (s)<-[r2:DELETE]-(:User {access_token: 'at1'})
@@ -123,6 +128,11 @@ defmodule SymbolDeleteTest do
       RETURN s
     """)
 
+    conn = conn(:get, "/api/symbols/#{sym_id}", %{})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}})-[r1]-(),
         (s)<-[r2:DELETE]-(:User {access_token: 'at3'})
@@ -152,6 +162,10 @@ defmodule SymbolDeleteTest do
         (s)-[:CATEGORY]->(c)
     """)
 
+    # prime the cache
+    conn = conn(:get, "/api/symbols/#{sym_id}", %{})
+    Router.call(conn, @opts)
+
     conn =
       conn(:delete, "/api/symbols/#{sym_id}")
       |> put_req_header("content-type", "application/json")
@@ -165,6 +179,11 @@ defmodule SymbolDeleteTest do
         (sd)-[:CONTRIBUTOR {type: 'delete'}]->(:User {access_token: 'at2'})
       RETURN sd
     """)
+
+    conn = conn(:get, "/api/symbols/#{sym_id}", %{})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 404
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (sd:SymbolDeleted {revision_id: #{sym_rev}})-[r]-()
@@ -194,6 +213,10 @@ defmodule SymbolDeleteTest do
         (s)-[:CATEGORY]->(c)
     """)
 
+    # prime the cache
+    conn = conn(:get, "/api/symbols/#{sym_id}", %{})
+    Router.call(conn, @opts)
+
     conn =
       conn(:delete, "/api/symbols/#{sym_id}")
       |> put_req_header("content-type", "application/json")
@@ -207,6 +230,11 @@ defmodule SymbolDeleteTest do
         (sd)-[:CONTRIBUTOR {type: 'delete'}]->(:User {access_token: 'at3'})
       RETURN sd
     """)
+
+    conn = conn(:get, "/api/symbols/#{sym_id}", %{})
+    response = Router.call(conn, @opts)
+
+    assert response.status === 404
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (sd:SymbolDeleted {revision_id: #{sym_rev}})-[r]-()
@@ -223,7 +251,7 @@ defmodule SymbolDeleteTest do
       CREATE (user:User {username: '#{name}', access_token: '#{name}', privilege_level: 1}),
         (c:UpdateCategoryPatch)
       FOREACH (ignored in RANGE(1, 20) |
-        CREATE (c)-[:CONTRIBUTOR]->(user)
+        CREATE (c)-[:CONTRIBUTOR {date: 20170830, time: 2}]->(user)
       )
     """)
 
