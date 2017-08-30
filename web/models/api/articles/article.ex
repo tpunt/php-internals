@@ -95,9 +95,11 @@ defmodule PhpInternals.Api.Articles.Article do
             response = Phoenix.View.render_to_string(ArticleView, "index.json", articles: articles)
             ResultCache.set(key, response)
             {:ok, response}
-          error -> error
+          error ->
+            ResultCache.set(key, error)
         end
-      {:found, response} -> {:ok, response}
+      {:found, response} ->
+        if is_binary(response), do: {:ok, response}, else: response
     end
   end
 
