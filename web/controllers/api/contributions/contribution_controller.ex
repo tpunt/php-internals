@@ -7,8 +7,7 @@ defmodule PhpInternals.Api.Contributions.ContributionController do
 
   def index(conn, %{"view" => "overview", "author" => username}) do
     with {:ok, _username} <- User.valid?(username) do
-      contributions = Contribution.fetch_all_overview_for_cache(username)
-      render(conn, "index_overview_for_user.json", contributions: contributions["result"])
+      send_resp(conn, 200, Contribution.fetch_all_overview_for_cache(username))
     else
       {:error, status_code, error} ->
         conn
@@ -20,8 +19,7 @@ defmodule PhpInternals.Api.Contributions.ContributionController do
   def index(conn, %{"view" => "overview"} = params) do
     with {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
-      contributions = Contribution.fetch_all_overview_cache(offset, limit)
-      render(conn, "index_overview.json", contributions: contributions["result"])
+      send_resp(conn, 200, Contribution.fetch_all_overview_cache(offset, limit))
     else
       {:error, status_code, error} ->
         conn
@@ -35,8 +33,7 @@ defmodule PhpInternals.Api.Contributions.ContributionController do
       with {:ok, _username} <- User.valid?(username),
            {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
            {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
-        contributions = Contribution.fetch_all_normal_for_cache(username, offset, limit)
-        render(conn, "index_normal_for_user.json", contributions: contributions["result"])
+        send_resp(conn, 200, Contribution.fetch_all_normal_for_cache(username, offset, limit))
       else
         {:error, status_code, error} ->
           conn
@@ -54,8 +51,7 @@ defmodule PhpInternals.Api.Contributions.ContributionController do
     if !params["view"] || params["view"] === "normal" do
       with {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
            {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
-        contributions = Contribution.fetch_all_normal_cache(offset, limit)
-        render(conn, "index_normal.json", contributions: contributions["result"])
+        send_resp(conn, 200, Contribution.fetch_all_normal_cache(offset, limit))
       else
         {:error, status_code, error} ->
           conn

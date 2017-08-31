@@ -1,6 +1,8 @@
 defmodule PhpInternals.Cache.ResultCache do
   use GenServer
 
+  @invalidate_contributions_after 120
+
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, [{:ets_table_name, :result_cache}, {:log_limit, 1_000_000}], opts)
   end
@@ -12,8 +14,8 @@ defmodule PhpInternals.Cache.ResultCache do
     end
   end
 
-  def fetch(url, invalidate_cache_after, callback) do
-    case get_timed(url, invalidate_cache_after) do
+  def fetch_contributions(url, callback) do
+    case get_contributions(url) do
       {:not_found} -> set(url, callback.())
       {:found, result} -> result
     end
@@ -23,8 +25,12 @@ defmodule PhpInternals.Cache.ResultCache do
     GenServer.call(__MODULE__, {:delete, url})
   end
 
-  def flush(url) do
-    GenServer.call(__MODULE__, {:delete_all, url})
+  def invalidate_contributions() do
+    GenServer.call(__MODULE__, {:invalidate_contributions})
+  end
+
+  def flush(group) do
+    GenServer.call(__MODULE__, {:delete_all, group})
   end
 
   def get(url) do
@@ -35,16 +41,8 @@ defmodule PhpInternals.Cache.ResultCache do
     end
   end
 
-  def get_timed(url, invalidate_cache_after) do
-    case GenServer.call(__MODULE__, {:get, url}) do
-      [] -> {:not_found}
-      [{_url, {result, time}}] ->
-        if time + invalidate_cache_after >= :os.system_time(:seconds) do
-          {:found, result}
-        else
-          {:not_found}
-        end
-    end
+  def get_contributions(url) do
+    GenServer.call(__MODULE__, {:get_contributions, url})
   end
 
   def set(url, result) do
@@ -59,6 +57,20 @@ defmodule PhpInternals.Cache.ResultCache do
     {:reply, :ets.lookup(state.ets_table_name, url), state}
   end
 
+  def handle_call({:get_contributions, url}, _from, state) do
+    case :ets.lookup(state.ets_table_name, url) do
+      [] -> {:reply, {:not_found}, state}
+      [{_url, {result, time}}] ->
+        if state.invalidate_contributions and :os.system_time(:seconds) >= time + @invalidate_contributions_after do
+          # future optimisation: only flush contributions for the site, and that particular user (not every user)
+          delete_all_from_group(state.groups["contributions"], state.ets_table_name)
+          {:reply, {:not_found}, Kernel.put_in(state, [:invalidate_contributions], false)}
+        else
+          {:reply, {:found, result}, state}
+        end
+    end
+  end
+
   def handle_call({:set, url, result}, _from, state) do
     true = :ets.insert(state.ets_table_name, {url, {result, :os.system_time(:seconds)}})
     {:reply, result, state}
@@ -69,24 +81,34 @@ defmodule PhpInternals.Cache.ResultCache do
     {:reply, nil, state}
   end
 
-  def handle_call({:delete_all, url}, _from, state) do
-    for key <- state.groups[url] do
-      :ets.delete(state.ets_table_name, key)
-    end
-
-    {:reply, nil, Kernel.put_in(state, [:groups, url], [])}
+  def handle_call({:delete_all, group}, _from, state) do
+    delete_all_from_group(state.groups[group], state.ets_table_name)
+    {:reply, nil, Kernel.put_in(state, [:groups, group], [])}
   end
 
   def handle_call({:group, key, url}, _from, state) do
     {:reply, nil, Kernel.put_in(state, [:groups, key], state.groups[key] ++ [url])}
   end
 
+  def handle_call({:invalidate_contributions}, _from, state) do
+    {:reply, nil, Kernel.put_in(state, [:invalidate_contributions], true)}
+  end
+
+  def delete_all_from_group(group, table) do
+    for key <- group do
+      :ets.delete(table, key)
+    end
+  end
+
   def init(args) do
     [{:ets_table_name, ets_table_name}, {:log_limit, log_limit}] = args
 
     :ets.new(ets_table_name, [:named_table, :set, :private])
-    groups = %{"articles" => [], "symbols" => [], "categories" => [], "users" => []}
 
-    {:ok, %{log_limit: log_limit, ets_table_name: ets_table_name, groups: groups}}
+    {:ok, %{
+      log_limit: log_limit,
+      ets_table_name: ets_table_name,
+      groups: %{"articles" => [], "symbols" => [], "categories" => [], "users" => [], "contributions" => []},
+      invalidate_contributions: false}}
   end
 end

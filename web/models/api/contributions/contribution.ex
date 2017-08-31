@@ -2,11 +2,14 @@ defmodule PhpInternals.Api.Contributions.Contribution do
   use PhpInternals.Web, :model
 
   alias PhpInternals.Cache.ResultCache
+  alias PhpInternals.Api.Contributions.ContributionView
 
   def fetch_all_overview_cache(offset, limit) do
     key = "contributions?overview&#{offset}&#{limit}"
-    ResultCache.fetch(key, 60, fn ->
-      fetch_all_overview(offset, limit)
+    ResultCache.fetch_contributions(key, fn ->
+      cs = fetch_all_overview(offset, limit)
+      ResultCache.group("contributions", key)
+      ResultCache.set(key, Phoenix.View.render_to_string(ContributionView, "index_overview.json", contributions: cs["result"]))
     end)
   end
 
@@ -47,8 +50,10 @@ defmodule PhpInternals.Api.Contributions.Contribution do
 
   def fetch_all_overview_for_cache(username) do
     key = "contributions?overview&#{username}"
-    ResultCache.fetch(key, 60, fn ->
-      fetch_all_overview_for(username)
+    ResultCache.fetch_contributions(key, fn ->
+      cs = fetch_all_overview_for(username)
+      ResultCache.group("contributions", key)
+      ResultCache.set(key, Phoenix.View.render_to_string(ContributionView, "index_overview_for_user.json", contributions: cs["result"]))
     end)
   end
 
@@ -78,8 +83,10 @@ defmodule PhpInternals.Api.Contributions.Contribution do
 
   def fetch_all_normal_cache(offset, limit) do
     key = "contributions?normal&#{offset}&#{limit}"
-    ResultCache.fetch(key, 60, fn ->
-      fetch_all_normal(offset, limit)
+    ResultCache.fetch_contributions(key, fn ->
+      cs = fetch_all_normal(offset, limit)
+      ResultCache.group("contributions", key)
+      ResultCache.set(key, Phoenix.View.render_to_string(ContributionView, "index_normal.json", contributions: cs["result"]))
     end)
   end
 
@@ -134,8 +141,10 @@ defmodule PhpInternals.Api.Contributions.Contribution do
 
   def fetch_all_normal_for_cache(username, offset, limit) do
     key = "contributions?normal&#{username}&#{offset}&#{limit}"
-    ResultCache.fetch(key, 60, fn ->
-      fetch_all_normal_for(username, offset, limit)
+    ResultCache.fetch_contributions(key, fn ->
+      cs = fetch_all_normal_for(username, offset, limit)
+      ResultCache.group("contributions", key)
+      ResultCache.set(key, Phoenix.View.render_to_string(ContributionView, "index_normal_for_user.json", contributions: cs["result"]))
     end)
   end
 

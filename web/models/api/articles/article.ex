@@ -344,10 +344,11 @@ defmodule PhpInternals.Api.Articles.Article do
     key = "articles/#{article["series_url"]}/#{article["url"]}"
     new_article = ResultCache.set(key, Phoenix.View.render_to_string(ArticleView, "show_full.json", article: new_article))
     ResultCache.flush("articles")
+    ResultCache.invalidate_contributions()
     new_article
   end
 
-  def update(article, article_series, article_url) do
+  def update(article, old_article) do
     query1 = """
       MATCH (article:Article {url: {old_url}})-[r:CATEGORY]->(:Category)
       SET article.url = {new_url},
@@ -379,7 +380,7 @@ defmodule PhpInternals.Api.Articles.Article do
     query = query1 <> query2 <> query3
 
     params2 = %{
-      old_url: article_url,
+      old_url: old_article["article"]["url"],
       new_title: article["title"],
       new_url: article["url"],
       new_series_name: article["series_name"],
@@ -399,10 +400,16 @@ defmodule PhpInternals.Api.Articles.Article do
 
     updated_article = %{"article" => updated_article}
 
-    key = "articles/#{article["series_url"]}/#{article["url"]}"
+    if old_article["article"]["series_name"] !== article["series_name"] or old_article["article"]["name"] !== article["name"] do
+      ResultCache.invalidate("articles/#{old_article["article"]["series_url"]}/#{old_article["article"]["url"]}")
+      ResultCache.invalidate("articles//#{old_article["article"]["url"]}")
+      ResultCache.flush("articles")
+    end
+    key = "articles//#{article["url"]}"
+    key2 = "articles/#{article["series_url"]}/#{article["url"]}"
     updated_article = ResultCache.set(key, Phoenix.View.render_to_string(ArticleView, "show_full.json", article: updated_article))
-    ResultCache.flush("articles")
-    ResultCache.invalidate("articles/#{article_series}/#{article_url}")
+    ResultCache.set(key2, updated_article)
+    ResultCache.invalidate_contributions()
     updated_article
   end
 
@@ -417,6 +424,7 @@ defmodule PhpInternals.Api.Articles.Article do
 
     Neo4j.query!(Neo4j.conn, query, params)
     ResultCache.invalidate("articles/#{article_series}/#{article_url}")
+    ResultCache.invalidate("articles//#{article_url}")
     ResultCache.flush("articles")
   end
 end

@@ -855,6 +855,7 @@ defmodule PhpInternals.Api.Categories.Category do
       key = "categories/#{category["url_name"]}?normal"
       new_category = ResultCache.set(key, Phoenix.View.render_to_string(CategoryView, "show.json", category: new_category))
       ResultCache.flush("categories")
+      ResultCache.invalidate_contributions()
       new_category
     end
   end
@@ -962,9 +963,12 @@ defmodule PhpInternals.Api.Categories.Category do
     new_key = "categories/#{new_category["url"]}?full"
     ResultCache.invalidate("categories/#{old_category["url"]}?overview")
     ResultCache.invalidate("categories/#{old_category["url"]}?normal")
-    ResultCache.invalidate("categories/#{old_category["url"]}?full")
+    if old_category["name"] !== new_category["name"] do
+      ResultCache.invalidate("categories/#{old_category["url"]}?full")
+      ResultCache.flush("categories")
+    end
     category = ResultCache.set(new_key, Phoenix.View.render_to_string(CategoryView, "show_full.json", category: category))
-    ResultCache.flush("categories")
+    ResultCache.invalidate_contributions()
     category
   end
 
@@ -1140,9 +1144,12 @@ defmodule PhpInternals.Api.Categories.Category do
     new_key = "categories/#{new_category["url"]}?full"
     ResultCache.invalidate("categories/#{old_category["url"]}?overview")
     ResultCache.invalidate("categories/#{old_category["url"]}?normal")
-    ResultCache.invalidate("categories/#{old_category["url"]}?full")
+    if old_category["name"] !== new_category["name"] do
+      ResultCache.invalidate("categories/#{old_category["url"]}?full")
+      ResultCache.flush("categories")
+    end
     category = ResultCache.set(new_key, Phoenix.View.render_to_string(CategoryView, "show_full.json", category: category))
-    ResultCache.flush("categories")
+    ResultCache.invalidate_contributions()
     category
   end
 
@@ -1294,6 +1301,7 @@ defmodule PhpInternals.Api.Categories.Category do
         key = "categories/#{category_url}?full"
         new_category = ResultCache.set(key, Phoenix.View.render_to_string(CategoryView, "show_full.json", category: new_category))
         ResultCache.flush("categories")
+        ResultCache.invalidate_contributions()
         {:ok, new_category}
       end
     end
@@ -1467,11 +1475,14 @@ defmodule PhpInternals.Api.Categories.Category do
 
           ResultCache.invalidate("categories/#{category["c"]["url"]}?overview")
           ResultCache.invalidate("categories/#{category["c"]["url"]}?normal")
-          ResultCache.invalidate("categories/#{category["c"]["url"]}?full")
+          if category["c"]["name"] !== category["cp"]["name"] do
+            ResultCache.invalidate("categories/#{category["c"]["url"]}?full")
+            ResultCache.flush("categories")
+          end
           key = "categories/#{category["cp"]["url"]}?full"
           new_category = fetch(category["cp"]["url"], "full")
           new_category = ResultCache.set(key, Phoenix.View.render_to_string(CategoryView, "show_full.json", category: new_category))
-          ResultCache.flush("categories")
+          ResultCache.invalidate_contributions()
           {:ok, new_category}
         end
       end
@@ -1510,6 +1521,7 @@ defmodule PhpInternals.Api.Categories.Category do
         ResultCache.invalidate("categories/#{category_url}?normal")
         ResultCache.invalidate("categories/#{category_url}?full")
         ResultCache.flush("categories")
+        ResultCache.invalidate_contributions()
 
         {:ok, 204}
       end
@@ -1536,6 +1548,8 @@ defmodule PhpInternals.Api.Categories.Category do
       """
 
       Neo4j.query!(Neo4j.conn, query, params)
+
+      ResultCache.invalidate_contributions()
 
       {:ok, 200}
     end
@@ -1565,7 +1579,10 @@ defmodule PhpInternals.Api.Categories.Category do
           SET cp:UpdateCategoryPatchDeleted
           CREATE (cp)-[:CONTRIBUTOR {type: "discard_update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
         """
+
         Neo4j.query!(Neo4j.conn, query, params)
+
+        ResultCache.invalidate_contributions()
 
         {:ok, 200}
       end
@@ -1599,6 +1616,8 @@ defmodule PhpInternals.Api.Categories.Category do
 
         Neo4j.query!(Neo4j.conn, query, params)
 
+        ResultCache.invalidate_contributions()
+
         {:ok, 200}
       end
     end
@@ -1620,6 +1639,8 @@ defmodule PhpInternals.Api.Categories.Category do
     ResultCache.invalidate("categories/#{category_url}?overview")
     ResultCache.invalidate("categories/#{category_url}?normal")
     ResultCache.invalidate("categories/#{category_url}?full")
+    ResultCache.flush("categories")
+    ResultCache.invalidate_contributions()
   end
 
   def soft_delete(category_url, _review = 1, username) do
