@@ -451,7 +451,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
           all_symbols = fetch_all(order_by, ordering, offset, limit, symbol_type, category_filter, search_term, full_search)
           response = Phoenix.View.render_to_string(SymbolView, "index.json", symbols: all_symbols["result"])
 
-          if all_symbols !== [] do
+          if all_symbols["result"]["symbols"] !== [] do
             ResultCache.set(key, response)
           else
             response
