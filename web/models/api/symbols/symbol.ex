@@ -912,15 +912,13 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     result = List.first Neo4j.query!(Neo4j.conn, query, params)
 
-    key_id_overview = "symbols/#{old_symbol["id"]}?overview"
-    key_id_normal = "symbols/#{old_symbol["id"]}?normal"
     if old_symbol["name"] !== new_symbol["name"] do
-      ResultCache.invalidate("symbols/#{old_symbol["url"]}")
       ResultCache.flush("symbols")
     end
-    key_url = "symbols/#{new_symbol["url"]}"
-    new_symbol = ResultCache.set(key_url, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
-    ResultCache.set(key_id_overview, new_symbol)
+    ResultCache.invalidate("symbols/#{old_symbol["url"]}")
+    key_id_overview = "symbols/#{old_symbol["id"]}?overview"
+    key_id_normal = "symbols/#{old_symbol["id"]}?normal"
+    new_symbol = ResultCache.set(key_id_overview, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
     ResultCache.set(key_id_normal, new_symbol)
     ResultCache.invalidate_contributions()
 
@@ -1104,15 +1102,13 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
       result = List.first Neo4j.query!(Neo4j.conn, query, params)
 
-      key_id_overview = "symbols/#{old_symbol["id"]}?overview"
-      key_id_normal = "symbols/#{old_symbol["id"]}?normal"
       if old_symbol["name"] !== new_symbol["name"] do
-        ResultCache.invalidate("symbols/#{old_symbol["url"]}")
         ResultCache.flush("symbols")
       end
-      key_url = "symbols/#{new_symbol["url"]}"
-      new_symbol = ResultCache.set(key_url, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
-      ResultCache.set(key_id_overview, new_symbol)
+      ResultCache.invalidate("symbols/#{old_symbol["url"]}")
+      key_id_overview = "symbols/#{old_symbol["id"]}?overview"
+      key_id_normal = "symbols/#{old_symbol["id"]}?normal"
+      new_symbol = ResultCache.set(key_id_overview, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
       ResultCache.set(key_id_normal, new_symbol)
       ResultCache.invalidate_contributions()
 
@@ -1278,15 +1274,13 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
       result = List.first Neo4j.query!(Neo4j.conn, query, params)
 
-      key_id_overview = "symbols/#{symbol_id}?overview"
-      key_id_normal = "symbols/#{symbol_id}?normal"
       if symbol_patch["symbol_update"]["symbol"]["name"] !== result["symbol"]["symbol"]["name"] do
-        ResultCache.invalidate("symbols/#{symbol_patch["symbol_update"]["symbol"]["url"]}")
         ResultCache.flush("symbols")
       end
-      key_url = "symbols/#{result["symbol"]["symbol"]["url"]}"
-      new_symbol = ResultCache.set(key_url, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
-      ResultCache.set(key_id_overview, new_symbol)
+      ResultCache.invalidate("symbols/#{symbol_patch["symbol_update"]["symbol"]["url"]}")
+      key_id_overview = "symbols/#{symbol_id}?overview"
+      key_id_normal = "symbols/#{symbol_id}?normal"
+      new_symbol = ResultCache.set(key_id_overview, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
       ResultCache.set(key_id_normal, new_symbol)
       ResultCache.invalidate_contributions()
       {:ok, new_symbol}
