@@ -671,7 +671,7 @@ defmodule SymbolsPostTest do
       "definition" => "a", "source_location" => "a",
       "type" => "function", "categories" => ["a"], "declaration" => ".",
       "return_type" => "a", "return_description" => "a",
-      "additional_information" => String.duplicate("a", 2_001)}}
+      "additional_information" => String.duplicate("a", 4_001)}}
 
     conn =
       conn(:post, "/api/symbols", data)
@@ -681,7 +681,7 @@ defmodule SymbolsPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "The additional information field should have a length of 2000 or less"}}
+    assert %{"error" => %{"message" => "The additional information field should have a length of 4000 or less"}}
       = Poison.decode!(response.resp_body)
   end
 
