@@ -468,7 +468,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   def fetch_all(order_by, ordering, offset, limit, symbol_type, category_filter, search_term, full_search) do
     {variable_match, order_by, variable_with} =
       if order_by === "date" do
-        {", (s)-[scr:CONTRIBUTOR]->(u:User)", "scr.date", ", scr"}
+        {", (s)-[scr:CONTRIBUTOR]->(u:User)", "scr.time", ", scr"}
       else
         {"", "s.#{order_by}", ""}
       end
