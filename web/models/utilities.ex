@@ -11,7 +11,7 @@ defmodule PhpInternals.Utilities do
   end
 
   def is_url_friendly?(name) do
-    with true <- String.length(name) < 50,
+    with true <- String.length(name) < 70,
          new_name <- make_url_friendly(name),
          true <- String.length(new_name) > 0 do
       {:ok, new_name}
