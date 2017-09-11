@@ -39,7 +39,7 @@ defmodule ArticlesPostTest do
   """
   test "authorised article creation (without series name)" do
     art_name = :rand.uniform(100_000_000)
-    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".", "series_name" => "",
+    data = %{"article" => %{"title" => "#{art_name}", "excerpt" => ".",
       "body" => "...", "categories" => ["existent"]}}
 
     conn =
@@ -133,7 +133,7 @@ defmodule ArticlesPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "Required fields are missing (expecting: title, body, categories, excerpt, series_name)"}}
+    assert %{"error" => %{"message" => "Required fields are missing (expecting: title, body, categories, excerpt)"}}
       = Poison.decode!(response.resp_body)
   end
 

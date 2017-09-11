@@ -87,6 +87,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
       article =
         article
         |> Map.put("url", article_url_name)
+        |> Map.put("series_name", (if Map.has_key?(article, "series_name"), do: article["series_name"], else: ""))
         |> Map.put("series_url", series_url_name)
         |> Article.insert(conn.user.username)
 

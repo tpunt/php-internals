@@ -3,6 +3,7 @@ defmodule PhpInternals.Utilities do
   @max_result_limit 100
   @default_ordering "ASC"
 
+  def is_url_friendly_opt?(nil), do: {:ok, ""}
   def is_url_friendly_opt?(""), do: {:ok, ""}
 
   def is_url_friendly_opt?(name) do

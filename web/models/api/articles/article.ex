@@ -6,8 +6,8 @@ defmodule PhpInternals.Api.Articles.Article do
   alias PhpInternals.Api.Articles.ArticleView
 
   @default_order_by "time"
-  @required_fields ["title", "body", "categories", "excerpt", "series_name"]
-  @optional_fields [] # "tags"
+  @required_fields ["title", "body", "categories", "excerpt"]
+  @optional_fields ["series_name"] # "tags"
 
   # Implement tags?
 
