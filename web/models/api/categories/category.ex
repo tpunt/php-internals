@@ -1663,15 +1663,15 @@ defmodule PhpInternals.Api.Categories.Category do
     ResultCache.invalidate("categories/#{old_category["url"]}?overview")
     ResultCache.invalidate("categories/#{old_category["url"]}?normal")
 
-    if old_category["name"] !== new_category["name"] do
-      ResultCache.flush("categories")
-    end
-
     category_diff =
       ((new_category["subcategories"] || []) -- old_category["subcategories"]) ++
       (old_category["subcategories"] -- (new_category["subcategories"] || [])) ++
       ((new_category["supercategories"] || []) -- old_category["supercategories"]) ++
       (old_category["supercategories"] -- (new_category["supercategories"] || []))
+
+    if old_category["name"] !== new_category["name"] or category_diff !== [] do
+      ResultCache.flush("categories")
+    end
 
     for category_url <- category_diff do
       ResultCache.invalidate("categories/#{category_url}?normal")
