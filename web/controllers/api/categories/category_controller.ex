@@ -168,7 +168,6 @@ defmodule PhpInternals.Api.Categories.CategoryController do
       case view_type do
         "overview" -> send_resp(conn, 200, category)
         "normal" -> send_resp(conn, 200, Category.fetch_cache(category_url, "normal"))
-        "full" -> send_resp(conn, 200, Category.fetch_cache(category_url, "full"))
       end
     else
       {:error, status_code, error} ->

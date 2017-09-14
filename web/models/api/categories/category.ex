@@ -11,7 +11,7 @@ defmodule PhpInternals.Api.Categories.Category do
   @valid_ordering_fields ["name"]
   @default_order_by "name"
 
-  @show_view_types ["normal", "overview", "full"]
+  @show_view_types ["normal", "overview"]
   @default_show_view_type "normal"
 
   def valid_fields?(category) do
@@ -713,17 +713,6 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def fetch_cache(category_url, "full") do
-    key = "categories/#{category_url}?full"
-    case ResultCache.get(key) do
-      {:not_found} ->
-        category = fetch(category_url, "full")
-        response = Phoenix.View.render_to_string(CategoryView, "show_full.json", category: category)
-        ResultCache.set(key, response)
-      {:found, response} -> response
-    end
-  end
-
   def fetch(category_url, "normal") do
     query = """
       MATCH (c:Category {url: {category_url}})
@@ -746,77 +735,6 @@ defmodule PhpInternals.Api.Categories.Category do
         supercategories: COLLECT(
           CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END
         )
-      } as category
-    """
-
-    params = %{category_url: category_url}
-
-    List.first Neo4j.query!(Neo4j.conn, query, params)
-  end
-
-  def fetch(category_url, "full") do
-    query = """
-      MATCH (c:Category {url: {category_url}})
-
-      OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sc:Category)
-
-      WITH c,
-        COLLECT(
-          CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END
-        ) AS scs
-
-      OPTIONAL MATCH (pc:Category)-[:SUBCATEGORY]->(c)
-
-      WITH c,
-        scs,
-        COLLECT(
-          CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END
-        ) AS pcs
-
-      OPTIONAL MATCH (s:Symbol)-[:CATEGORY]->(c)
-
-      WITH c,
-        scs,
-        pcs,
-        COLLECT(
-          CASE s WHEN NULL THEN NULL ELSE {symbol: {name: s.name, url: s.url, type: s.type, id: s.id}} END
-        ) AS symbols
-
-      OPTIONAL MATCH (a:Article)-[:CATEGORY]->(c), (a)-[:CONTRIBUTOR {type: "insert"}]->(u:User)
-      OPTIONAL MATCH (a)-[:CATEGORY]->(ac:Category)
-
-      WITH c,
-        scs,
-        pcs,
-        symbols,
-        a,
-        u,
-        COLLECT(
-          CASE ac WHEN NULL THEN NULL ELSE {category: {name: ac.name, url: ac.url}} END
-        ) AS acs
-
-      RETURN {
-        name: c.name,
-        url: c.url,
-        introduction: c.introduction,
-        revision_id: c.revision_id,
-        subcategories: scs,
-        supercategories: pcs,
-        symbols: symbols,
-        articles: COLLECT(CASE a WHEN NULL THEN NULL ELSE {
-          article: {
-            user: {
-              username: u.username,
-              name: u.name,
-              privilege_level: u.privilege_level
-            },
-            categories: acs,
-            title: a.title,
-            url: a.url,
-            date: a.date,
-            excerpt: a.excerpt
-          }
-        } END)
       } as category
     """
 
@@ -1736,7 +1654,6 @@ defmodule PhpInternals.Api.Categories.Category do
 
     for category_url <- (category["subcategories"] || []) ++ (category["supercategories"] || []) do
       ResultCache.invalidate("categories/#{category_url}?normal")
-      ResultCache.invalidate("categories/#{category_url}?full")
     end
 
     new_category
@@ -1747,7 +1664,6 @@ defmodule PhpInternals.Api.Categories.Category do
     ResultCache.invalidate("categories/#{old_category["url"]}?normal")
 
     if old_category["name"] !== new_category["name"] do
-      ResultCache.invalidate("categories/#{old_category["url"]}?full")
       ResultCache.flush("categories")
     end
 
@@ -1759,7 +1675,6 @@ defmodule PhpInternals.Api.Categories.Category do
 
     for category_url <- category_diff do
       ResultCache.invalidate("categories/#{category_url}?normal")
-      ResultCache.invalidate("categories/#{category_url}?full")
     end
 
     ResultCache.invalidate_contributions()
@@ -1768,13 +1683,11 @@ defmodule PhpInternals.Api.Categories.Category do
   def update_cache_after_delete(category) do
     ResultCache.invalidate("categories/#{category["url"]}?overview")
     ResultCache.invalidate("categories/#{category["url"]}?normal")
-    ResultCache.invalidate("categories/#{category["url"]}?full")
     ResultCache.flush("categories")
     ResultCache.invalidate_contributions()
 
     for category_url <- category["subcategories"] ++ category["supercategories"] do
       ResultCache.invalidate("categories/#{category_url}?normal")
-      ResultCache.invalidate("categories/#{category_url}?full")
     end
   end
 end

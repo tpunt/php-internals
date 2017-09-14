@@ -49,30 +49,6 @@ defmodule CategoryGetTest do
   end
 
   @doc """
-  GET /api/categories/non-existent?view=full
-  """
-  test "list a non-existent category in full" do
-    conn = conn(:get, "/api/categories/non-existent", %{"view" => "full"})
-    response = Router.call(conn, @opts)
-
-    assert response.status === 404
-  end
-
-  @doc """
-  GET /api/categories/existent?view=full
-  """
-  test "list an existing category in full" do
-    conn = conn(:get, "/api/categories/existent", %{"view" => "full"})
-    response = Router.call(conn, @opts)
-
-    assert response.status === 200
-    assert %{"category" => %{"name" => "existent", "introduction" => "~",
-      "url" => "existent", "revision_id" => 123, "symbols" => _symbols,
-      "articles" => _articles, "supercategories" => _superc, "subcategories" => _subc}}
-        = Poison.decode! response.resp_body
-  end
-
-  @doc """
   GET /api/categories/existent?patches=insert -H 'authorization: at2'
   """
   test "Authorised invalid attempt at listing an existing category insert patch" do

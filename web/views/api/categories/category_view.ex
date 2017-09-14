@@ -2,8 +2,6 @@ defmodule PhpInternals.Api.Categories.CategoryView do
   use PhpInternals.Web, :view
 
   alias PhpInternals.Api.Categories.CategoryView
-  alias PhpInternals.Api.Symbols.SymbolView
-  alias PhpInternals.Api.Articles.ArticleView
   alias PhpInternals.Api.Users.UserView
   alias PhpInternals.Api.UtilitiesView
 
@@ -96,10 +94,6 @@ defmodule PhpInternals.Api.Categories.CategoryView do
     %{category: render_one(category, CategoryView, "category_overview.json")}
   end
 
-  def render("show_full.json", %{category: category}) do
-    %{category: render_one(category, CategoryView, "category_full.json")}
-  end
-
   def render("show_patches.json", %{category_patches: category_patches}) do
     render_one(category_patches, CategoryView, "show_updates.json")
     |> Map.merge(render_one(category_patches, CategoryView, "show_delete.json"))
@@ -131,18 +125,6 @@ defmodule PhpInternals.Api.Categories.CategoryView do
 
   def render("category_overview.json", %{category: %{"category" => category}}) do
     %{name: category["name"], url: category["url"]}
-    |> Map.merge(render_linked_categories(category["subcategories"], category["supercategories"]))
-  end
-
-  def render("category_full.json", %{category: %{"category" => category}}) do
-    %{
-      name: category["name"],
-      introduction: category["introduction"],
-      url: category["url"],
-      revision_id: category["revision_id"],
-      symbols: render_many(category["symbols"], SymbolView, "show_overview.json"),
-      articles: render_many(category["articles"], ArticleView, "show_overview.json")
-    }
     |> Map.merge(render_linked_categories(category["subcategories"], category["supercategories"]))
   end
 
