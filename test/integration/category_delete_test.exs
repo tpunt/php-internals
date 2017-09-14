@@ -195,4 +195,169 @@ defmodule CategoryDeleteTest do
       DELETE r, c
     """)
   end
+
+  @doc """
+  DELETE /api/categories/existent -H 'authorization: at2'
+  """
+  test "Authorised delete for an existing category (cache invalidation test)" do
+    name = Integer.to_string(:rand.uniform(100_000_000))
+    name2 = Integer.to_string(:rand.uniform(100_000_000))
+    name3 = Integer.to_string(:rand.uniform(100_000_000))
+    Neo4j.query!(Neo4j.conn, """
+      CREATE (c:Category {name: '#{name}', introduction: '.', url: '#{name}'})
+      CREATE (c2:Category {name: '#{name2}', introduction: '..', url: '#{name2}'})
+      CREATE (c3:Category {name: '#{name3}', introduction: '...', url: '#{name3}'})
+      CREATE (c3)-[:SUBCATEGORY]->(c)-[:SUBCATEGORY]->(c2)
+    """)
+
+    # prime the caches
+    response = Router.call(conn(:get, "/api/categories/#{name}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name, "introduction" => ".",
+      "url" => ^name, "supercategories" => [%{"category" => %{"name" => ^name3}}],
+      "subcategories" => [%{"category" => %{"name" => ^name2}}]}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name2}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name2, "introduction" => "..",
+      "url" => ^name2, "supercategories" => [%{"category" => %{"name" => ^name}}],
+      "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name3}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name3, "introduction" => "...",
+      "url" => ^name3, "supercategories" => [],
+      "subcategories" => [%{"category" => %{"name" => ^name}}]}}
+        = Poison.decode!(response.resp_body)
+
+    conn =
+      conn(:delete, "/api/categories/#{name}")
+      |> put_req_header("authorization", "at2")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 204
+    refute [] === Neo4j.query!(Neo4j.conn, """
+      MATCH (c:CategoryDeleted {name: '#{name}'}),
+        (c)-[:CONTRIBUTOR {type: 'delete'}]->(:User {access_token: 'at2'})
+      RETURN c
+    """)
+
+    response = Router.call(conn(:get, "/api/categories/#{name}", %{}), @opts)
+
+    assert response.status === 404
+
+    response = Router.call(conn(:get, "/api/categories/#{name2}", %{}), @opts)
+
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name2, "introduction" => "..",
+      "url" => ^name2, "supercategories" => [], "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name3}", %{}), @opts)
+
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name3, "introduction" => "...",
+      "url" => ^name3, "supercategories" => [], "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:CategoryDeleted {name: '#{name}'})-[r]-(),
+        (c2:Category {name: '#{name2}'}),
+        (c3:Category {name: '#{name3}'})
+      DELETE r, c, c2, c3
+    """)
+  end
+
+  @doc """
+  DELETE /api/categories/existent -H 'authorization: at1'
+  """
+  test "Authorised delete request and apply for an existing category (cache invalidation test)" do
+    name = Integer.to_string(:rand.uniform(100_000_000))
+    name2 = Integer.to_string(:rand.uniform(100_000_000))
+    name3 = Integer.to_string(:rand.uniform(100_000_000))
+    Neo4j.query!(Neo4j.conn, """
+      CREATE (c:Category {name: '#{name}', introduction: '.', url: '#{name}'})
+      CREATE (c2:Category {name: '#{name2}', introduction: '..', url: '#{name2}'})
+      CREATE (c3:Category {name: '#{name3}', introduction: '...', url: '#{name3}'})
+      CREATE (c3)-[:SUBCATEGORY]->(c)-[:SUBCATEGORY]->(c2)
+    """)
+
+    # prime the caches
+    response = Router.call(conn(:get, "/api/categories/#{name}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name, "introduction" => ".",
+      "url" => ^name, "supercategories" => [%{"category" => %{"name" => ^name3}}],
+      "subcategories" => [%{"category" => %{"name" => ^name2}}]}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name2}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name2, "introduction" => "..",
+      "url" => ^name2, "supercategories" => [%{"category" => %{"name" => ^name}}],
+      "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name3}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name3, "introduction" => "...",
+      "url" => ^name3, "supercategories" => [],
+      "subcategories" => [%{"category" => %{"name" => ^name}}]}}
+        = Poison.decode!(response.resp_body)
+
+
+    conn =
+      conn(:delete, "/api/categories/#{name}")
+      |> put_req_header("authorization", "at1")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 202
+    refute [] === Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {name: '#{name}'}),
+        (c)<-[:DELETE]-(:User {access_token: 'at1'})
+      RETURN c
+    """)
+
+    conn =
+      conn(:patch, "/api/categories/#{name}?apply_patch=delete", %{})
+      |> put_req_header("authorization", "at2")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 204
+    refute [] === Neo4j.query!(Neo4j.conn, """
+      MATCH (c:CategoryDeleted {name: '#{name}'}),
+        (c)-[:CONTRIBUTOR {type: 'delete'}]->(:User {access_token: 'at1'}),
+        (c)-[:CONTRIBUTOR {type: 'apply_delete'}]->(:User {access_token: 'at2'})
+      RETURN c
+    """)
+
+    response = Router.call(conn(:get, "/api/categories/#{name}", %{}), @opts)
+
+    assert response.status === 404
+
+    response = Router.call(conn(:get, "/api/categories/#{name2}", %{}), @opts)
+
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name2, "introduction" => "..",
+      "url" => ^name2, "supercategories" => [], "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name3}", %{}), @opts)
+
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name3, "introduction" => "...",
+      "url" => ^name3, "supercategories" => [], "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:CategoryDeleted {name: '#{name}'})-[r]-(),
+        (c2:Category {name: '#{name2}'}),
+        (c3:Category {name: '#{name3}'})
+      DELETE r, c, c2, c3
+    """)
+  end
 end

@@ -45,7 +45,7 @@ defmodule CategoryPatchTest do
       RETURN c
     """)
 
-    conn = conn(:get, "/api/categories/#{name}?view=full", %{})
+    conn = conn(:get, "/api/categories/#{name}", %{})
     response2 = Router.call(conn, @opts)
 
     assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
@@ -80,7 +80,7 @@ defmodule CategoryPatchTest do
         RETURN c
       """)
 
-    conn = conn(:get, "/api/categories/#{name}?view=full", %{})
+    conn = conn(:get, "/api/categories/#{name}", %{})
     response2 = Router.call(conn, @opts)
 
     assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
@@ -115,7 +115,7 @@ defmodule CategoryPatchTest do
         RETURN c
       """)
 
-    conn = conn(:get, "/api/categories/#{name}?view=full", %{})
+    conn = conn(:get, "/api/categories/#{name}", %{})
     response2 = Router.call(conn, @opts)
 
     assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
@@ -165,7 +165,7 @@ defmodule CategoryPatchTest do
       RETURN c
     """)
 
-    conn = conn(:get, "/api/categories/#{name}?view=full", %{})
+    conn = conn(:get, "/api/categories/#{name}", %{})
     response2 = Router.call(conn, @opts)
 
     assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
@@ -223,7 +223,7 @@ defmodule CategoryPatchTest do
       RETURN c
     """)
 
-    conn = conn(:get, "/api/categories/#{name}?view=full", %{})
+    conn = conn(:get, "/api/categories/#{name}", %{})
     response2 = Router.call(conn, @opts)
 
     assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
@@ -270,7 +270,7 @@ defmodule CategoryPatchTest do
       RETURN c
     """)
 
-    conn = conn(:get, "/api/categories/#{name}?view=full", %{})
+    conn = conn(:get, "/api/categories/#{name}", %{})
     response2 = Router.call(conn, @opts)
 
     assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
@@ -332,7 +332,7 @@ defmodule CategoryPatchTest do
 
     assert response2.status === 404
 
-    conn = conn(:get, "/api/categories/#{name}.?view=full", %{})
+    conn = conn(:get, "/api/categories/#{name}.", %{})
     response3 = Router.call(conn, @opts)
 
     assert response3.status === 200
@@ -398,7 +398,7 @@ defmodule CategoryPatchTest do
 
     assert response2.status === 404
 
-    conn = conn(:get, "/api/categories/#{name}.?view=full", %{})
+    conn = conn(:get, "/api/categories/#{name}.", %{})
     response3 = Router.call(conn, @opts)
 
     assert response3.status === 200
@@ -457,7 +457,7 @@ defmodule CategoryPatchTest do
       RETURN c
     """)
 
-    conn = conn(:get, "/api/categories/#{name}?view=full", %{})
+    conn = conn(:get, "/api/categories/#{name}", %{})
     response2 = Router.call(conn, @opts)
 
     assert response2.status === 200
@@ -500,7 +500,7 @@ defmodule CategoryPatchTest do
       RETURN c
     """)
 
-    conn = conn(:get, "/api/categories/#{name}?view=full", %{})
+    conn = conn(:get, "/api/categories/#{name}", %{})
     response2 = Router.call(conn, @opts)
 
     assert response2.status === 200
@@ -590,7 +590,7 @@ defmodule CategoryPatchTest do
 
     assert response2.status === 404
 
-    conn = conn(:get, "/api/categories/#{name}.#{name}?view=full", %{})
+    conn = conn(:get, "/api/categories/#{name}.#{name}", %{})
     response3 = Router.call(conn, @opts)
 
     assert response3.status === 200
@@ -921,7 +921,7 @@ defmodule CategoryPatchTest do
 
     assert response2.status === 404
 
-    conn = conn(:get, "/api/categories/#{name}...#{name}?view=full", %{})
+    conn = conn(:get, "/api/categories/#{name}...#{name}", %{})
     response3 = Router.call(conn, @opts)
 
     assert response3.status === 200
@@ -961,6 +961,376 @@ defmodule CategoryPatchTest do
       MATCH (c1:Category {revision_id: #{rev_id}}),
         (c2:Category {revision_id: #{rev_id2}})
       DELETE c1, c2
+    """)
+  end
+
+  @doc """
+  PATCH /api/categories -H 'authorization: at3'
+  """
+  test "Authorised update category (cache invalidation test)" do
+    name1 = Integer.to_string(:rand.uniform(100_000_000))
+    name1revid = :rand.uniform(100_000_000)
+    name2 = Integer.to_string(:rand.uniform(100_000_000))
+    name3 = Integer.to_string(:rand.uniform(100_000_000))
+    name4 = Integer.to_string(:rand.uniform(100_000_000))
+    name5 = Integer.to_string(:rand.uniform(100_000_000))
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {access_token: 'at3'})
+
+      CREATE (c1:Category {name: '#{name1}', introduction: '.', url: '#{name1}', revision_id: #{name1revid}}),
+        (c2:Category {name: '#{name2}', introduction: '..', url: '#{name2}'}),
+        (c3:Category {name: '#{name3}', introduction: '...', url: '#{name3}'}),
+        (c4:Category {name: '#{name4}', introduction: '....', url: '#{name4}'}),
+        (c5:Category {name: '#{name5}', introduction: '.....', url: '#{name5}'}),
+        (c3)-[:SUBCATEGORY]->(c1)-[:SUBCATEGORY]->(c2),
+        (c1)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 6}]->(u)
+    """)
+
+    # prime the caches
+    response = Router.call(conn(:get, "/api/categories/#{name1}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name1, "introduction" => ".",
+      "url" => ^name1, "supercategories" => [%{"category" => %{"name" => ^name3}}],
+      "subcategories" => [%{"category" => %{"name" => ^name2}}]}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name2}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name2, "introduction" => "..",
+      "url" => ^name2, "supercategories" => [%{"category" => %{"name" => ^name1}}],
+      "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name3}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name3, "introduction" => "...",
+      "url" => ^name3, "supercategories" => [],
+      "subcategories" => [%{"category" => %{"name" => ^name1}}]}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name4}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name4, "introduction" => "....",
+      "url" => ^name4, "supercategories" => [], "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name5}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name5, "introduction" => ".....",
+      "url" => ^name5, "supercategories" => [], "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    data = %{"category" => %{"name" => name1, "introduction" => "......",
+      "supercategories" => [name5], "subcategories" => [name4]}, "revision_id" => name1revid}
+    conn =
+      conn(:patch, "/api/categories/#{name1}", data)
+      |> put_req_header("authorization", "at3")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name1, "introduction" => "......",
+      "url" => ^name1, "supercategories" => [%{"category" => %{"name" => ^name5}}],
+      "subcategories" => [%{"category" => %{"name" => ^name4}}]}}
+        = Poison.decode!(response.resp_body)
+
+    refute [] === Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {name: '#{name1}'}),
+        (c)-[:REVISION]->(cr:CategoryRevision),
+        (cr)-[:CONTRIBUTOR {type: 'insert'}]->(:User {access_token: 'at3'}),
+        (c)-[:CONTRIBUTOR {type: 'update'}]->(:User {access_token: 'at3'}),
+        (:Category {name: '#{name5}'})-[:SUBCATEGORY]->(c),
+        (c)-[:SUBCATEGORY]->(:Category {name: '#{name4}'})
+      RETURN c
+    """)
+
+    response = Router.call(conn(:get, "/api/categories/#{name2}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name2, "introduction" => "..",
+      "url" => ^name2, "supercategories" => [],
+      "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name3}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name3, "introduction" => "...",
+      "url" => ^name3, "supercategories" => [], "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name4}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name4, "introduction" => "....",
+      "url" => ^name4, "supercategories" => [%{"category" => %{"name" => ^name1}}],
+      "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name5}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name5, "introduction" => ".....",
+      "url" => ^name5, "supercategories" => [],
+      "subcategories" => [%{"category" => %{"name" => ^name1}}]}}
+        = Poison.decode!(response.resp_body)
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {name: '#{name1}'}),
+        (c)-[:REVISION]->(cr:CategoryRevision),
+        (c3:Category {name: '#{name5}'}),
+        (c2:Category {name: '#{name4}'}),
+        (c4:Category {name: '#{name2}'}),
+        (c5:Category {name: '#{name3}'})
+      DETACH DELETE c, c2, c3, c4, c5, cr
+    """)
+  end
+
+  test "Authorised references update category patch (cache invalidation test)" do
+    name1 = Integer.to_string(:rand.uniform(100_000_000))
+    name1revid = :rand.uniform(100_000_000)
+    name1updaterevid = :rand.uniform(100_000_000)
+    name2 = Integer.to_string(:rand.uniform(100_000_000))
+    name3 = Integer.to_string(:rand.uniform(100_000_000))
+    name4 = Integer.to_string(:rand.uniform(100_000_000))
+    name5 = Integer.to_string(:rand.uniform(100_000_000))
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {access_token: 'at3'})
+
+      CREATE (c1:Category {name: '#{name1}', introduction: '.', url: '#{name1}', revision_id: #{name1revid}}),
+        (c2:Category {name: '#{name2}', introduction: '..', url: '#{name2}'}),
+        (c3:Category {name: '#{name3}', introduction: '...', url: '#{name3}'}),
+        (c4:Category {name: '#{name4}', introduction: '....', url: '#{name4}'}),
+        (c5:Category {name: '#{name5}', introduction: '.....', url: '#{name5}'}),
+        (c3)-[:SUBCATEGORY]->(c1)-[:SUBCATEGORY]->(c2),
+        (c1)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 6}]->(u),
+        (ucp:UpdateCategoryPatch {
+          name: '#{name1}',
+          introduction: '......',
+          url: '#{name1}',
+          revision_id: #{name1updaterevid},
+          against_revision: #{name1revid}
+        }),
+        (c1)-[:UPDATE]->(ucp),
+        (c1)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 3}]->(u),
+        (ucp)-[:CONTRIBUTOR {type: "update", date: 20170810, time: 4}]->(u),
+        (c5)-[:SUBCATEGORY]->(ucp)-[:SUBCATEGORY]->(c4)
+    """)
+
+    # prime the caches
+    response = Router.call(conn(:get, "/api/categories/#{name1}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name1, "introduction" => ".",
+      "url" => ^name1, "supercategories" => [%{"category" => %{"name" => ^name3}}],
+      "subcategories" => [%{"category" => %{"name" => ^name2}}]}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name2}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name2, "introduction" => "..",
+      "url" => ^name2, "supercategories" => [%{"category" => %{"name" => ^name1}}],
+      "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name3}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name3, "introduction" => "...",
+      "url" => ^name3, "supercategories" => [],
+      "subcategories" => [%{"category" => %{"name" => ^name1}}]}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name4}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name4, "introduction" => "....",
+      "url" => ^name4, "supercategories" => [], "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name5}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name5, "introduction" => ".....",
+      "url" => ^name5, "supercategories" => [], "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    data = %{"category" => %{"name" => name1, "introduction" => ".......",
+      "supercategories" => [name5], "subcategories" => [name4]}, "revision_id" => name1updaterevid,
+      "references_patch" => "#{name1updaterevid}"}
+    conn =
+      conn(:patch, "/api/categories/#{name1}", data)
+      |> put_req_header("authorization", "at3")
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name1, "introduction" => ".......",
+      "url" => ^name1, "supercategories" => [%{"category" => %{"name" => ^name5}}],
+      "subcategories" => [%{"category" => %{"name" => ^name4}}]}}
+        = Poison.decode!(response.resp_body)
+
+    refute [] === Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {name: '#{name1}'}),
+        (c)-[:REVISION]->(cr:CategoryRevision),
+        (cr)-[:CONTRIBUTOR {type: 'insert'}]->(:User {access_token: 'at3'}),
+        (c)-[:CONTRIBUTOR {type: 'update'}]->(:User {access_token: 'at3'}),
+        (:Category {name: '#{name5}'})-[:SUBCATEGORY]->(c),
+        (c)-[:SUBCATEGORY]->(:Category {name: '#{name4}'})
+      RETURN c
+    """)
+
+    response = Router.call(conn(:get, "/api/categories/#{name2}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name2, "introduction" => "..",
+      "url" => ^name2, "supercategories" => [],
+      "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name3}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name3, "introduction" => "...",
+      "url" => ^name3, "supercategories" => [], "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name4}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name4, "introduction" => "....",
+      "url" => ^name4, "supercategories" => [%{"category" => %{"name" => ^name1}}],
+      "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name5}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name5, "introduction" => ".....",
+      "url" => ^name5, "supercategories" => [],
+      "subcategories" => [%{"category" => %{"name" => ^name1}}]}}
+        = Poison.decode!(response.resp_body)
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {name: '#{name1}'}),
+        (c)-[:REVISION]->(cr:CategoryRevision),
+        (c3:Category {name: '#{name5}'}),
+        (c2:Category {name: '#{name4}'}),
+        (c4:Category {name: '#{name2}'}),
+        (c5:Category {name: '#{name3}'})
+      DETACH DELETE c, c2, c3, c4, c5, cr
+    """)
+  end
+
+  test "Authorised apply update category patch (cache invalidation test)" do
+    name1 = Integer.to_string(:rand.uniform(100_000_000))
+    name1revid = :rand.uniform(100_000_000)
+    name1updaterevid = :rand.uniform(100_000_000)
+    name2 = Integer.to_string(:rand.uniform(100_000_000))
+    name3 = Integer.to_string(:rand.uniform(100_000_000))
+    name4 = Integer.to_string(:rand.uniform(100_000_000))
+    name5 = Integer.to_string(:rand.uniform(100_000_000))
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {access_token: 'at3'})
+
+      CREATE (c1:Category {name: '#{name1}', introduction: '.', url: '#{name1}', revision_id: #{name1revid}}),
+        (c2:Category {name: '#{name2}', introduction: '..', url: '#{name2}'}),
+        (c3:Category {name: '#{name3}', introduction: '...', url: '#{name3}'}),
+        (c4:Category {name: '#{name4}', introduction: '....', url: '#{name4}'}),
+        (c5:Category {name: '#{name5}', introduction: '.....', url: '#{name5}'}),
+        (c3)-[:SUBCATEGORY]->(c1)-[:SUBCATEGORY]->(c2),
+        (c1)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 6}]->(u),
+        (ucp:UpdateCategoryPatch {
+          name: '#{name1}',
+          introduction: '......',
+          url: '#{name1}',
+          revision_id: #{name1updaterevid},
+          against_revision: #{name1revid}
+        }),
+        (c1)-[:UPDATE]->(ucp),
+        (c1)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 3}]->(u),
+        (ucp)-[:CONTRIBUTOR {type: "update", date: 20170810, time: 4}]->(u),
+        (c5)-[:SUBCATEGORY]->(ucp)-[:SUBCATEGORY]->(c4)
+    """)
+
+    # prime the caches
+    response = Router.call(conn(:get, "/api/categories/#{name1}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name1, "introduction" => ".",
+      "url" => ^name1, "supercategories" => [%{"category" => %{"name" => ^name3}}],
+      "subcategories" => [%{"category" => %{"name" => ^name2}}]}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name2}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name2, "introduction" => "..",
+      "url" => ^name2, "supercategories" => [%{"category" => %{"name" => ^name1}}],
+      "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name3}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name3, "introduction" => "...",
+      "url" => ^name3, "supercategories" => [],
+      "subcategories" => [%{"category" => %{"name" => ^name1}}]}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name4}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name4, "introduction" => "....",
+      "url" => ^name4, "supercategories" => [], "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name5}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name5, "introduction" => ".....",
+      "url" => ^name5, "supercategories" => [], "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    conn =
+      conn(:patch, "/api/categories/#{name1}", %{"apply_patch" => "update,#{name1updaterevid}"})
+      |> put_req_header("authorization", "at3")
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name1, "introduction" => "......",
+      "url" => ^name1, "supercategories" => [%{"category" => %{"name" => ^name5}}],
+      "subcategories" => [%{"category" => %{"name" => ^name4}}]}}
+        = Poison.decode!(response.resp_body)
+
+    refute [] === Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {name: '#{name1}'}),
+        (c)-[:REVISION]->(cr:CategoryRevision),
+        (cr)-[:CONTRIBUTOR {type: 'insert'}]->(:User {access_token: 'at3'}),
+        (c)-[:CONTRIBUTOR {type: 'update'}]->(:User {access_token: 'at3'}),
+        (c)-[:CONTRIBUTOR {type: 'apply_update'}]->(:User {access_token: 'at3'}),
+        (:Category {name: '#{name5}'})-[:SUBCATEGORY]->(c),
+        (c)-[:SUBCATEGORY]->(:Category {name: '#{name4}'})
+      RETURN c
+    """)
+
+    response = Router.call(conn(:get, "/api/categories/#{name2}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name2, "introduction" => "..",
+      "url" => ^name2, "supercategories" => [],
+      "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name3}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name3, "introduction" => "...",
+      "url" => ^name3, "supercategories" => [], "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name4}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name4, "introduction" => "....",
+      "url" => ^name4, "supercategories" => [%{"category" => %{"name" => ^name1}}],
+      "subcategories" => []}}
+        = Poison.decode!(response.resp_body)
+
+    response = Router.call(conn(:get, "/api/categories/#{name5}", %{}), @opts)
+    assert response.status === 200
+    assert %{"category" => %{"name" => ^name5, "introduction" => ".....",
+      "url" => ^name5, "supercategories" => [],
+      "subcategories" => [%{"category" => %{"name" => ^name1}}]}}
+        = Poison.decode!(response.resp_body)
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {name: '#{name1}'}),
+        (c)-[:REVISION]->(cr:CategoryRevision),
+        (c3:Category {name: '#{name5}'}),
+        (c2:Category {name: '#{name4}'}),
+        (c4:Category {name: '#{name2}'}),
+        (c5:Category {name: '#{name3}'})
+      DETACH DELETE c, c2, c3, c4, c5, cr
     """)
   end
 end

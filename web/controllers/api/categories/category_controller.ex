@@ -338,7 +338,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
          {:ok} <- Category.valid_linked_categories?(category["subcategories"], category["supercategories"], url_name) do
       category =
         category
-        |> Map.put("url_name", url_name)
+        |> Map.put("url", url_name)
         |> Category.insert(review, conn.user.username)
 
       status_code = if review === 0, do: 201, else: 202
@@ -362,7 +362,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
          {:ok, new_category} <- Category.valid_fields?(new_category),
          {:ok, new_url} <- Utilities.is_url_friendly?(new_category["name"]),
          {:ok} <- Category.does_not_exist?(new_url, old_url),
-         {:ok, %{"category" => old_category}} <- Category.valid?(old_url),
+         {:ok, %{"category" => old_category}} <- Category.valid_and_fetch?(old_url),
          {:ok, refs_patch} <- Utilities.valid_optional_id?(params["references_patch"]),
          {:ok} <- Category.update_patch_exists?(old_url, refs_patch),
          {:ok} <- Utilities.revision_ids_match?(rev_id, (if refs_patch === nil, do: old_category["revision_id"], else: refs_patch)),
@@ -381,10 +381,10 @@ defmodule PhpInternals.Api.Categories.CategoryController do
 
   defp remove(conn, %{"category_name" => category_url, "review" => review}) do
     with {:ok} <- User.within_patch_limit?(conn.user),
-         {:ok, _category} <- Category.valid?(category_url),
+         {:ok, %{"category" => category}} <- Category.valid_and_fetch?(category_url),
          {:ok} <- Category.contains_nothing?(category_url),
          {:ok} <- Category.has_no_delete_patch?(category_url) do
-      Category.soft_delete(category_url, review, conn.user.username)
+      Category.soft_delete(category, review, conn.user.username)
 
       status_code = if review == 0, do: 204, else: 202
 

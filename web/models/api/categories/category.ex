@@ -258,6 +258,37 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
+  def valid_and_fetch?(category_url) do
+    query = """
+      MATCH (category:Category {url: {category_url}})
+
+      OPTIONAL MATCH (spc:Category)-[:SUBCATEGORY]->(category)
+
+      WITH COLLECT(spc.url) AS spcs, category
+
+      OPTIONAL MATCH (category)-[:SUBCATEGORY]->(sbc:Category)
+
+      RETURN {
+        name: category.name,
+        url: category.url,
+        revision_id: category.revision_id,
+        introduction: category.introduction,
+        subcategories: COLLECT(sbc.url),
+        supercategories: spcs
+      } AS category
+    """
+
+    params = %{category_url: category_url}
+
+    category = List.first Neo4j.query!(Neo4j.conn, query, params)
+
+    if category === nil do
+      {:error, 404, "Category not found"}
+    else
+      {:ok, category}
+    end
+  end
+
   def all_valid?([] = _categories) do
     {:error, 400, "At least one category must be given"}
   end
@@ -842,7 +873,7 @@ defmodule PhpInternals.Api.Categories.Category do
       Map.merge(linked_categories_params, %{
         name: category["name"],
         introduction: category["introduction"],
-        url: category["url_name"],
+        url: category["url"],
         rev_id: :rand.uniform(100_000_000),
         username: username
       })
@@ -852,11 +883,7 @@ defmodule PhpInternals.Api.Categories.Category do
     if review === 1 do
       Phoenix.View.render_to_string(CategoryView, "show.json", category: new_category)
     else
-      key = "categories/#{category["url_name"]}?normal"
-      new_category = ResultCache.set(key, Phoenix.View.render_to_string(CategoryView, "show.json", category: new_category))
-      ResultCache.flush("categories")
-      ResultCache.invalidate_contributions()
-      new_category
+      update_cache_after_insert(category, new_category)
     end
   end
 
@@ -958,18 +985,9 @@ defmodule PhpInternals.Api.Categories.Category do
 
     Neo4j.query!(Neo4j.conn, query, params)
 
-    category = fetch(new_category["url"], "full")
+    update_cache_after_update(old_category, new_category)
 
-    new_key = "categories/#{new_category["url"]}?full"
-    ResultCache.invalidate("categories/#{old_category["url"]}?overview")
-    ResultCache.invalidate("categories/#{old_category["url"]}?normal")
-    if old_category["name"] !== new_category["name"] do
-      ResultCache.invalidate("categories/#{old_category["url"]}?full")
-      ResultCache.flush("categories")
-    end
-    category = ResultCache.set(new_key, Phoenix.View.render_to_string(CategoryView, "show_full.json", category: category))
-    ResultCache.invalidate_contributions()
-    category
+    fetch_cache(new_category["url"], "normal")
   end
 
   def update(old_category, new_category, 1 = _review, username, nil = _patch_revision_id) do
@@ -1006,7 +1024,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
     Neo4j.query!(Neo4j.conn, query, params)
 
-    fetch_cache(old_category["url"], "full")
+    fetch_cache(old_category["url"], "normal")
   end
 
   def update(old_category, new_category, 0 = _review, username, patch_revision_id) do
@@ -1139,18 +1157,9 @@ defmodule PhpInternals.Api.Categories.Category do
 
     Neo4j.query!(Neo4j.conn, query, params)
 
-    category = fetch(new_category["url"], "full")
+    update_cache_after_update(old_category, new_category)
 
-    new_key = "categories/#{new_category["url"]}?full"
-    ResultCache.invalidate("categories/#{old_category["url"]}?overview")
-    ResultCache.invalidate("categories/#{old_category["url"]}?normal")
-    if old_category["name"] !== new_category["name"] do
-      ResultCache.invalidate("categories/#{old_category["url"]}?full")
-      ResultCache.flush("categories")
-    end
-    category = ResultCache.set(new_key, Phoenix.View.render_to_string(CategoryView, "show_full.json", category: category))
-    ResultCache.invalidate_contributions()
-    category
+    fetch_cache(new_category["url"], "normal")
   end
 
   def update(old_category, new_category, 1 = _review, username, patch_revision_id) do
@@ -1211,7 +1220,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
     Neo4j.query!(Neo4j.conn, query, params)
 
-    fetch_cache(old_category["url"], "full")
+    fetch_cache(old_category["url"], "normal")
   end
 
   defp linked_categories_query_builder(nil, nil, _name), do: {"", "", %{}, ""}
@@ -1251,12 +1260,28 @@ defmodule PhpInternals.Api.Categories.Category do
   end
 
   def apply_patch?(category_url, %{"action" => "insert"}, username) do
-    query = "MATCH (category:InsertCategoryPatch {url: {category_url}}) RETURN category"
-    params = %{category_url: category_url, username: username}
+    query = """
+      MATCH (category:InsertCategoryPatch {url: {category_url}})
 
-    if Neo4j.query!(Neo4j.conn, query, params) == [] do
+      OPTIONAL MATCH (spc:Category)-[:SUBCATEGORY]->(category)
+
+      WITH COLLECT(spc.url) AS spcs, category
+
+      OPTIONAL MATCH (category)-[:SUBCATEGORY]->(sbc:Category)
+
+      RETURN {
+        url: category.url,
+        subcategories: COLLECT(sbc.url),
+        supercategories: spcs
+      } AS category
+    """
+    params = %{category_url: category_url, username: username}
+    response = Neo4j.query!(Neo4j.conn, query, params)
+
+    if response === [] do
       {:error, 404, "Insert patch not found"}
     else
+      %{"category" => category} = List.first response
       query = "MATCH (c:Category {url: {category_url}}) RETURN c"
 
       if Neo4j.query!(Neo4j.conn, query, params) != [] do
@@ -1298,11 +1323,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
         new_category = List.first Neo4j.query!(Neo4j.conn, query, params)
 
-        key = "categories/#{category_url}?full"
-        new_category = ResultCache.set(key, Phoenix.View.render_to_string(CategoryView, "show_full.json", category: new_category))
-        ResultCache.flush("categories")
-        ResultCache.invalidate_contributions()
-        {:ok, new_category}
+        {:ok, update_cache_after_insert(category, new_category)}
       end
     end
   end
@@ -1310,22 +1331,52 @@ defmodule PhpInternals.Api.Categories.Category do
   def apply_patch?(category_url, %{"action" => "update", "patch_revision_id" => patch_revision_id}, username) do
     query = """
       OPTIONAL MATCH (c:Category {url: {category_url}})
-      OPTIONAL MATCH (c)-[:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
-      RETURN c, cp
+
+      OPTIONAL MATCH (spc:Category)-[:SUBCATEGORY]->(c)
+
+      WITH COLLECT(spc.url) AS spcs, c
+
+      OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sbc:Category)
+
+      WITH {
+        name: c.name,
+        url: c.url,
+        revision_id: c.revision_id,
+        subcategories: COLLECT(sbc.url),
+        supercategories: spcs
+      } AS category, c
+
+      OPTIONAL MATCH (c)-[:UPDATE]->(ucp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
+
+      OPTIONAL MATCH (spc:Category)-[:SUBCATEGORY]->(ucp)
+
+      WITH COLLECT(spc.url) AS spcs, ucp, category, c
+
+      OPTIONAL MATCH (ucp)-[:SUBCATEGORY]->(sbc:Category)
+
+      WITH {
+        name: ucp.name,
+        url: ucp.url,
+        against_revision: ucp.against_revision,
+        subcategories: COLLECT(sbc.url),
+        supercategories: spcs
+      } AS update_category_patch, ucp, category, c
+
+      RETURN (CASE c WHEN NULL THEN NULL ELSE category END) AS c,
+        (CASE ucp WHEN NULL THEN NULL ELSE update_category_patch END) AS ucp
     """
+
     params = %{patch_revision_id: patch_revision_id, category_url: category_url, username: username}
 
     category = List.first Neo4j.query!(Neo4j.conn, query, params)
 
-    if category["c"] == nil do
+    if category["c"] === nil do
       {:error, 404, "Category not found"}
     else
-      if category["cp"] == nil do
+      if category["ucp"] === nil do
         {:error, 404, "Update patch not found for the specified category"}
       else
-        %{"c" => %{"revision_id" => revision_id}, "cp" => %{"against_revision" => against_rev}} = category
-
-        if against_rev != revision_id do
+        if category["ucp"]["against_revision"] !== category["c"]["revision_id"] do
           {:error, 400, "Cannot apply patch due to revision ID mismatch"}
         else
           query = """
@@ -1473,17 +1524,9 @@ defmodule PhpInternals.Api.Categories.Category do
 
           Neo4j.query!(Neo4j.conn, query, params)
 
-          ResultCache.invalidate("categories/#{category["c"]["url"]}?overview")
-          ResultCache.invalidate("categories/#{category["c"]["url"]}?normal")
-          if category["c"]["name"] !== category["cp"]["name"] do
-            ResultCache.invalidate("categories/#{category["c"]["url"]}?full")
-            ResultCache.flush("categories")
-          end
-          key = "categories/#{category["cp"]["url"]}?full"
-          new_category = fetch(category["cp"]["url"], "full")
-          new_category = ResultCache.set(key, Phoenix.View.render_to_string(CategoryView, "show_full.json", category: new_category))
-          ResultCache.invalidate_contributions()
-          {:ok, new_category}
+          update_cache_after_update(category["c"], category["ucp"])
+
+          {:ok, fetch_cache(category["ucp"]["url"], "normal")}
         end
       end
     end
@@ -1508,20 +1551,33 @@ defmodule PhpInternals.Api.Categories.Category do
         query = """
           MATCH (c:Category {url: {category_url}})<-[r:DELETE]-(user2:User),
             (user:User {username: {username}})
+
           REMOVE c:Category
           SET c:CategoryDeleted
+
           CREATE (c)-[:CONTRIBUTOR {type: "delete", date: #{Utilities.get_date()}, time: timestamp()}]->(user2),
             (c)-[:CONTRIBUTOR {type: "apply_delete", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
+
           DELETE r
+
+          WITH c
+
+          OPTIONAL MATCH (spc:Category)-[:SUBCATEGORY]->(c)
+
+          WITH COLLECT(spc.url) AS spcs, c
+
+          OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sbc:Category)
+
+          RETURN {
+            url: c.url,
+            subcategories: COLLECT(sbc.url),
+            supercategories: spcs
+          } AS category
         """
 
-        Neo4j.query!(Neo4j.conn, query, params)
+        %{"category" => category} = List.first Neo4j.query!(Neo4j.conn, query, params)
 
-        ResultCache.invalidate("categories/#{category_url}?overview")
-        ResultCache.invalidate("categories/#{category_url}?normal")
-        ResultCache.invalidate("categories/#{category_url}?full")
-        ResultCache.flush("categories")
-        ResultCache.invalidate_contributions()
+        update_cache_after_delete(category)
 
         {:ok, 204}
       end
@@ -1623,7 +1679,7 @@ defmodule PhpInternals.Api.Categories.Category do
     end
   end
 
-  def soft_delete(category_url, 0, username) do
+  def soft_delete(category, 0, username) do
     query = """
       MATCH (c:Category {url: {url}}),
         (user:User {username: {username}})
@@ -1632,25 +1688,21 @@ defmodule PhpInternals.Api.Categories.Category do
       CREATE (c)-[:CONTRIBUTOR {type: "delete", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
     """
 
-    params = %{url: category_url, username: username}
+    params = %{url: category["url"], username: username}
 
     Neo4j.query!(Neo4j.conn, query, params)
 
-    ResultCache.invalidate("categories/#{category_url}?overview")
-    ResultCache.invalidate("categories/#{category_url}?normal")
-    ResultCache.invalidate("categories/#{category_url}?full")
-    ResultCache.flush("categories")
-    ResultCache.invalidate_contributions()
+    update_cache_after_delete(category)
   end
 
-  def soft_delete(category_url, _review = 1, username) do
+  def soft_delete(category, _review = 1, username) do
     query = """
       MATCH (c:Category {url: {url}}),
         (user:User {username: {username}})
       CREATE (c)<-[:DELETE]-(user)
     """
 
-    params = %{url: category_url, username: username}
+    params = %{url: category["url"], username: username}
 
     Neo4j.query!(Neo4j.conn, query, params)
   end
@@ -1672,5 +1724,57 @@ defmodule PhpInternals.Api.Categories.Category do
     params = %{url: category_url, username: username}
 
     Neo4j.query!(Neo4j.conn, query, params)
+  end
+
+  # cache invalidation functions here
+
+  def update_cache_after_insert(category, new_category) do
+    key = "categories/#{category["url"]}?normal"
+    new_category = ResultCache.set(key, Phoenix.View.render_to_string(CategoryView, "show.json", category: new_category))
+    ResultCache.flush("categories")
+    ResultCache.invalidate_contributions()
+
+    for category_url <- (category["subcategories"] || []) ++ (category["supercategories"] || []) do
+      ResultCache.invalidate("categories/#{category_url}?normal")
+      ResultCache.invalidate("categories/#{category_url}?full")
+    end
+
+    new_category
+  end
+
+  def update_cache_after_update(old_category, new_category) do
+    ResultCache.invalidate("categories/#{old_category["url"]}?overview")
+    ResultCache.invalidate("categories/#{old_category["url"]}?normal")
+
+    if old_category["name"] !== new_category["name"] do
+      ResultCache.invalidate("categories/#{old_category["url"]}?full")
+      ResultCache.flush("categories")
+    end
+
+    category_diff =
+      ((new_category["subcategories"] || []) -- old_category["subcategories"]) ++
+      (old_category["subcategories"] -- (new_category["subcategories"] || [])) ++
+      ((new_category["supercategories"] || []) -- old_category["supercategories"]) ++
+      (old_category["supercategories"] -- (new_category["supercategories"] || []))
+
+    for category_url <- category_diff do
+      ResultCache.invalidate("categories/#{category_url}?normal")
+      ResultCache.invalidate("categories/#{category_url}?full")
+    end
+
+    ResultCache.invalidate_contributions()
+  end
+
+  def update_cache_after_delete(category) do
+    ResultCache.invalidate("categories/#{category["url"]}?overview")
+    ResultCache.invalidate("categories/#{category["url"]}?normal")
+    ResultCache.invalidate("categories/#{category["url"]}?full")
+    ResultCache.flush("categories")
+    ResultCache.invalidate_contributions()
+
+    for category_url <- category["subcategories"] ++ category["supercategories"] do
+      ResultCache.invalidate("categories/#{category_url}?normal")
+      ResultCache.invalidate("categories/#{category_url}?full")
+    end
   end
 end
