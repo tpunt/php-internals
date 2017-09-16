@@ -102,19 +102,19 @@ defmodule PhpInternals.Api.Articles.ArticleController do
   end
 
   def update(%{user: %{privilege_level: 3}} = conn, %{"article_name" => article_url, "article" => article}) do
-    with {:ok, current_article} <- Article.valid?(article_url),
+    with {:ok, %{"article" => current_article}} <- Article.valid?(article_url),
          {:ok} <- Article.contains_required_fields?(article),
          {:ok} <- Article.contains_only_expected_fields?(article),
          {:ok, article_url_name} <- Utilities.is_url_friendly?(article["title"]),
-		 {:ok, series_url_name} <- Utilities.is_url_friendly_opt?(article["series_name"]),
+         {:ok, series_url_name} <- Utilities.is_url_friendly_opt?(article["series_name"]),
          {:ok} <- Article.not_valid?(article_url, article_url_name),
          {:ok} <- Category.all_valid?(article["categories"]) do
       article =
         article
         |> Map.put("url", article_url_name)
-		|> Map.put("series_name", article["series_name"] || "")
+        |> Map.put("series_name", article["series_name"] || "")
         |> Map.put("series_url", series_url_name)
-        |> Article.update(current_article)
+        |> Article.update(current_article, conn.user.username)
 
       conn
       |> send_resp(200, article)

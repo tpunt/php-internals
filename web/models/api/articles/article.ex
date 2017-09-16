@@ -47,7 +47,13 @@ defmodule PhpInternals.Api.Articles.Article do
         case valid?(article_url) do
           {:ok, article} ->
             response = Phoenix.View.render_to_string(ArticleView, "show_full.json", article: article)
+
             ResultCache.set(key, response)
+
+            if article["article"]["series_url"] !== "" do
+              ResultCache.set("articles/#{article["article"]["series_url"]}/#{article_url}", response)
+            end
+
             {:ok, response}
           error -> error
         end
@@ -58,16 +64,28 @@ defmodule PhpInternals.Api.Articles.Article do
   def valid?(article_url) do
     query = """
       MATCH (article:Article {url: {url}}),
-        (article)-[arel:CONTRIBUTOR {type: "insert"}]->(u:User),
-        (article)-[crel:CATEGORY]->(category:Category)
-      RETURN article,
-        collect({category: category}) AS categories,
-        {
+        (article)-[:CATEGORY]->(c:Category)
+
+      WITH article, COLLECT({category: {name: c.name, url: c.url}}) AS categories
+
+      MATCH (article)-[:CONTRIBUTOR {type: "insert"}]->(u:User)
+
+      RETURN {
+        title: article.title,
+        url: article.url,
+        series_name: article.series_name,
+        series_url: article.series_url,
+        excerpt: article.excerpt,
+        body: article.body,
+        time: article.time,
+        user: {
           username: u.username,
           name: u.name,
           privilege_level: u.privilege_level,
           avatar_url: u.avatar_url
-        } AS user
+        },
+        categories: categories
+      } AS article
     """
 
     params = %{url: article_url}
@@ -77,12 +95,7 @@ defmodule PhpInternals.Api.Articles.Article do
     if result === nil do
       {:error, 404, "Article not found"}
     else
-      article =
-        result["article"]
-        |> Map.merge(%{"user" => result["user"]})
-        |> Map.merge(%{"categories" => result["categories"]})
-
-      {:ok, %{"article" => article}}
+      {:ok, result}
     end
   end
 
@@ -106,23 +119,26 @@ defmodule PhpInternals.Api.Articles.Article do
   def valid_series?(series_url) do
     query = """
       MATCH (a:Article {series_url: {series_url}}),
-        (a)-[arel:CONTRIBUTOR {type: "insert"}]->(u:User),
-        (a)-[crel:CATEGORY]->(category:Category)
+        (a)-[:CATEGORY]->(c:Category)
+
+      WITH a, COLLECT({category: {name: c.name, url: c.url}}) AS cs
+
+      MATCH (a)-[:CONTRIBUTOR {type: "insert"}]->(u:User)
+
       RETURN {
           title: a.title,
           url: a.url,
           time: a.time,
           excerpt: a.excerpt,
           series_name: a.series_name,
-          series_url: a.series_url
-        } AS article,
-        collect({category: category}) as categories,
-        {
-          username: u.username,
-          name: u.name,
-          privilege_level: u.privilege_level,
-          avatar_url: u.avatar_url
-        } AS user
+          series_url: a.series_url,
+          categories: cs,
+          user: {
+            username: u.username,
+            name: u.name,
+            privilege_level: u.privilege_level
+          }
+        } AS article
       ORDER BY article.time ASC
     """
 
@@ -133,17 +149,6 @@ defmodule PhpInternals.Api.Articles.Article do
     if result === [] do
       {:error, 404, "Article series not found"}
     else
-      result =
-        result
-        |> Enum.map(fn %{"article" => article, "user" => user} = result ->
-            article =
-              article
-              |> Map.merge(%{"user" => user})
-              |> Map.merge(%{"categories" => result["categories"]})
-
-            %{"article" => article}
-          end)
-
       {:ok, result}
     end
   end
@@ -166,11 +171,28 @@ defmodule PhpInternals.Api.Articles.Article do
   def valid_in_series?(series_url, article_url) do
     query = """
       MATCH (article:Article {series_url: {series_url}, url: {url}}),
-        (article)-[arel:CONTRIBUTOR {type: "insert"}]->(u:User),
-        (article)-[crel:CATEGORY]->(category:Category)
-      RETURN article,
-        collect({category: category}) AS categories,
-        {username: u.username, name: u.name, privilege_level: u.privilege_level} AS user
+        (article)-[:CATEGORY]->(c:Category)
+
+      WITH article, COLLECT({category: {name: c.name, url: c.url}}) AS categories
+
+      MATCH (article)-[:CONTRIBUTOR {type: "insert"}]->(u:User)
+
+      RETURN {
+        title: article.title,
+        url: article.url,
+        series_name: article.series_name,
+        series_url: article.series_url,
+        excerpt: article.excerpt,
+        body: article.body,
+        time: article.time,
+        user: {
+          username: u.username,
+          name: u.name,
+          privilege_level: u.privilege_level,
+          avatar_url: u.avatar_url
+        },
+        categories: categories
+      } AS article
     """
 
     params = %{series_url: series_url, url: article_url}
@@ -180,12 +202,7 @@ defmodule PhpInternals.Api.Articles.Article do
     if result === nil do
       {:error, 404, "Article not found for given article series"}
     else
-      article =
-        result["article"]
-        |> Map.merge(%{"user" => result["user"]})
-        |> Map.merge(%{"categories" => result["categories"]})
-
-      {:ok, %{"article" => article}}
+      {:ok, result}
     end
   end
 
@@ -284,43 +301,43 @@ defmodule PhpInternals.Api.Articles.Article do
     List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def insert(article, username) do
-    query1 = """
-      MATCH (user:User {username: {username}})
-
-      CREATE (article:Article {
-        title: {title},
-        url: {url},
-        series_name: {series_name},
-        series_url: {series_url},
-        excerpt: {excerpt},
-        body: {body},
-        date: #{Utilities.get_date()},
-        time: timestamp()
-      }),
-      (article)-[:CONTRIBUTOR {type: "insert", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
-    """
-
-    {query2, params1, _counter} =
-      article["categories"]
-      |> Enum.reduce({"", %{}, 0}, fn (cat, {q, p, c}) ->
-          query = """
-            WITH article, user
-            MATCH (c#{c}:Category {url: {cat_#{c}}})
-            CREATE (article)-[:CATEGORY]->(c#{c})
-          """
-          {q <> query, Map.put(p, "cat_#{c}", cat), c + 1}
+  defp build_category_query(categories) do
+    {match_categories, join_categories, bind_categories, _counter} =
+      categories
+      |> Enum.reduce({[], [], %{}, 0}, fn (cat, {m, j, b, c}) ->
+          {
+            m ++ ["(c#{c}:Category {url: {cat_#{c}}})"],
+            j ++ ["(article)-[:CATEGORY]->(c#{c})"],
+            Map.put(b, "cat_#{c}", cat),
+            c + 1
+          }
         end)
 
-    query3 = """
-      WITH article, user
-      MATCH (article)-[:CATEGORY]->(c:Category)
-      RETURN article, user, COLLECT({category: {name: c.name, url:c.url}}) as categories
+    {Enum.join(match_categories, ", "), Enum.join(join_categories, ", "), bind_categories}
+  end
+
+  def insert(article, username) do
+    {match_categories, join_categories, bind_categories} =
+      build_category_query(article["categories"])
+
+    query = """
+      MATCH (user:User {username: {username}}), #{match_categories}
+
+      CREATE (article:Article {
+          title: {title},
+          url: {url},
+          series_name: {series_name},
+          series_url: {series_url},
+          excerpt: {excerpt},
+          body: {body},
+          date: #{Utilities.get_date()},
+          time: timestamp()
+        }),
+        (article)-[:CONTRIBUTOR {type: "insert", date: #{Utilities.get_date()}, time: timestamp()}]->(user),
+        #{join_categories}
     """
 
-    query = query1 <> query2 <> query3
-
-    params2 = %{
+    params = Map.merge(bind_categories, %{
       title: article["title"],
       url: article["url"],
       excerpt: article["excerpt"],
@@ -328,89 +345,82 @@ defmodule PhpInternals.Api.Articles.Article do
       username: username,
       series_name: article["series_name"],
       series_url: article["series_url"]
-    }
+    })
 
-    params = Map.merge(params1, params2)
+    Neo4j.query!(Neo4j.conn, query, params)
 
-    [result] = Neo4j.query!(Neo4j.conn, query, params)
+    update_cache_after_insert(article["series_url"], article["url"])
 
-    new_article =
-      result["article"]
-      |> Map.merge(%{"user" => result["user"]})
-      |> Map.merge(%{"categories" => result["categories"]})
+    {:ok, article} = valid_cache?(article["url"])
 
-    new_article = %{"article" => new_article}
-
-    key = "articles/#{article["series_url"]}/#{article["url"]}"
-    new_article = ResultCache.set(key, Phoenix.View.render_to_string(ArticleView, "show_full.json", article: new_article))
-    ResultCache.flush("articles")
-    ResultCache.invalidate_contributions()
-    new_article
+    article
   end
 
-  def update(article, old_article) do
-    query1 = """
-      MATCH (article:Article {url: {old_url}})-[r:CATEGORY]->(:Category)
+  def update(updated_article, old_article, username) do
+    {match_categories, join_categories, bind_categories} =
+      build_category_query(updated_article["categories"])
+
+    query = """
+      MATCH (article:Article {url: {old_url}}), (user:User {username: {username}})
+
+      OPTIONAL MATCH (article)-[r1:REVISION]->(old_revision:ArticleRevision)
+      OPTIONAL MATCH (article)-[r2:CONTRIBUTOR {type: "update"}]->(u:User)
+
+      CREATE (revision:ArticleRevision)
+
+      SET revision = article
+
       SET article.url = {new_url},
           article.title = {new_title},
           article.series_name = {new_series_name},
           article.series_url = {new_series_url},
           article.excerpt = {new_excerpt},
           article.body = {new_body}
-      DELETE r
-    """
 
-    {query2, params1, _counter} =
-      article["categories"]
-      |> Enum.reduce({"", %{}, 0}, fn (cat, {q, p, c}) ->
-          query = """
-            WITH article
-            MATCH (c#{c}:Category {url: {cat_#{c}}})
-            MERGE (article)-[:CATEGORY]->(c#{c})
-          """
-          {q <> query, Map.put(p, "cat_#{c}", cat), c + 1}
-        end)
+      FOREACH (unused IN CASE r1 WHEN NULL THEN [] ELSE [1] END |
+        CREATE (revision)-[:REVISION]->(old_revision)
+        DELETE r1
+      )
 
-    query3 = """
+      FOREACH (unused IN CASE r2 WHEN NULL THEN [] ELSE [1] END |
+        CREATE (revision)-[:CONTRIBUTOR {type: "update", date: r2.date, time: r2.time}]->(u)
+        DELETE r2
+      )
+
+      CREATE (article)-[:REVISION]->(revision),
+        (article)-[:CONTRIBUTOR {type: "update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
+
       WITH article
-      MATCH (user:User)<-[:CONTRIBUTOR {type: "insert"}]-(article)-[:CATEGORY]->(c:Category)
-      RETURN article, user, collect({category: {name: c.name, url: c.url}}) as categories
+
+      MATCH (article)-[r3:CATEGORY]->(c:Category)
+
+      DELETE r3
+
+      WITH article, COLLECT(c) AS unused
+
+      MATCH #{match_categories}
+
+      CREATE #{join_categories}
     """
 
-    query = query1 <> query2 <> query3
+    params = Map.merge(bind_categories, %{
+      old_url: old_article["url"],
+      new_title: updated_article["title"],
+      new_url: updated_article["url"],
+      new_series_name: updated_article["series_name"],
+      new_series_url: updated_article["series_url"],
+      new_excerpt: updated_article["excerpt"],
+      new_body: updated_article["body"],
+      username: username
+    })
 
-    params2 = %{
-      old_url: old_article["article"]["url"],
-      new_title: article["title"],
-      new_url: article["url"],
-      new_series_name: article["series_name"],
-      new_series_url: article["series_url"],
-      new_excerpt: article["excerpt"],
-      new_body: article["body"]
-    }
+    Neo4j.query!(Neo4j.conn, query, params)
 
-    params = Map.merge(params1, params2)
+    update_cache_after_update(old_article, updated_article)
 
-    [result] = Neo4j.query!(Neo4j.conn, query, params)
+    {:ok, article} = valid_cache?(updated_article["url"])
 
-    updated_article =
-      result["article"]
-      |> Map.merge(%{"user" => result["user"]})
-      |> Map.merge(%{"categories" => result["categories"]})
-
-    updated_article = %{"article" => updated_article}
-
-    if old_article["article"]["series_name"] !== article["series_name"] or old_article["article"]["name"] !== article["name"] do
-      ResultCache.invalidate("articles/#{old_article["article"]["series_url"]}/#{old_article["article"]["url"]}")
-      ResultCache.invalidate("articles//#{old_article["article"]["url"]}")
-      ResultCache.flush("articles")
-    end
-    key = "articles//#{article["url"]}"
-    key2 = "articles/#{article["series_url"]}/#{article["url"]}"
-    updated_article = ResultCache.set(key, Phoenix.View.render_to_string(ArticleView, "show_full.json", article: updated_article))
-    ResultCache.set(key2, updated_article)
-    ResultCache.invalidate_contributions()
-    updated_article
+    article
   end
 
   def soft_delete(article_series, article_url) do
@@ -423,8 +433,53 @@ defmodule PhpInternals.Api.Articles.Article do
     params = %{url: article_url}
 
     Neo4j.query!(Neo4j.conn, query, params)
-    ResultCache.invalidate("articles/#{article_series}/#{article_url}")
+
+    update_cache_after_delete(article_series, article_url)
+  end
+
+  def update_cache_after_update(old_article, updated_article) do
+    old_categories =
+      Enum.map(old_article["categories"], fn %{"category" => %{"url" => url}} ->
+        url
+      end)
+
+    category_diff =
+      (old_categories -- updated_article["categories"]) ++
+      (updated_article["categories"] -- old_categories)
+
+    if old_article["series_name"] !== updated_article["series_name"]
+      or old_article["name"] !== updated_article["name"]
+      or old_article["excerpt"] !== updated_article["excerpt"]
+      or category_diff !== [] do
+      ResultCache.flush("articles")
+    end
+
+    ResultCache.invalidate("articles//#{old_article["url"]}")
+
+    if old_article["series_url"] !== "" do
+      ResultCache.invalidate("articles/#{old_article["series_url"]}/#{old_article["url"]}")
+    end
+
+    ResultCache.invalidate_contributions()
+  end
+
+  def update_cache_after_delete(article_series, article_url) do
     ResultCache.invalidate("articles//#{article_url}")
+
+    if article_series !== "" do
+      ResultCache.invalidate("articles/#{article_series}/#{article_url}")
+    end
+
+    ResultCache.flush("articles")
+  end
+
+  def update_cache_after_insert(article_series, article_url) do
+    ResultCache.invalidate("articles//#{article_url}")
+
+    if article_series !== "" do
+      ResultCache.invalidate("articles/#{article_series}/#{article_url}")
+    end
+
     ResultCache.flush("articles")
   end
 end

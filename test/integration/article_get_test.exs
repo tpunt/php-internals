@@ -38,7 +38,8 @@ defmodule ArticleGetTest do
           url: '#{art_name}',
           excerpt: '.',
           body: '...',
-          date: timestamp(),
+          date: 20170810,
+          time: timestamp(),
           series_name: '#{ser_name}',
           series_url: '#{ser_name}'
         }),
