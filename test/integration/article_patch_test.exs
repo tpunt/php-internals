@@ -99,7 +99,7 @@ defmodule ArticlePatchTest do
         })
     """)
     data = %{"article" => %{"title" => "#{art_name}", "excerpt" => "...",
-      "body" => ".", "categories" => ["#{cat_name}"], "series_name" => ""}}
+      "body" => ".", "categories" => ["#{cat_name}"]}}
 
     # prime the cache
     conn = conn(:get, "/api/articles/#{art_name}", %{})
