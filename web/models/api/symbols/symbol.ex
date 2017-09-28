@@ -307,7 +307,16 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   end
 
   def valid?(symbol_id) do
-    query = "MATCH (symbol:Symbol {id: {symbol_id}}) RETURN symbol"
+    query = """
+      MATCH (symbol:Symbol {id: {symbol_id}})-[:CATEGORY]->(c:Category)
+      RETURN {
+        id: symbol.id,
+        name: symbol.name,
+        url: symbol.url,
+        type: symbol.type,
+        categories: collect(c.url)
+      } AS symbol
+    """
     params = %{symbol_id: symbol_id}
     result = List.first Neo4j.query!(Neo4j.conn, query, params)
 
@@ -819,11 +828,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     if review === 1 do
       Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result)
     else
-      key_id = "symbols/#{params2.id}?normal"
-      new_symbol = ResultCache.set(key_id, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
-      ResultCache.flush("symbols")
-      ResultCache.invalidate_contributions()
-      new_symbol
+      update_cache_after_insert(result)
     end
   end
 
@@ -912,17 +917,11 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     result = List.first Neo4j.query!(Neo4j.conn, query, params)
 
-    if old_symbol["name"] !== new_symbol["name"] do
-      ResultCache.flush("symbols")
-    end
-    ResultCache.invalidate("symbols/#{old_symbol["url"]}")
-    key_id_overview = "symbols/#{old_symbol["id"]}?overview"
-    key_id_normal = "symbols/#{old_symbol["id"]}?normal"
-    new_symbol = ResultCache.set(key_id_overview, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
-    ResultCache.set(key_id_normal, new_symbol)
-    ResultCache.invalidate_contributions()
+    category_diff =
+      (old_symbol["categories"] -- new_symbol["categories"]) ++
+      (new_symbol["categories"] -- old_symbol["categories"])
 
-    {:ok, 200, new_symbol}
+    {:ok, 200, update_cache_after_update(old_symbol, new_symbol, category_diff, result)}
   end
 
   def update(old_symbol, new_symbol, 1, username, nil = _patch_revision_id) do
@@ -1102,17 +1101,11 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
       result = List.first Neo4j.query!(Neo4j.conn, query, params)
 
-      if old_symbol["name"] !== new_symbol["name"] do
-        ResultCache.flush("symbols")
-      end
-      ResultCache.invalidate("symbols/#{old_symbol["url"]}")
-      key_id_overview = "symbols/#{old_symbol["id"]}?overview"
-      key_id_normal = "symbols/#{old_symbol["id"]}?normal"
-      new_symbol = ResultCache.set(key_id_overview, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
-      ResultCache.set(key_id_normal, new_symbol)
-      ResultCache.invalidate_contributions()
+      category_diff =
+        (old_symbol["categories"] -- new_symbol["categories"]) ++
+        (new_symbol["categories"] -- old_symbol["categories"])
 
-      {:ok, 200, new_symbol}
+      {:ok, 200, update_cache_after_update(old_symbol, new_symbol, category_diff, result)}
     end
   end
 
@@ -1214,15 +1207,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     if result === nil do
       {:error, 404, "Insert patch not found"}
     else
-      key_id = "symbols/#{symbol_id}?normal"
-      key_url = "symbols/#{result["symbol"]["symbol"]["url"]}"
-      ResultCache.invalidate(key_url)
-      new_symbol = ResultCache.set(key_url, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
-      ResultCache.set(key_id, new_symbol)
-      ResultCache.flush("symbols")
-      ResultCache.invalidate_contributions()
-
-      {:ok, new_symbol}
+      {:ok, update_cache_after_insert(result)}
     end
   end
 
@@ -1274,16 +1259,11 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
       result = List.first Neo4j.query!(Neo4j.conn, query, params)
 
-      if symbol_patch["symbol_update"]["symbol"]["name"] !== result["symbol"]["symbol"]["name"] do
-        ResultCache.flush("symbols")
-      end
-      ResultCache.invalidate("symbols/#{symbol_patch["symbol_update"]["symbol"]["url"]}")
-      key_id_overview = "symbols/#{symbol_id}?overview"
-      key_id_normal = "symbols/#{symbol_id}?normal"
-      new_symbol = ResultCache.set(key_id_overview, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
-      ResultCache.set(key_id_normal, new_symbol)
-      ResultCache.invalidate_contributions()
-      {:ok, new_symbol}
+      old_categories = Enum.map(symbol_patch["symbol_update"]["categories"], fn c -> c["category"]["url"] end)
+      new_categories = Enum.map(result["symbol"]["categories"], fn c -> c["category"]["url"] end)
+      category_diff = (old_categories -- new_categories) ++ (new_categories -- old_categories)
+
+      {:ok, update_cache_after_update(symbol_patch["symbol_update"]["symbol"], result["symbol"]["symbol"], category_diff, result)}
     else
       error ->
         error
@@ -1313,10 +1293,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     if result === [] do
       {:error, 404, "Delete patch not found"}
     else
-      ResultCache.invalidate("symbols/#{symbol_id}?overview")
-      ResultCache.invalidate("symbols/#{symbol_id}?normal")
-      ResultCache.flush("symbols")
-      ResultCache.invalidate_contributions()
+      update_cache_after_delete(symbol_id)
 
       {:ok, 204}
     end
@@ -1405,10 +1382,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     Neo4j.query!(Neo4j.conn, query, params)
 
-    ResultCache.invalidate("symbols/#{symbol_id}?overview")
-    ResultCache.invalidate("symbols/#{symbol_id}?normal")
-    ResultCache.flush("symbols")
-    ResultCache.invalidate_contributions()
+    update_cache_after_delete(symbol_id)
   end
 
   def soft_delete(symbol_id, 1 = _review, username) do
@@ -1440,5 +1414,38 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     params = %{symbol_id: symbol_id, username: username}
 
     Neo4j.query!(Neo4j.conn, query, params)
+  end
+
+  def update_cache_after_insert(symbol) do
+    key_id = "symbols/#{symbol["symbol"]["symbol"]["id"]}?normal"
+
+    new_symbol = ResultCache.set(key_id, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: symbol))
+
+    ResultCache.flush("symbols")
+    ResultCache.invalidate_contributions()
+
+    new_symbol
+  end
+
+  def update_cache_after_update(old_symbol, new_symbol, category_diff, result) do
+    if old_symbol["name"] !== new_symbol["name"] or category_diff !== [] do
+      ResultCache.flush("symbols")
+    end
+
+    ResultCache.invalidate("symbols/#{old_symbol["url"]}")
+    key_id_overview = "symbols/#{old_symbol["id"]}?overview"
+    key_id_normal = "symbols/#{old_symbol["id"]}?normal"
+    new_symbol = ResultCache.set(key_id_overview, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result))
+    ResultCache.set(key_id_normal, new_symbol)
+    ResultCache.invalidate_contributions()
+
+    new_symbol
+  end
+
+  def update_cache_after_delete(symbol_id) do
+    ResultCache.invalidate("symbols/#{symbol_id}?overview")
+    ResultCache.invalidate("symbols/#{symbol_id}?normal")
+    ResultCache.flush("symbols")
+    ResultCache.invalidate_contributions()
   end
 end

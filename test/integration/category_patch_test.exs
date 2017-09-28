@@ -1099,7 +1099,6 @@ defmodule CategoryPatchTest do
         (c4:Category {name: '#{name4}', introduction: '....', url: '#{name4}'}),
         (c5:Category {name: '#{name5}', introduction: '.....', url: '#{name5}'}),
         (c3)-[:SUBCATEGORY]->(c1)-[:SUBCATEGORY]->(c2),
-        (c1)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 6}]->(u),
         (ucp:UpdateCategoryPatch {
           name: '#{name1}',
           introduction: '......',

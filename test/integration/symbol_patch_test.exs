@@ -742,4 +742,70 @@ defmodule SymbolPatchTest do
 
     Neo4j.query!(Neo4j.conn, "MATCH (u:User {username: '#{name}'})<-[r]-(c) DELETE r, u, c")
   end
+
+  @doc """
+  PATCH /api/symbols/... -H 'authorization: at2'
+  """
+  test "Authenticated attempt at inserting a new symbol (cache invalidation test)" do
+    cat_name = Integer.to_string(:rand.uniform(100_000_000))
+    cat_revid = :rand.uniform(100_000_000)
+    sym_name = :rand.uniform(100_000_000)
+    sym_id = :rand.uniform(100_000_000)
+    sym_rev = :rand.uniform(100_000_000)
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {url: 'existent'}),
+        (u:User {access_token: 'at3'})
+
+      CREATE (c2:Category {name: '#{cat_name}', introduction: '.', url: '#{cat_name}', revision_id: #{cat_revid}}),
+        (c2)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 6}]->(u),
+        (s:Symbol {
+            id: #{sym_id},
+            name: '...',
+            description: '.',
+            declaration: '.',
+            url: '...',
+            definition: '.',
+            source_location: '.',
+            type: 'macro',
+            revision_id: #{sym_rev}
+          }),
+          (s)-[:CATEGORY]->(c)
+    """)
+
+    data = %{"symbol" => %{"name" => "...", "description" => ".", "definition" => ".",
+      "source_location" => ".", "type" => "macro", "categories" => [cat_name],
+      "declaration" => ".."}, "revision_id" => sym_rev}
+
+    # prime the cache
+    response = Router.call(conn(:get, "/api/symbols", %{"category" => cat_name}), @opts)
+
+    assert %{"symbols" => []} = Poison.decode!(response.resp_body)
+
+    conn =
+      conn(:patch, "/api/symbols/#{sym_id}", data)
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "at2")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    refute [] === Neo4j.query!(Neo4j.conn, """
+      MATCH (s:Symbol {id: #{sym_id}}),
+        (s)-[:CONTRIBUTOR {type: 'update'}]->(:User {access_token: 'at2'}),
+        (s)-[:CATEGORY]->(:Category {url: '#{cat_name}'})
+      RETURN s
+    """)
+
+    response = Router.call(conn(:get, "/api/symbols", %{"category" => "#{cat_name}"}), @opts)
+
+    refute [] === Poison.decode!(response.resp_body)["symbols"]
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {name: '#{cat_name}'}),
+        (s:Symbol {name: '#{sym_name}'}),
+        (s)-[:REVISION]->(sr:SymbolRevision)
+      DETACH DELETE c, s, sr
+    """)
+  end
 end
