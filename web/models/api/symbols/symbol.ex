@@ -209,10 +209,10 @@ defmodule PhpInternals.Api.Symbols.Symbol do
             {:error, "The #{key} field name must have a length of between 1 and 50 (inclusive)"}
           end
         else
-          if String.length(param) > 0 and String.length(param) < 401 do
+          if String.length(param) > 0 and String.length(param) < 2001 do
             {:ok, param}
           else
-            {:error, "The #{key} field description must have a length of between 1 and 400 (inclusive)"}
+            {:error, "The #{key} field description must have a length of between 1 and 2000 (inclusive)"}
           end
         end
 

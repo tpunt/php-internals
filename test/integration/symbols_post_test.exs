@@ -575,7 +575,7 @@ defmodule SymbolsPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "The parameters field description must have a length of between 1 and 400 (inclusive)"}}
+    assert %{"error" => %{"message" => "The parameters field description must have a length of between 1 and 2000 (inclusive)"}}
       = Poison.decode!(response.resp_body)
   end
 
@@ -586,7 +586,7 @@ defmodule SymbolsPostTest do
     data = %{"symbol" => %{"name" => "a", "description" => "a",
       "definition" => "a", "source_location" => "a",
       "type" => "macro", "categories" => ["a"], "declaration" => ".",
-      "parameters" => ["a", String.duplicate("a", 401)]}}
+      "parameters" => ["a", String.duplicate("a", 2001)]}}
 
     conn =
       conn(:post, "/api/symbols", data)
@@ -596,7 +596,7 @@ defmodule SymbolsPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "The parameters field description must have a length of between 1 and 400 (inclusive)"}}
+    assert %{"error" => %{"message" => "The parameters field description must have a length of between 1 and 2000 (inclusive)"}}
       = Poison.decode!(response.resp_body)
   end
 
