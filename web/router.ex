@@ -21,6 +21,10 @@ defmodule PhpInternals.Router do
       get "/:category_name", CategoryController, :show
       patch "/:category_name", CategoryController, :update
       delete "/:category_name", CategoryController, :delete
+      get "/:category_name/revisions/:revision_id", CategoryController, :show_revision
+      get "/:category_name/revisions", CategoryController, :show_revisions
+      get "/:category_name/updates/:update_id", CategoryController, :show_update
+      get "/:category_name/updates", CategoryController, :show_updates
       get "/", CategoryController, :index
       post "/", CategoryController, :create
     end

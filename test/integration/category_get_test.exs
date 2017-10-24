@@ -83,7 +83,7 @@ defmodule CategoryGetTest do
   GET /api/categories/existent?patches=update -H 'authorization: at2'
   """
   test "Authorised attempt at listing an existing category's update patches" do
-    name = :rand.uniform(100_000_000)
+    name = Integer.to_string(:rand.uniform(100_000_000))
     rev_id = :rand.uniform(100_000_000)
     rev_id2 = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
@@ -112,8 +112,8 @@ defmodule CategoryGetTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert %{"category_updates" => %{"category" => %{"introduction" => "..."}, "updates" => _updates}}
-      = Poison.decode! response.resp_body
+    assert %{"category_updates" => %{"category" => %{"name" => ^name, "url" => ^name},
+      "updates" => _updates}} = Poison.decode! response.resp_body
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {revision_id: #{rev_id}})-[r1]-(),
@@ -123,10 +123,10 @@ defmodule CategoryGetTest do
   end
 
   @doc """
-  GET /api/categories/non-existent?patches=update -H 'authorization: at2'
+  GET /api/categories/existent?patches=update -H 'authorization: at2'
   """
   test "Authorised attempt at listing a existing category's non-existent update patches" do
-    name = :rand.uniform(100_000_000)
+    name = Integer.to_string(:rand.uniform(100_000_000))
     rev_id = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, "CREATE (:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})")
 
@@ -136,8 +136,19 @@ defmodule CategoryGetTest do
 
     response = Router.call(conn, @opts)
 
-    assert response.status === 404
-    assert %{"error" => %{"message" => "Category update patches not found"}} = Poison.decode! response.resp_body
+    assert response.status === 200
+    assert %{"category_updates" => %{"category" => %{"name" => ^name, "url" => ^name},
+      "updates" => []}} = Poison.decode! response.resp_body
+
+    conn =
+      conn(:get, "/api/categories/#{name}/updates", %{})
+      |> put_req_header("authorization", "at2")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"category_updates" => %{"category" => %{"name" => ^name, "url" => ^name},
+      "updates" => []}} = Poison.decode! response.resp_body
 
     Neo4j.query!(Neo4j.conn, "MATCH (c:Category {revision_id: #{rev_id}}) DELETE c")
   end
@@ -146,7 +157,7 @@ defmodule CategoryGetTest do
   GET /api/categories/existent?patches=update&patch_id=1 -H 'authorization: at2'
   """
   test "Authorised attempt at listing an existing category's update patch" do
-    name = :rand.uniform(100_000_000)
+    name = Integer.to_string(:rand.uniform(100_000_000))
     rev_id = :rand.uniform(100_000_000)
     rev_id2 = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
@@ -175,8 +186,19 @@ defmodule CategoryGetTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert %{"category_update" => %{"category" => %{"introduction" => "..."}, "update" =>
-      %{"category" => %{"introduction" => "."}, "date" => _date, "user" => _user}}}
+    assert %{"category_update" => %{"category" => %{"name" => ^name, "url" => ^name},
+    "update" => %{"category" => %{"introduction" => "."}, "date" => _date, "user" => _user}}}
+        = Poison.decode! response.resp_body
+
+    conn =
+      conn(:get, "/api/categories/#{name}/updates/#{rev_id2}", %{})
+      |> put_req_header("authorization", "at2")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"category_update" => %{"category" => %{"name" => ^name, "url" => ^name},
+    "update" => %{"category" => %{"introduction" => "."}, "date" => _date, "user" => _user}}}
         = Poison.decode! response.resp_body
 
     Neo4j.query!(Neo4j.conn, """
@@ -197,7 +219,98 @@ defmodule CategoryGetTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 404
-    assert %{"error" => %{"message" => "Category update patch not found"}}
+    assert %{"error" => %{"message" => "Category revision not found"}}
+      = Poison.decode! response.resp_body
+
+    conn =
+      conn(:get, "/api/categories/existent/updates/1", %{})
+      |> put_req_header("authorization", "at3")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 404
+    assert %{"error" => %{"message" => "Category revision not found"}}
+      = Poison.decode! response.resp_body
+  end
+
+  @doc """
+  GET /api/categories/existent/revisions -H 'authorization: at2'
+  """
+  test "Authorised attempt at listing an existing category's non-existent revisions" do
+    name = Integer.to_string(:rand.uniform(100_000_000))
+    rev_id = :rand.uniform(100_000_000)
+    Neo4j.query!(Neo4j.conn, """
+      CREATE (:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})
+    """)
+
+    conn =
+      conn(:get, "/api/categories/#{name}/revisions", %{})
+      |> put_req_header("authorization", "at2")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"category_revisions" => %{"category" => %{"name" => ^name, "url" => ^name},
+      "revisions" => []}} = Poison.decode! response.resp_body
+
+    Neo4j.query!(Neo4j.conn, "MATCH (c:Category {revision_id: #{rev_id}}) DELETE c")
+  end
+
+  @doc """
+  GET /api/categories/existent/revisions/1 -H 'authorization: at2'
+  """
+  test "Authorised attempt at listing an existing category's revision" do
+    name = Integer.to_string(:rand.uniform(100_000_000))
+    rev_id = :rand.uniform(100_000_000)
+    rev_id2 = :rand.uniform(100_000_000)
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {id: 3})
+      CREATE (c:Category {
+          name: '#{name}',
+          introduction: '...',
+          url: '#{name}',
+          revision_id: #{rev_id}
+        }),
+        (cr:CategoryRevision {
+          name: '#{name}...',
+          introduction: '.',
+          url: '#{name}...',
+          revision_id: #{rev_id2}
+        }),
+        (c)-[:REVISION]->(cr),
+        (cr)-[:CONTRIBUTOR {type: 'insert', date: 20170810, time: timestamp()}]->(u)
+    """)
+
+    conn =
+      conn(:get, "/api/categories/#{name}/revisions/#{rev_id2}", %{})
+      |> put_req_header("authorization", "at2")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 200
+    assert %{"category_revision" => %{"category" => %{"name" => ^name, "url" => ^name},
+    "update" => %{"category" => %{"introduction" => "."}, "date" => _date, "user" => _user}}}
+        = Poison.decode! response.resp_body
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {revision_id: #{rev_id}})-[r1]-(),
+        (cr:CategoryRevision {revision_id: #{rev_id2}})-[r2]-()
+      DELETE r1, r2, c, cr
+    """)
+  end
+
+  @doc """
+  GET /api/categories/existent/revisions/1 -H 'authorization: at3'
+  """
+  test "Authorised attempt at listing an existing category's non-existent revision" do
+    conn =
+      conn(:get, "/api/categories/existent/revisions/1", %{})
+      |> put_req_header("authorization", "at3")
+
+    response = Router.call(conn, @opts)
+
+    assert response.status === 404
+    assert %{"error" => %{"message" => "Category revision not found"}}
       = Poison.decode! response.resp_body
   end
 

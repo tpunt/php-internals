@@ -97,18 +97,12 @@ defmodule PhpInternals.Api.Categories.CategoryController do
     end
   end
 
+  # this has been deprecated in favour of /categories/{cat_name}/updates/{patch_id}
   def show(conn, %{"category_name" => category_url, "patches" => "update", "patch_id" => patch_id}) do
     with {:ok, _category} <- Category.valid?(category_url),
-         {:ok, patch_id} <- Utilities.valid_id?(patch_id) do
-      category_patch_update = Category.fetch_update_patch_for(category_url, patch_id)
-
-      if category_patch_update === nil do
-        conn
-        |> put_status(404)
-        |> render(PhpInternals.ErrorView, "error.json", error: "Category update patch not found")
-      else
+         {:ok, patch_id} <- Utilities.valid_id?(patch_id),
+         {:ok, category_patch_update} <- Category.valid_revision?(category_url, patch_id, "UpdateCategoryPatch") do
         render(conn, "show_update.json", category: category_patch_update)
-      end
     else
       {:error, status_code, error} ->
         conn
@@ -117,17 +111,11 @@ defmodule PhpInternals.Api.Categories.CategoryController do
     end
   end
 
+  # this has been deprecated in favour of /categories/{cat_name}/updates
   def show(conn, %{"category_name" => category_url, "patches" => "update"}) do
     with {:ok, _category} <- Category.valid?(category_url) do
       category_patches_update = Category.fetch_update_patches_for(category_url)
-
-      if category_patches_update === nil do
-        conn
-        |> put_status(404)
-        |> render(PhpInternals.ErrorView, "error.json", error: "Category update patches not found")
-      else
-        render(conn, "show_updates.json", category: category_patches_update)
-      end
+      render(conn, "show_updates.json", category: category_patches_update)
     else
       {:error, status_code, error} ->
         conn
@@ -169,6 +157,48 @@ defmodule PhpInternals.Api.Categories.CategoryController do
         "overview" -> send_resp(conn, 200, category)
         "normal" -> send_resp(conn, 200, Category.fetch_cache(category_url, "normal"))
       end
+    else
+      {:error, status_code, error} ->
+        conn
+        |> put_status(status_code)
+        |> render(PhpInternals.ErrorView, "error.json", error: error)
+    end
+  end
+
+  def show_updates(conn, %{"category_name" => category_url}) do
+    show(conn, %{"category_name" => category_url, "patches" => "update"})
+  end
+
+  def show_update(conn, %{"category_name" => category_url, "update_id" => update_id}) do
+    with {:ok, update_id} <- Utilities.valid_id?(update_id),
+         {:ok, _category} <- Category.valid?(category_url),
+         {:ok, category_update} <- Category.valid_revision?(category_url, update_id, "UpdateCategoryPatch") do
+      render(conn, "show_update.json", category: category_update)
+    else
+      {:error, status_code, error} ->
+        conn
+        |> put_status(status_code)
+        |> render(PhpInternals.ErrorView, "error.json", error: error)
+    end
+  end
+
+  def show_revisions(conn, %{"category_name" => category_url}) do
+    with {:ok, _category} <- Category.valid?(category_url) do
+      category_revisions = Category.fetch_revisions(category_url)
+      render(conn, "show_revisions.json", category: category_revisions)
+    else
+      {:error, status_code, error} ->
+        conn
+        |> put_status(status_code)
+        |> render(PhpInternals.ErrorView, "error.json", error: error)
+    end
+  end
+
+  def show_revision(conn, %{"category_name" => category_url, "revision_id" => revision_id}) do
+    with {:ok, revision_id} <- Utilities.valid_id?(revision_id),
+         {:ok, _category} <- Category.valid?(category_url),
+         {:ok, category_revision} <- Category.valid_revision?(category_url, revision_id, "CategoryRevision") do
+      render(conn, "show_revision.json", category: category_revision)
     else
       {:error, status_code, error} ->
         conn

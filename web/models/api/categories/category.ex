@@ -457,9 +457,13 @@ defmodule PhpInternals.Api.Categories.Category do
       WITH c, ucp, r, u, EXISTS((c)<-[:DELETE]-(:User)) AS delete
       WHERE ucp IS NOT NULL OR delete
       RETURN {
-        category: c,
+        category: {
+          name: c.name,
+          url: c.url
+        },
         updates: COLLECT(CASE ucp WHEN NULL THEN NULL ELSE {
-          update: ucp,
+          revision_id: ucp.revision_id,
+          against_revision: ucp.against_revision,
           user: {
             username: u.username,
             name: u.name,
@@ -481,7 +485,10 @@ defmodule PhpInternals.Api.Categories.Category do
       MATCH (c:InsertCategoryPatch),
         (c)-[r:CONTRIBUTOR]->(u:User)
       RETURN {
-        category: c,
+        category: {
+          name: c.name,
+          url: c.url
+        },
         user: {
           username: u.username,
           name: u.name,
@@ -500,17 +507,21 @@ defmodule PhpInternals.Api.Categories.Category do
       MATCH (c:Category)-[:UPDATE]->(ucp:UpdateCategoryPatch),
         (ucp)-[r:CONTRIBUTOR]->(u:User)
       RETURN {
-        category: c,
+        category: {
+          name: c.name,
+          url: c.url
+        },
         updates: COLLECT({
-            update: ucp,
-            user: {
-              username: u.username,
-              name: u.name,
-              privilege_level: u.privilege_level,
-              avatar_url: u.avatar_url
-            },
-            date: r.date
-          })
+          revision_id: ucp.revision_id,
+          against_revision: ucp.against_revision,
+          user: {
+            username: u.username,
+            name: u.name,
+            privilege_level: u.privilege_level,
+            avatar_url: u.avatar_url
+          },
+          date: r.date
+        })
       } AS category_update
     """
 
@@ -536,17 +547,21 @@ defmodule PhpInternals.Api.Categories.Category do
         (ucp)-[r:CONTRIBUTOR]->(u:User)
       OPTIONAL MATCH (c)<-[rd:DELETE]->(:User)
       RETURN {
-        category: c,
+        category: {
+          name: c.name,
+          url: c.url
+        },
         updates: CASE ucp WHEN NULL THEN [] ELSE COLLECT({
-            update: ucp,
-            user: {
-              username: u.username,
-              name: u.name,
-              privilege_level: u.privilege_level,
-              avatar_url: u.avatar_url
-            },
-            date: r.date
-          }) END,
+          revision_id: ucp.revision_id,
+          against_revision: ucp.against_revision,
+          user: {
+            username: u.username,
+            name: u.name,
+            privilege_level: u.privilege_level,
+            avatar_url: u.avatar_url
+          },
+          date: r.date
+        }) END,
         delete: CASE rd WHEN NULL THEN FALSE ELSE TRUE END
       } AS patches
     """
@@ -577,14 +592,48 @@ defmodule PhpInternals.Api.Categories.Category do
     List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def fetch_update_patch_for(category_url, patch_id) do
+  def fetch_revisions(category_url) do
+    query = """
+      MATCH (c:Category {url: {category_url}})
+      OPTIONAL MATCH (c)-[:REVISION*1..]->(cr:CategoryRevision)
+      OPTIONAL MATCH (cr)-[crel:CONTRIBUTOR]->(u:User)
+
+      WITH c, cr, COLLECT(
+        CASE WHEN crel.type IN ["update", "insert"] THEN {
+          revision_date: crel.date,
+          type: crel.type,
+          user: {
+            username: u.username,
+            name: u.name,
+            privilege_level: u.privilege_level,
+            avatar_url: u.avatar_url
+          }
+        } END) AS crel2
+
+      RETURN {
+        category: {
+          name: c.name,
+          url: c.url
+        },
+        revisions: COLLECT(CASE cr.revision_id WHEN NULL THEN NULL ELSE {
+          revision_id: cr.revision_id,
+          info: crel2
+        } END)
+      } AS category_revisions
+    """
+
+    params = %{category_url: category_url}
+
+    List.first Neo4j.query!(Neo4j.conn, query, params)
+  end
+
+  def valid_revision?(category_url, revision_id, type) do
     query = """
       MATCH (c:Category {url: {category_url}}),
-        (ucp:UpdateCategoryPatch {revision_id: {patch_id}}),
-        (c)-[:UPDATE]->(ucp),
+        (ucp:#{type} {revision_id: {revision_id}}),
         (ucp)-[r:CONTRIBUTOR]->(u:User)
 
-      OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sc:Category)
+      OPTIONAL MATCH (ucp)-[:SUBCATEGORY]->(sc:Category)
 
       WITH c,
         ucp,
@@ -594,7 +643,7 @@ defmodule PhpInternals.Api.Categories.Category do
           CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END
         ) AS scs
 
-      OPTIONAL MATCH (pc:Category)-[:SUBCATEGORY]->(c)
+      OPTIONAL MATCH (pc:Category)-[:SUBCATEGORY]->(ucp)
 
       WITH c,
         ucp,
@@ -605,39 +654,10 @@ defmodule PhpInternals.Api.Categories.Category do
           CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END
         ) AS pcs
 
-      OPTIONAL MATCH (ucp)-[:SUBCATEGORY]->(sc2:Category)
-
-      WITH c,
-        ucp,
-        r,
-        u,
-        scs,
-        pcs,
-        COLLECT(
-          CASE sc2 WHEN NULL THEN NULL ELSE {category: {name: sc2.name, url: sc2.url}} END
-        ) AS sc2s
-
-      OPTIONAL MATCH (pc2:Category)-[:SUBCATEGORY]->(ucp)
-
-      WITH c,
-        ucp,
-        r,
-        u,
-        scs,
-        pcs,
-        sc2s,
-        COLLECT(
-          CASE pc2 WHEN NULL THEN NULL ELSE {category: {name: pc2.name, url: pc2.url}} END
-        ) AS pc2s
-
       RETURN {
         category: {
           name: c.name,
-          url: c.url,
-          introduction: c.introduction,
-          revision_id: c.revision_id,
-          subcategories: scs,
-          supercategories: pcs
+          url: c.url
         },
         update: {
           update: {
@@ -646,8 +666,8 @@ defmodule PhpInternals.Api.Categories.Category do
             introduction: ucp.introduction,
             revision_id: ucp.revision_id,
             against_revision: ucp.against_revision,
-            subcategories: sc2s,
-            supercategories: pc2s
+            subcategories: scs,
+            supercategories: pcs
           },
           user: {
             username: u.username,
@@ -657,30 +677,43 @@ defmodule PhpInternals.Api.Categories.Category do
           },
           date: r.date
         }
-      } AS category_update
+      } AS category_revision
     """
 
-    params = %{category_url: category_url, patch_id: patch_id}
+    params = %{category_url: category_url, revision_id: revision_id}
 
-    List.first Neo4j.query!(Neo4j.conn, query, params)
+    result = List.first Neo4j.query!(Neo4j.conn, query, params)
+
+    if result["category_revision"]["category"]["name"] === nil do
+      {:error, 404, "Category revision not found"}
+    else
+      {:ok, result}
+    end
   end
 
   def fetch_update_patches_for(category_url) do
     query = """
-      MATCH (c:Category {url: {category_url}})-[:UPDATE]->(ucp:UpdateCategoryPatch),
+      MATCH (c:Category {url: {category_url}})
+
+      OPTIONAL MATCH (c)-[:UPDATE]->(ucp:UpdateCategoryPatch),
         (ucp)-[r:CONTRIBUTOR]->(u:User)
+
       RETURN {
-        category: c,
-        updates: COLLECT({
-            update: ucp,
-            user: {
-              username: u.username,
-              name: u.name,
-              privilege_level: u.privilege_level,
-              avatar_url: u.avatar_url
-            },
-            date: r.date
-          })
+        category: {
+          name: c.name,
+          url: c.url
+        },
+        updates: COLLECT(CASE ucp WHEN NULL THEN NULL ELSE {
+          revision_id: ucp.revision_id,
+          against_revision: ucp.against_revision,
+          user: {
+            username: u.username,
+            name: u.name,
+            privilege_level: u.privilege_level,
+            avatar_url: u.avatar_url
+          },
+          date: r.date
+        } END)
       } AS category_update
     """
 

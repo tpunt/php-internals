@@ -25,8 +25,8 @@ defmodule PhpInternals.Api.Categories.CategoryView do
   end
 
   def render("index_patches_changes.json", %{category: %{"patches" => patches}}) do
-    %{category: render_one(patches["category"], CategoryView, "category.json"),
-      category_updates: render_many(patches["updates"], CategoryView, "category_update.json"),
+    %{category: render_one(%{"category" => patches["category"]}, CategoryView, "category_overview.json"),
+      category_updates: render_many(patches["updates"], CategoryView, "category_update_overview.json"),
       category_delete: patches["delete"]}
   end
 
@@ -60,11 +60,25 @@ defmodule PhpInternals.Api.Categories.CategoryView do
     %{category_insert: %{category: render_one(category_delete, CategoryView, "category.json")}}
   end
 
-  def render("show_update.json", %{category: %{"category_update" => category_update}}) do
+  def render("show_update.json", %{category: %{"category_revision" => category_update}}) do
     update = render_one(category_update["update"], CategoryView, "category_update.json")
     %{
       category_update: %{
-        category: render_one(category_update["category"], CategoryView, "category.json"),
+        category: render_one(%{"category" => category_update["category"]}, CategoryView, "category_overview.json"),
+        update: %{
+          category: update.category_update.category,
+          user: update.category_update.user,
+          date: update.category_update.date,
+        }
+      }
+    }
+  end
+
+  def render("show_revision.json", %{category: %{"category_revision" => category_update}}) do
+    update = render_one(category_update["update"], CategoryView, "category_update.json")
+    %{
+      category_revision: %{
+        category: render_one(%{"category" => category_update["category"]}, CategoryView, "category_overview.json"),
         update: %{
           category: update.category_update.category,
           user: update.category_update.user,
@@ -76,8 +90,14 @@ defmodule PhpInternals.Api.Categories.CategoryView do
 
   def render("show_updates.json", %{category: %{"category_update" => category_update}}) do
     %{category_updates:
-      %{category: render_one(category_update["category"], CategoryView, "category.json"),
-        updates: render_many(category_update["updates"], CategoryView, "category_update.json")}}
+      %{category: render_one(%{"category" => category_update["category"]}, CategoryView, "category_overview.json"),
+        updates: render_many(category_update["updates"], CategoryView, "category_update_overview.json")}}
+  end
+
+  def render("show_revisions.json", %{category: %{"category_revisions" => crs}}) do
+    %{category_revisions:
+      %{category: render_one(%{"category" => crs["category"]}, CategoryView, "category_overview.json"),
+        revisions: render_many(crs["revisions"], CategoryView, "category_revision_overview.json")}}
   end
 
   def render("show_delete.json", %{category: %{"category_delete" => category_delete, "cd" => delete}}) do
@@ -107,6 +127,26 @@ defmodule PhpInternals.Api.Categories.CategoryView do
       revision_id: category["revision_id"]
     }
     |> Map.merge(render_linked_categories(category["subcategories"], category["supercategories"]))
+  end
+
+  def render("category_revision_overview.json", %{category: %{"revision_id" => revision_id, "info" => [info]}}) do
+    %{
+      revision_date: info["revision_date"],
+      type: info["type"],
+      revision_id: revision_id,
+      user: UserView.render("user_overview.json", %{user: %{"user" => info["user"]}})
+    }
+  end
+
+  def render("category_update_overview.json", %{category: category}) do
+    %{
+      category_update: %{
+        against_revision: category["against_revision"],
+        revision_id: category["revision_id"],
+        user: UserView.render("user_overview.json", %{user: %{"user" => category["user"]}}),
+        date: category["date"]
+      }
+    }
   end
 
   def render("category_update.json", %{category: %{"update" => update, "user" => user, "date" => date}}) do
