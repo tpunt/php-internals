@@ -47,7 +47,7 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
   def render("show_patches_changes.json", %{symbol: %{"symbol_patches" => symbol_updates}}) do
     %{
       symbol_patches: %{
-        symbol: render_one(symbol_updates, SymbolView, "symbol.json"),
+        symbol: render_one(symbol_updates, SymbolView, "symbol_overview.json"),
         patches: %{
           updates: render_many(symbol_updates["updates"], SymbolView, "show_update.json"),
           delete: symbol_updates["delete"]
@@ -63,7 +63,7 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
   def render("show_updates.json", %{symbol: %{"symbol_updates" => symbol_updates}}) do
     %{
       symbol_updates: %{
-        symbol: render_one(symbol_updates, SymbolView, "symbol.json"),
+        symbol: render_one(symbol_updates, SymbolView, "symbol_overview.json"),
         updates: render_many(symbol_updates["updates"], SymbolView, "symbol_update.json")
       }
     }
@@ -76,8 +76,8 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
   def render("show_specific_update.json", %{symbol: %{"symbol_update" => symbol_update}}) do
     %{
       symbol_update: %{
-        symbol: render_one(symbol_update, SymbolView, "symbol.json"),
-        update: render_one(symbol_update, SymbolView, "symbol_update.json")
+        symbol: render_one(%{"symbol" => symbol_update["symbol"]}, SymbolView, "symbol_overview.json"),
+        update: render_one(symbol_update["update"], SymbolView, "symbol.json")
       }
     }
   end
@@ -86,6 +86,33 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
     %{symbol_delete: %{symbol: render_one(symbol, SymbolView, "symbol.json")}}
   end
 
+  def render("show_revisions.json", %{symbol: %{"symbol_revisions" => srs}}) do
+    %{symbol_revisions:
+      %{symbol: render_one(%{"symbol" => srs["symbol"]}, SymbolView, "symbol_overview.json"),
+        revisions: render_many(srs["revisions"], SymbolView, "symbol_revision_overview.json")}}
+  end
+
+  def render("symbol_revision_overview.json", %{symbol: %{"revision_id" => revision_id, "info" => [info]}}) do
+    %{
+      revision_date: info["revision_date"],
+      type: info["type"],
+      revision_id: revision_id,
+      user: UserView.render("user_overview.json", %{user: %{"user" => info["user"]}})
+    }
+  end
+
+  def render("show_revision.json", %{symbol: %{"symbol_revision" => symbol_revision}}) do
+    %{
+      symbol_revision: %{
+        symbol: render_one(%{"symbol" => symbol_revision["symbol"]}, SymbolView, "symbol_overview.json"),
+        revision: %{
+          symbol: render_one(symbol_revision["revision"], SymbolView, "symbol.json"),
+          user: UserView.render("user_overview.json", %{user: %{"user" => symbol_revision["revision"]["user"]}}),
+          date: symbol_revision["revision"]["date"]
+        }
+      }
+    }
+  end
 
   def render("symbol.json", %{symbol: %{"symbol" => symbol, "categories" => categories}}) do
     return_symbol = %{
@@ -98,7 +125,8 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
       definition: symbol["definition"],
       source_location: symbol["source_location"],
       additional_information: symbol["additional_information"],
-      revision_id: symbol["revision_id"]
+      revision_id: symbol["revision_id"],
+      against_revision: symbol["against_revision"]
     }
 
     return_symbol
@@ -130,12 +158,12 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
     }
   end
 
-  def render("symbol_update.json", %{symbol: %{"date" => date, "update" => update, "user" => user}}) do
+  def render("symbol_update.json", %{symbol: symbol}) do
     %{
-      symbol: render_one(update, SymbolView, "symbol.json")
-        |> Map.put(:against_revision, update["symbol"]["against_revision"]),
-      user: UserView.render("user_overview.json", %{user: %{"user" => user}}),
-      date: date
+      revision_id: symbol["revision_id"],
+      against_revision: symbol["against_revision"],
+      user: UserView.render("user_overview.json", %{user: %{"user" => symbol["user"]}}),
+      date: symbol["date"]
     }
   end
 

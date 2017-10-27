@@ -13,6 +13,10 @@ defmodule PhpInternals.Router do
       get "/:symbol_id", SymbolController, :show
       patch "/:symbol_id", SymbolController, :update
       delete "/:symbol_id", SymbolController, :delete
+      get "/:symbol_id/revisions/:revision_id", SymbolController, :show_revision
+      get "/:symbol_id/revisions", SymbolController, :show_revisions
+      get "/:symbol_id/updates/:update_id", SymbolController, :show_update
+      get "/:symbol_id/updates", SymbolController, :show_updates
       get "/", SymbolController, :index
       post "/", SymbolController, :create
     end

@@ -289,7 +289,7 @@ defmodule CategoryGetTest do
 
     assert response.status === 200
     assert %{"category_revision" => %{"category" => %{"name" => ^name, "url" => ^name},
-    "update" => %{"category" => %{"introduction" => "."}, "date" => _date, "user" => _user}}}
+      "revision" => %{"category" => %{"introduction" => "."}, "date" => 20170810, "user" => _user}}}
         = Poison.decode! response.resp_body
 
     Neo4j.query!(Neo4j.conn, """

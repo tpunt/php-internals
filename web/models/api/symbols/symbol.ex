@@ -314,6 +314,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         name: symbol.name,
         url: symbol.url,
         type: symbol.type,
+        revision_id: symbol.revision_id,
         categories: collect(c.url)
       } AS symbol
     """
@@ -383,6 +384,46 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         {:ok}
       {:ok, _} ->
         {:error, 400, "The specified symbol already has a delete patch"}
+    end
+  end
+
+  def valid_revision?(symbol_id, revision_id) do
+    query = """
+      MATCH (s:Symbol {id: {symbol_id}}),
+        (sr:SymbolRevision {revision_id: {revision_id}}),
+        (s)-[:REVISION]->(sr),
+        (sr)-[:CATEGORY]->(src:Category),
+        (sr)-[r:CONTRIBUTOR]->(u:User)
+
+      RETURN {
+        symbol: {
+          id: s.id,
+          name: s.name,
+          url: s.url,
+          type: s.type
+        },
+        revision: {
+          categories: COLLECT(CASE src WHEN NULL THEN NULL ELSE {category: {name: src.name, url: src.url}} END),
+          symbol: sr,
+          user: {
+            username: u.username,
+            name: u.name,
+            privilege_level: u.privilege_level,
+            avatar_url: u.avatar_url
+          },
+          date: r.date
+        }
+      } AS symbol_revision
+    """
+
+    params = %{symbol_id: symbol_id, revision_id: revision_id}
+
+    result = List.first Neo4j.query!(Neo4j.conn, query, params)
+
+    if result === nil do
+      {:error, 404, "The specified symbol revision could not be found"}
+    else
+      {:ok, result}
     end
   end
 
@@ -690,23 +731,22 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def fetch_all_patches_for(symbol_id) do
     query = """
-      MATCH (s:Symbol {id: {symbol_id}})-[:CATEGORY]->(c:Category)
+      MATCH (s:Symbol {id: {symbol_id}})
       OPTIONAL MATCH (s)-[:UPDATE]->(usp:UpdateSymbolPatch),
-        (usp)-[r:CONTRIBUTOR]->(u:User),
-        (usp)-[:CATEGORY]->(uspc:Category)
+        (usp)-[r:CONTRIBUTOR]->(u:User)
       OPTIONAL MATCH (s)<-[rd:DELETE]->(:User)
-      WITH s,
-        CASE c WHEN NULL THEN [] ELSE COLLECT({category: {name: c.name, url: c.url}}) END AS cs,
-        CASE uspc WHEN NULL THEN [] ELSE COLLECT({category: {name: uspc.name, url: uspc.url}}) END AS uspcs,
-        rd,
-        usp,
-        r,
-        u
-      WITH s,
-        cs,
-        rd,
-        CASE usp WHEN NULL THEN [] ELSE COLLECT({symbol_update: {
-            update: {categories: uspcs, symbol: usp},
+
+      RETURN {
+        symbol: {
+          id: s.id,
+          name: s.name,
+          url: s.url,
+          type: s.type
+        },
+        updates: COLLECT(CASE usp WHEN NULL THEN NULL ELSE {
+          symbol_update: {
+            revision_id: usp.revision_id,
+            against_revision: usp.against_revision,
             user: {
               username: u.username,
               name: u.name,
@@ -714,11 +754,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
               avatar_url: u.avatar_url
             },
             date: r.date
-          }}) END AS usps
-      RETURN {
-        symbol: s,
-        categories: cs,
-        updates: usps,
+          }
+        } END),
         delete: CASE rd WHEN NULL THEN FALSE ELSE TRUE END
       } AS symbol_patches
     """
@@ -730,33 +767,67 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def fetch_update_patches_for(symbol_id) do
     query = """
-      MATCH (s:Symbol {id: {symbol_id}})-[:CATEGORY]->(c:Category)
+      MATCH (s:Symbol {id: {symbol_id}})
+
       OPTIONAL MATCH (s)-[:UPDATE]->(usp:UpdateSymbolPatch),
-        (usp)-[r:CONTRIBUTOR]->(u:User),
-        (usp)-[:CATEGORY]->(uspc:Category)
-      WITH s,
-        CASE c WHEN NULL THEN [] ELSE COLLECT({category: {name: c.name, url: c.url}}) END AS cs,
-        CASE uspc WHEN NULL THEN [] ELSE COLLECT({category: {name: uspc.name, url: uspc.url}}) END AS uspcs,
-        usp,
-        r,
-        u
-      WITH s,
-        cs,
-        CASE usp WHEN NULL THEN [] ELSE COLLECT({
-            update: {categories: uspcs, symbol: usp},
-            user: {
-              username: u.username,
-              name: u.name,
-              privilege_level: u.privilege_level,
-              avatar_url: u.avatar_url
-            },
-            date: r.date
-          }) END AS usps
+        (usp)-[r:CONTRIBUTOR]->(u:User)
+
       RETURN {
-        symbol: s,
-        categories: cs,
-        updates: usps
+        symbol: {
+          id: s.id,
+          name: s.name,
+          url: s.url,
+          type: s.type
+        },
+        updates: COLLECT(CASE usp WHEN NULL THEN NULL ELSE {
+          revision_id: usp.revision_id,
+          against_revision: usp.against_revision,
+          user: {
+            username: u.username,
+            name: u.name,
+            privilege_level: u.privilege_level,
+            avatar_url: u.avatar_url
+          },
+          date: r.date
+        } END)
       } AS symbol_updates
+    """
+
+    params = %{symbol_id: symbol_id}
+
+    List.first Neo4j.query!(Neo4j.conn, query, params)
+  end
+
+  def fetch_revisions(symbol_id) do
+    query = """
+      MATCH (s:Symbol {id: {symbol_id}})
+      OPTIONAL MATCH (s)-[:REVISION*1..]->(sr:SymbolRevision)
+      OPTIONAL MATCH (sr)-[srel:CONTRIBUTOR]->(u:User)
+
+      WITH s, sr, COLLECT(
+        CASE WHEN srel.type IN ["update", "insert"] THEN {
+          revision_date: srel.date,
+          type: srel.type,
+          user: {
+            username: u.username,
+            name: u.name,
+            privilege_level: u.privilege_level,
+            avatar_url: u.avatar_url
+          }
+        } END) AS srel2
+
+      RETURN {
+        symbol: {
+          id: s.id,
+          name: s.name,
+          url: s.url,
+          type: s.type
+        },
+        revisions: COLLECT(CASE sr.revision_id WHEN NULL THEN NULL ELSE {
+          revision_id: sr.revision_id,
+          info: srel2
+        } END)
+      } AS symbol_revisions
     """
 
     params = %{symbol_id: symbol_id}
@@ -932,7 +1003,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     """
 
     query2 =
-      Map.keys(old_symbol)
+      Map.keys(new_symbol)
       |> Enum.filter(fn key -> key !== "categories" end)
       |> Enum.map(fn key -> "#{key}: {new_#{key}}" end)
       |> Enum.join(",")
@@ -1023,7 +1094,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       """
 
       query2 =
-        Map.keys(old_symbol)
+        Map.keys(new_symbol)
         |> Enum.filter(fn key -> key !== "categories" end)
         |> Enum.map(fn key -> "#{key}: {new_#{key}}" end)
         |> Enum.join(",")
@@ -1124,7 +1195,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     """
 
     query2 =
-      Map.keys(old_symbol)
+      Map.keys(new_symbol)
       |> Enum.filter(fn key -> key !== "categories" end)
       |> Enum.map(fn key -> "#{key}: {new_#{key}}" end)
       |> Enum.join(",")

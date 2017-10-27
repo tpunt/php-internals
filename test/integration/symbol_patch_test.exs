@@ -141,6 +141,15 @@ defmodule SymbolPatchTest do
 
     assert Poison.decode!(response.resp_body) === Poison.decode!(response2.resp_body)
 
+    conn =
+      conn(:get, "/api/symbols/#{sym_id}/updates", %{})
+      |> put_req_header("authorization", "at2")
+    response = Router.call(conn, @opts)
+
+    assert %{"symbol_updates" => %{"symbol" => %{}, "updates" =>
+      [%{"user" => %{}, "revision_id" => _, "date" => _, "against_revision" => _}]}}
+        = Poison.decode!(response.resp_body)
+
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}})-[r1]-(),
         (su:UpdateSymbolPatch {name: '#{new_sym_name}'})-[r2]-()

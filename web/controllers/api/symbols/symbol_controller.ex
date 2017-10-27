@@ -100,6 +100,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     end
   end
 
+  # this has been deprecated in favour of /symbols/{sym_id}/updates/{patch_id}
   def show(conn, %{"symbol_id" => symbol_id, "patches" => "update", "patch_id" => patch_id}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
          {:ok, patch_id} <- Utilities.valid_id?(patch_id),
@@ -114,6 +115,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     end
   end
 
+  # this has been deprecated in favour of /symbols/{sym_id}/updates
   def show(conn, %{"symbol_id" => symbol_id, "patches" => "update"}) do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
          {:ok, _symbol} <- Symbol.valid_cache?(symbol_id) do
@@ -158,6 +160,40 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
         conn
         |> put_status(status_code)
         |> render(PhpInternals.ErrorView, "error.json", error: status)
+    end
+  end
+
+  def show_updates(conn, %{"symbol_id" => symbol_id}) do
+    show(conn, %{"symbol_id" => symbol_id, "patches" => "update"})
+  end
+
+  def show_update(conn, %{"symbol_id" => symbol_id, "update_id" => update_id}) do
+    show(conn, %{"symbol_id" => symbol_id, "patches" => "update", "patch_id" => update_id})
+  end
+
+  def show_revisions(conn, %{"symbol_id" => symbol_id}) do
+    with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id) do
+      symbol_revisions = Symbol.fetch_revisions(symbol_id)
+      render(conn, "show_revisions.json", symbol: symbol_revisions)
+    else
+      {:error, status_code, error} ->
+        conn
+        |> put_status(status_code)
+        |> render(PhpInternals.ErrorView, "error.json", error: error)
+    end
+  end
+
+  def show_revision(conn, %{"symbol_id" => symbol_id, "revision_id" => revision_id}) do
+    with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
+         {:ok, revision_id} <- Utilities.valid_id?(revision_id),
+         {:ok, _symbol} <- Symbol.valid?(symbol_id),
+         {:ok, symbol_revision} <- Symbol.valid_revision?(symbol_id, revision_id) do
+      render(conn, "show_revision.json", symbol: symbol_revision)
+    else
+      {:error, status_code, error} ->
+        conn
+        |> put_status(status_code)
+        |> render(PhpInternals.ErrorView, "error.json", error: error)
     end
   end
 

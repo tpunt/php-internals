@@ -79,7 +79,7 @@ defmodule PhpInternals.Api.Categories.CategoryView do
     %{
       category_revision: %{
         category: render_one(%{"category" => category_update["category"]}, CategoryView, "category_overview.json"),
-        update: %{
+        revision: %{
           category: update.category_update.category,
           user: update.category_update.user,
           date: update.category_update.date,
