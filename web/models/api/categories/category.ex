@@ -487,7 +487,8 @@ defmodule PhpInternals.Api.Categories.Category do
       RETURN {
         category: {
           name: c.name,
-          url: c.url
+          url: c.url,
+          revision_id: c.revision_id
         },
         user: {
           username: u.username,
