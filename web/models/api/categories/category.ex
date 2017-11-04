@@ -34,7 +34,15 @@ defmodule PhpInternals.Api.Categories.Category do
       if key in all_fields -- array_based_fields do
         if is_binary(category[key]), do: {:ok}, else: {:error, "The #{key} field should be a string"}
       else
-        if is_list(category[key]), do: {:ok}, else: {:error, "The #{key} field should be a list"}
+        if is_list(category[key]) do
+          if Enum.all?(category[key], &is_binary/1) do
+            {:ok}
+          else
+            {:error, "The category URI names should be strings"}
+          end
+        else
+          {:error, "The #{key} field should be a list"}
+        end
       end
     end)
 

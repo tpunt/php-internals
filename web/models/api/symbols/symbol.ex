@@ -71,7 +71,15 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       if key in all_fields -- array_based_fields do
         if is_binary(symbol[key]), do: {:ok}, else: {:error, "The #{key} field should be a string"}
       else
-        if is_list(symbol[key]), do: {:ok}, else: {:error, "The #{key} field should be a list"}
+        if is_list(symbol[key]) do
+          if Enum.all?(symbol[key], &is_binary/1) do
+            {:ok}
+          else
+            {:error, "The list values should be strings"}
+          end
+        else
+          {:error, "The #{key} field should be a list"}
+        end
       end
     end)
 
