@@ -369,16 +369,17 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     |> render(PhpInternals.ErrorView, "error.json", error: "Unauthorised action")
   end
 
-  defp modify(conn, %{"symbol" => symbol, "symbol_id" => symbol_id, "review" => review} = params) do
+  defp modify(conn, %{"symbol" => symbol, "symbol_id" => symbol_id, "review" => review, "revision_id" => rev_id} = params) do
     with {:ok} <- User.within_patch_limit?(conn.user),
          {:ok, symbol} <- Symbol.valid_fields?(symbol),
          {:ok, url_name} <- Utilities.is_url_friendly?(symbol["name"]),
          {:ok} <- Category.all_valid?(symbol["categories"]),
          {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
          {:ok, %{"symbol" => old_symbol}} <- Symbol.valid?(symbol_id),
-         {:ok, references_patch} <- Utilities.valid_optional_id?(params["references_patch"]) do
+         {:ok, refs_patch} <- Utilities.valid_optional_id?(params["references_patch"]),
+         {:ok} <- Utilities.revision_ids_match?(rev_id, refs_patch || old_symbol["revision_id"]) do
       symbol = Map.merge(symbol, %{"url" => url_name})
-      symbol = Symbol.update(old_symbol, symbol, review, conn.user.username, references_patch)
+      symbol = Symbol.update(old_symbol, symbol, review, conn.user.username, refs_patch)
 
       case symbol do
         {:error, status_code, error} ->
