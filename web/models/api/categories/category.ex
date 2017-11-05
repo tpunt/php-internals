@@ -826,7 +826,8 @@ defmodule PhpInternals.Api.Categories.Category do
           name: {name},
           introduction: {introduction},
           url: {url},
-          revision_id: {rev_id}
+          revision_id: {rev_id},
+          id: {id}
         }),
         (c)-[:CONTRIBUTOR {type: "insert", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
         #{linked_categories_join}
@@ -862,6 +863,7 @@ defmodule PhpInternals.Api.Categories.Category do
         introduction: category["introduction"],
         url: category["url"],
         rev_id: :rand.uniform(100_000_000),
+        id: :rand.uniform(100_000_000),
         username: username
       })
 
@@ -922,7 +924,8 @@ defmodule PhpInternals.Api.Categories.Category do
           name: category.name,
           introduction: category.introduction,
           url: category.url,
-          revision_id: category.revision_id
+          revision_id: category.revision_id,
+          id: category.id
         }),
         (category)-[:REVISION]->(old_category)
         #{linked_categories_join}
@@ -991,6 +994,7 @@ defmodule PhpInternals.Api.Categories.Category do
           introduction: {introduction},
           url: {new_url},
           revision_id: {rev_id},
+          id: category.id,
           against_revision: {against_rev}
         }),
         (category)-[:UPDATE]->(ucp),
@@ -1087,7 +1091,8 @@ defmodule PhpInternals.Api.Categories.Category do
           name: category.name,
           introduction: category.introduction,
           url: category.url,
-          revision_id: category.revision_id
+          revision_id: category.revision_id,
+          id: category.id
         }),
         (category)-[:UPDATE_REVISION]->(cp),
         (category)-[:REVISION]->(old_category)
@@ -1182,6 +1187,7 @@ defmodule PhpInternals.Api.Categories.Category do
           introduction: {introduction},
           url: {new_url},
           revision_id: {rev_id},
+          id: category.id,
           against_revision: {against_rev}
         }),
         (category)-[:UPDATE]->(new_ucp),
@@ -1450,7 +1456,8 @@ defmodule PhpInternals.Api.Categories.Category do
                 name: category.name,
                 introduction: category.introduction,
                 url: category.url,
-                revision_id: category.revision_id
+                revision_id: category.revision_id,
+                id: category.id
               }),
               (category)-[:REVISION]->(old_category)
 
