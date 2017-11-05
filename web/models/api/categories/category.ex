@@ -584,8 +584,35 @@ defmodule PhpInternals.Api.Categories.Category do
     query = """
       MATCH (c:InsertCategoryPatch {url: {category_url}}),
         (c)-[r:CONTRIBUTOR]->(u:User)
+
+      OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sc:Category)
+
+      WITH c,
+        r,
+        u,
+        COLLECT(
+          CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END
+        ) AS scs
+
+      OPTIONAL MATCH (pc:Category)-[:SUBCATEGORY]->(c)
+
+      WITH c,
+        r,
+        u,
+        scs,
+        COLLECT(
+          CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END
+        ) AS pcs
+
       RETURN {
-        category: c,
+        category: {
+          name: c.name,
+          url: c.url,
+          introduction: c.introduction,
+          revision_id: c.revision_id,
+          subcategories: scs,
+          supercategories: pcs
+        },
         user: {
           username: u.username,
           name: u.name,

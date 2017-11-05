@@ -55,13 +55,15 @@ defmodule CategoryGetTest do
     name = :rand.uniform(100_000_000)
     rev_id = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
-      MATCH (u:User {id: 3})
-      CREATE (:InsertCategoryPatch {
+      MATCH (u:User {id: 3}), (c:Category {url: 'existent'})
+      CREATE (icp:InsertCategoryPatch {
           name: '#{name}',
           introduction: '...',
           url: '#{name}',
           revision_id: #{rev_id}
-        })-[:CONTRIBUTOR {type: 'insert', date: 20170810, time: timestamp()}]->(u)
+        }),
+        (icp)-[:CONTRIBUTOR {type: 'insert', date: 20170810, time: timestamp()}]->(u),
+        (c)-[:SUBCATEGORY]->(icp)
     """)
 
     conn =
@@ -71,7 +73,9 @@ defmodule CategoryGetTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert %{"category_insert" => %{"category" => %{"introduction" => "..."}}} = Poison.decode! response.resp_body
+    assert %{"category_insert" => %{"category" => %{"introduction" => "...",
+      "subcategories" => [], "supercategories" => [%{"category" => %{"url" => "existent"}}]}}}
+        = Poison.decode! response.resp_body
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:InsertCategoryPatch {revision_id: #{rev_id}})-[r]-()
