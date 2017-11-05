@@ -893,22 +893,23 @@ defmodule PhpInternals.Api.Categories.Category do
         category_revision
         #{linked_categories_propagate}
 
-      OPTIONAL MATCH (category)-[r3:SUBCATEGORY]->(subcats:Category)
+      OPTIONAL MATCH (category)-[r3:SUBCATEGORY]->(subcat:Category)
       DELETE r3
 
       WITH category,
         user,
         category_revision,
-        COLLECT(subcats) AS unused
+        COLLECT(subcat.id) AS old_scs
         #{linked_categories_propagate}
 
-      OPTIONAL MATCH (category)<-[r4:SUBCATEGORY]-(supercats:Category)
+      OPTIONAL MATCH (category)<-[r4:SUBCATEGORY]-(supercat:Category)
       DELETE r4
 
       WITH category,
         user,
         category_revision,
-        COLLECT(supercats) AS unused
+        old_scs,
+        COLLECT(supercat.id) AS old_pcs
         #{linked_categories_propagate}
 
       OPTIONAL MATCH (category)-[r5:UPDATE_REVISION]->(ucpr:UpdateCategoryPatchRevision)
@@ -917,6 +918,8 @@ defmodule PhpInternals.Api.Categories.Category do
       WITH category,
         user,
         category_revision,
+        old_scs,
+        old_pcs,
         ucpr
         #{linked_categories_propagate}
 
@@ -925,7 +928,9 @@ defmodule PhpInternals.Api.Categories.Category do
           introduction: category.introduction,
           url: category.url,
           revision_id: category.revision_id,
-          id: category.id
+          id: category.id,
+          subcategories: old_scs,
+          supercategories: old_pcs
         }),
         (category)-[:REVISION]->(old_category)
         #{linked_categories_join}
@@ -1037,44 +1042,50 @@ defmodule PhpInternals.Api.Categories.Category do
         category_revision
         #{linked_categories_propagate}
 
-      OPTIONAL MATCH (category)-[r4:SUBCATEGORY]->(subcats:Category)
+      OPTIONAL MATCH (category)-[r4:SUBCATEGORY]->(subcat:Category)
       DELETE r4
 
       WITH category,
         user,
         cp,
         category_revision,
-        COLLECT(subcats) AS unused
+        COLLECT(subcat.id) AS old_scs
         #{linked_categories_propagate}
 
-      OPTIONAL MATCH (category)<-[r5:SUBCATEGORY]-(supercats:Category)
+      OPTIONAL MATCH (category)<-[r5:SUBCATEGORY]-(supercat:Category)
       DELETE r5
 
       WITH category,
         user,
         cp,
         category_revision,
-        COLLECT(supercats) AS unused
+        old_scs,
+        COLLECT(supercat.id) AS old_pcs
         #{linked_categories_propagate}
 
-      OPTIONAL MATCH (cp)-[r6:SUBCATEGORY]->(subcats2:Category)
+      OPTIONAL MATCH (cp)-[r6:SUBCATEGORY]->(subcat2:Category)
       DELETE r6
 
       WITH category,
         user,
         cp,
         category_revision,
-        COLLECT(subcats2) AS unused
+        old_scs,
+        old_pcs,
+        COLLECT(subcat2.id) AS old_scs2
         #{linked_categories_propagate}
 
-      OPTIONAL MATCH (cp)<-[r7:SUBCATEGORY]-(supercats2:Category)
+      OPTIONAL MATCH (cp)<-[r7:SUBCATEGORY]-(supercat2:Category)
       DELETE r7
 
       WITH category,
         user,
         cp,
         category_revision,
-        COLLECT(supercats2) AS unused
+        old_scs,
+        old_pcs,
+        old_scs2,
+        COLLECT(supercat2.id) AS old_pcs2
         #{linked_categories_propagate}
 
       OPTIONAL MATCH (category)-[r8:UPDATE_REVISION]->(ucpr:UpdateCategoryPatchRevision)
@@ -1084,6 +1095,10 @@ defmodule PhpInternals.Api.Categories.Category do
         user,
         cp,
         category_revision,
+        old_scs,
+        old_pcs,
+        old_scs2,
+        old_pcs2,
         ucpr
         #{linked_categories_propagate}
 
@@ -1092,7 +1107,9 @@ defmodule PhpInternals.Api.Categories.Category do
           introduction: category.introduction,
           url: category.url,
           revision_id: category.revision_id,
-          id: category.id
+          id: category.id,
+          subcategories: old_scs,
+          supercategories: old_pcs
         }),
         (category)-[:UPDATE_REVISION]->(cp),
         (category)-[:REVISION]->(old_category)
@@ -1102,6 +1119,8 @@ defmodule PhpInternals.Api.Categories.Category do
         user,
         cp,
         category_revision,
+        old_scs2,
+        old_pcs2,
         ucpr,
         old_category
 
@@ -1113,6 +1132,8 @@ defmodule PhpInternals.Api.Categories.Category do
         user,
         cp,
         category_revision,
+        old_scs2,
+        old_pcs2,
         ucpr,
         old_category,
         COLLECT(old_user) AS unused
@@ -1129,6 +1150,9 @@ defmodule PhpInternals.Api.Categories.Category do
 
       REMOVE cp:UpdateCategoryPatch
       SET cp:UpdateCategoryPatchRevision
+
+      SET cp.subcategories = old_scs2,
+        cp.supercategories = old_pcs2
 
       SET category.name = {new_name},
         category.introduction = {new_introduction},
@@ -1405,7 +1429,7 @@ defmodule PhpInternals.Api.Categories.Category do
               category_revision,
               ucpr
 
-            OPTIONAL MATCH (category)-[r5:SUBCATEGORY]->(subcats:Category)
+            OPTIONAL MATCH (category)-[r5:SUBCATEGORY]->(subcat:Category)
             DELETE r5
 
             WITH category,
@@ -1415,9 +1439,9 @@ defmodule PhpInternals.Api.Categories.Category do
               new_user,
               category_revision,
               ucpr,
-              COLLECT(subcats) AS unused
+              COLLECT(subcat.id) AS old_scs
 
-            OPTIONAL MATCH (category)<-[r6:SUBCATEGORY]-(supcats:Category)
+            OPTIONAL MATCH (category)<-[r6:SUBCATEGORY]-(supcat:Category)
             DELETE r6
 
             WITH category,
@@ -1427,7 +1451,8 @@ defmodule PhpInternals.Api.Categories.Category do
               new_user,
               category_revision,
               ucpr,
-              COLLECT(supcats) AS unused
+              old_scs,
+              COLLECT(supcat.id) AS old_pcs
 
             OPTIONAL MATCH (ucp)-[:SUBCATEGORY]->(sc:Category)
 
@@ -1438,6 +1463,8 @@ defmodule PhpInternals.Api.Categories.Category do
               new_user,
               category_revision,
               ucpr,
+              old_scs,
+              old_pcs,
               COLLECT(sc) AS scs
 
             OPTIONAL MATCH (ucp)<-[:SUBCATEGORY]-(pc:Category)
@@ -1449,6 +1476,8 @@ defmodule PhpInternals.Api.Categories.Category do
               new_user,
               category_revision,
               ucpr,
+              old_scs,
+              old_pcs,
               scs,
               COLLECT(pc) AS pcs
 
@@ -1457,7 +1486,9 @@ defmodule PhpInternals.Api.Categories.Category do
                 introduction: category.introduction,
                 url: category.url,
                 revision_id: category.revision_id,
-                id: category.id
+                id: category.id,
+                subcategories: old_scs,
+                supercategories: old_pcs
               }),
               (category)-[:REVISION]->(old_category)
 
