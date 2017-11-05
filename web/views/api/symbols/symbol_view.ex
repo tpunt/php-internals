@@ -12,12 +12,12 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
   end
 
   def render("index_patches_all.json", %{symbols_patches: %{inserts: inserts, patches: patches}}) do
-    %{symbols_inserts: render_many(inserts, SymbolView, "show_insert.json"),
+    %{symbols_inserts: render_many(inserts, SymbolView, "show_insert_overview.json"),
       symbols_patches: render_many(patches, SymbolView, "show_patches_changes.json")}
   end
 
   def render("index_patches_insert.json", %{symbols_patches: symbols_patches}) do
-    %{symbols_inserts: render_many(symbols_patches, SymbolView, "show_insert.json")}
+    %{symbols_inserts: render_many(symbols_patches, SymbolView, "show_insert_overview.json")}
   end
 
   def render("index_patches_update.json", %{symbols_patches: symbols_patches}) do
@@ -54,6 +54,10 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
         }
       }
     }
+  end
+
+  def render("show_insert_overview.json", %{symbol: %{"symbol_insert" => symbol_insert}}) do
+    %{symbol_insert: render_one(symbol_insert, SymbolView, "symbol_insert_overview.json")}
   end
 
   def render("show_insert.json", %{symbol: %{"symbol_insert" => symbol_insert}}) do
@@ -148,6 +152,14 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
   # for user contributions
   def render("symbol_overview.json", %{symbol: symbol}) do
     %{id: symbol["id"], name: symbol["name"], url: symbol["url"], type: symbol["type"]}
+  end
+
+  def render("symbol_insert_overview.json", %{symbol: symbol_update}) do
+    %{
+      symbol: render_one(symbol_update, SymbolView, "symbol_overview.json"),
+      user: UserView.render("user_overview.json", %{user: %{"user" => symbol_update["user"]}}),
+      date: symbol_update["date"]
+    }
   end
 
   def render("symbol_insert.json", %{symbol: symbol_update}) do

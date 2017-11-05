@@ -609,7 +609,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         cs,
         rd,
         COLLECT(CASE usp WHEN NULL THEN NULL ELSE {symbol_update: {
-            update: {categories: uspcs, symbol: usp},
+            revision_id: usp.revision_id,
+            against_revision: usp.against_revision,
             user: {
               username: u.username,
               name: u.name,
@@ -620,8 +621,12 @@ defmodule PhpInternals.Api.Symbols.Symbol do
           }} END) AS usps
       WHERE rd <> FALSE OR usps <> []
       RETURN {
-        symbol: s,
-        categories: cs,
+        symbol: {
+          id: s.id,
+          name: s.name,
+          url: s.url,
+          type: s.type
+        },
         updates: usps,
         delete: CASE rd WHEN NULL THEN FALSE ELSE TRUE END
       } AS symbol_patches
@@ -636,8 +641,12 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       MATCH (isp:InsertSymbolPatch)-[:CATEGORY]->(c:Category),
         (isp)-[r:CONTRIBUTOR]->(u:User)
       RETURN {
-        symbol: isp,
-        categories: collect({category: {name: c.name, url: c.url}}),
+        symbol: {
+          id: isp.id,
+          name: isp.name,
+          url: isp.url,
+          type: isp.type
+        },
         user: {
           username: u.username,
           name: u.name,
@@ -669,7 +678,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       WITH s,
         cs,
         COLLECT({
-            update: {categories: uspcs, symbol: usp},
+            revision_id: usp.revision_id,
+            against_revision: usp.against_revision,
             user: {
               username: u.username,
               name: u.name,
@@ -679,8 +689,12 @@ defmodule PhpInternals.Api.Symbols.Symbol do
             date: r.date
           }) AS usps
       RETURN {
-        symbol: s,
-        categories: cs,
+        symbol: {
+          id: s.id,
+          name: s.name,
+          url: s.url,
+          type: s.type
+        },
         updates: usps
       } AS symbol_updates
     """
