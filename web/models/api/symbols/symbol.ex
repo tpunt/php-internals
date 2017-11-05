@@ -905,7 +905,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     result = List.first Neo4j.query!(Neo4j.conn, query, params)
 
     if review === 1 do
-      Phoenix.View.render_to_string(SymbolView, "show.json", symbol: result)
+      ""
     else
       update_cache_after_insert(result)
     end

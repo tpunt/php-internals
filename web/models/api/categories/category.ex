@@ -868,7 +868,7 @@ defmodule PhpInternals.Api.Categories.Category do
     new_category = List.first Neo4j.query!(Neo4j.conn, query, params)
 
     if review === 1 do
-      Phoenix.View.render_to_string(CategoryView, "show.json", category: new_category)
+      ""
     else
       update_cache_after_insert(category, new_category)
     end
