@@ -663,10 +663,10 @@ defmodule PhpInternals.Api.Categories.Category do
     List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
-  def valid_revision?(category_url, revision_id, type) do
+  def valid_update?(category_url, revision_id) do
     query = """
       MATCH (c:Category {url: {category_url}}),
-        (ucp:#{type} {revision_id: {revision_id}}),
+        (ucp:UpdateCategoryPatch {revision_id: {revision_id}}),
         (ucp)-[r:CONTRIBUTOR]->(u:User)
 
       OPTIONAL MATCH (ucp)-[:SUBCATEGORY]->(sc:Category)
@@ -702,6 +702,71 @@ defmodule PhpInternals.Api.Categories.Category do
             introduction: ucp.introduction,
             revision_id: ucp.revision_id,
             against_revision: ucp.against_revision,
+            subcategories: scs,
+            supercategories: pcs
+          },
+          user: {
+            username: u.username,
+            name: u.name,
+            privilege_level: u.privilege_level,
+            avatar_url: u.avatar_url
+          },
+          date: r.date
+        }
+      } AS category_revision
+    """
+
+    params = %{category_url: category_url, revision_id: revision_id}
+
+    result = List.first Neo4j.query!(Neo4j.conn, query, params)
+
+    if result["category_revision"]["category"]["name"] === nil do
+      {:error, 404, "Category revision not found"}
+    else
+      {:ok, result}
+    end
+  end
+
+  def valid_revision?(category_url, revision_id) do
+    query = """
+      MATCH (c:Category {url: {category_url}}),
+        (cr:CategoryRevision {revision_id: {revision_id}}),
+        (cr)-[r:CONTRIBUTOR]->(u:User)
+
+      OPTIONAL MATCH (sc:Category)
+      WHERE sc.id IN cr.subcategories
+
+      WITH c,
+        cr,
+        r,
+        u,
+        COLLECT(
+          CASE sc WHEN NULL THEN NULL ELSE {category: {name: sc.name, url: sc.url}} END
+        ) AS scs
+
+      OPTIONAL MATCH (pc:Category)
+      WHERE pc.id IN cr.supercategories
+
+      WITH c,
+        cr,
+        r,
+        u,
+        scs,
+        COLLECT(
+          CASE pc WHEN NULL THEN NULL ELSE {category: {name: pc.name, url: pc.url}} END
+        ) AS pcs
+
+      RETURN {
+        category: {
+          name: c.name,
+          url: c.url
+        },
+        update: {
+          update: {
+            name: cr.name,
+            url: cr.url,
+            introduction: cr.introduction,
+            revision_id: cr.revision_id,
             subcategories: scs,
             supercategories: pcs
           },

@@ -101,7 +101,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   def show(conn, %{"category_name" => category_url, "patches" => "update", "patch_id" => patch_id}) do
     with {:ok, _category} <- Category.valid?(category_url),
          {:ok, patch_id} <- Utilities.valid_id?(patch_id),
-         {:ok, category_patch_update} <- Category.valid_revision?(category_url, patch_id, "UpdateCategoryPatch") do
+         {:ok, category_patch_update} <- Category.valid_update?(category_url, patch_id) do
         render(conn, "show_update.json", category: category_patch_update)
     else
       {:error, status_code, error} ->
@@ -172,7 +172,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   def show_update(conn, %{"category_name" => category_url, "update_id" => update_id}) do
     with {:ok, update_id} <- Utilities.valid_id?(update_id),
          {:ok, _category} <- Category.valid?(category_url),
-         {:ok, category_update} <- Category.valid_revision?(category_url, update_id, "UpdateCategoryPatch") do
+         {:ok, category_update} <- Category.valid_update?(category_url, update_id) do
       render(conn, "show_update.json", category: category_update)
     else
       {:error, status_code, error} ->
@@ -197,7 +197,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   def show_revision(conn, %{"category_name" => category_url, "revision_id" => revision_id}) do
     with {:ok, revision_id} <- Utilities.valid_id?(revision_id),
          {:ok, _category} <- Category.valid?(category_url),
-         {:ok, category_revision} <- Category.valid_revision?(category_url, revision_id, "CategoryRevision") do
+         {:ok, category_revision} <- Category.valid_revision?(category_url, revision_id) do
       render(conn, "show_revision.json", category: category_revision)
     else
       {:error, status_code, error} ->
