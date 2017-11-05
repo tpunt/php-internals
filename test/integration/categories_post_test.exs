@@ -528,10 +528,6 @@ defmodule CategoriesPostTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 202
-    assert %{"category" => %{"name" => ^name, "introduction" => ".",
-      "url" => ^name, "supercategories" => [%{"category" => %{"name" => ^name3}}],
-      "subcategories" => [%{"category" => %{"name" => ^name2}}]}}
-        = Poison.decode!(response.resp_body)
 
     response = Router.call(conn(:get, "/api/categories/#{name}", %{}), @opts)
     assert response.status === 404

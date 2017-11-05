@@ -350,9 +350,11 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
         |> Map.merge(%{"url" => url_name})
         |> Symbol.insert(review, conn.user.username)
 
-      status_code = if review === 0, do: 201, else: 202
-
-      send_resp(conn, status_code, symbol)
+      if review === 0 do
+        send_resp(conn, 201, symbol)
+      else
+        send_resp(conn, 202, "")
+      end
     else
       {:error, status_code, status} ->
         conn
