@@ -259,7 +259,6 @@ defmodule SymbolPatchTest do
         (sr:SymbolRevision {revision_id: #{sym_rev}}),
         (s)-[:CATEGORY]->(c),
         (s)-[:REVISION]->(sr),
-        (sr)-[:CATEGORY]->(c),
         (s)-[:CONTRIBUTOR {type: 'update'}]->(:User {access_token: 'at3'})
       RETURN sr
     """)
@@ -331,7 +330,6 @@ defmodule SymbolPatchTest do
         (c:Category {url: 'existent'}),
         (s)-[:REVISION]->(sr),
         (s)-[:CATEGORY]->(c),
-        (sr)-[:CATEGORY]->(c),
         (s)-[:CONTRIBUTOR {type: 'apply_update'}]->(:User {access_token: 'at3'})
       RETURN sr
     """)
@@ -398,7 +396,6 @@ defmodule SymbolPatchTest do
         (c:Category {url: 'existent'}),
         (s)-[:UPDATE]->(su),
         (s)-[:CATEGORY]->(c),
-        (su)-[:CATEGORY]->(c),
         (su)-[:CONTRIBUTOR {type: 'discard_update'}]->(:User {access_token: 'at3'})
       RETURN su
     """)
@@ -494,7 +491,6 @@ defmodule SymbolPatchTest do
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:InsertSymbolPatchDeleted {revision_id: #{sym_rev}}),
         (c:Category {url: 'existent'}),
-        (s)-[:CATEGORY]->(c),
         (s)-[:CONTRIBUTOR {type: 'discard_insert'}]->(:User {access_token: 'at3'})
       RETURN s
     """)
@@ -542,7 +538,6 @@ defmodule SymbolPatchTest do
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (sd:SymbolDeleted {revision_id: #{sym_rev}}),
         (c:Category {url: 'existent'}),
-        (sd)-[:CATEGORY]->(c),
         (sd)-[:CONTRIBUTOR {type: 'delete'}]->(:User {access_token: 'at1'}),
         (sd)-[:CONTRIBUTOR {type: 'apply_delete'}]->(:User {access_token: 'at3'})
       RETURN sd
@@ -630,7 +625,8 @@ defmodule SymbolPatchTest do
           revision_id: #{rev_id2}
         }),
         (s)-[:UPDATE]->(usp),
-        (s)-[:CATEGORY]->(c)
+        (s)-[:CATEGORY]->(c),
+        (usp)-[:CATEGORY]->(c)
     """)
     data = %{"review" => "1", "references_patch" => "#{rev_id2}", "symbol" =>
       %{"name" => "...","description" => "...","definition" => "...",
@@ -686,7 +682,8 @@ defmodule SymbolPatchTest do
           revision_id: #{rev_id2}
         }),
         (s)-[:UPDATE]->(usp),
-        (s)-[:CATEGORY]->(c)
+        (s)-[:CATEGORY]->(c),
+        (usp)-[:CATEGORY]->(c)
     """)
     data = %{"references_patch" => "#{rev_id2}", "symbol" => %{"name" => "...",
       "description" => "...","definition" => "...", "source_location" => "...",
@@ -766,7 +763,7 @@ defmodule SymbolPatchTest do
       MATCH (c:Category {url: 'existent'}),
         (u:User {access_token: 'at3'})
 
-      CREATE (c2:Category {name: '#{cat_name}', introduction: '.', url: '#{cat_name}', revision_id: #{cat_revid}}),
+      CREATE (c2:Category {id: 10, name: '#{cat_name}', introduction: '.', url: '#{cat_name}', revision_id: #{cat_revid}}),
         (c2)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 6}]->(u),
         (s:Symbol {
             id: #{sym_id},

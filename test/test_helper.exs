@@ -10,7 +10,7 @@ defmodule PopulateDatabase do
       CREATE (:User {id: 1, username: 'user1', name: 'u1', privilege_level: 1, access_token: "at1", avatar_url: "~1"}),
         (:User {id: 2, username: 'user2', name: 'u2', privilege_level: 2, access_token: "at2", avatar_url: "~2"}),
         (u:User {id: 3, username: 'user3', name: 'u3', privilege_level: 3, access_token: "at3", avatar_url: "~3"}),
-        (c:Category {name: 'existent', introduction: '~', url: 'existent', revision_id: 123}),
+        (c:Category {id: 4, name: 'existent', introduction: '~', url: 'existent', revision_id: 123}),
         (s:Symbol {
           id: 0,
           name: 'existent',

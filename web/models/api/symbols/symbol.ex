@@ -857,44 +857,51 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     List.first Neo4j.query!(Neo4j.conn, query, params)
   end
 
+  defp set_new_data(symbol) do
+    Map.keys(symbol)
+    |> Enum.filter(fn key -> key !== "categories" end)
+    |> Enum.map(fn key -> "#{key}: {#{key}}" end)
+    |> Enum.join(",")
+  end
+
+  defp set_categories(categories) do
+    {match_categories, join_categories, params1, _counter} =
+      categories
+      |> Enum.reduce({[], [], %{}, 0},
+        fn cat, {mcs, jcs, params, n} ->
+          {
+            mcs ++ ["(cat#{n}:Category {url: {cat#{n}_url}})"],
+            jcs ++ ["(new_symbol)-[:CATEGORY]->(cat#{n})"],
+            Map.put(params, "cat#{n}_url", cat),
+            n + 1
+          }
+        end)
+
+    {Enum.join(match_categories, ","), Enum.join(join_categories, ","), params1}
+  end
+
   def insert(symbol, review, username) do
-    query1 =
-      case review do
-        0 -> "CREATE (s:Symbol "
-        1 -> "CREATE (s:InsertSymbolPatch "
-      end
+    {match_categories, join_categories, params1} = set_categories(symbol["categories"])
+    type = if review === 0, do: "Symbol", else: "InsertSymbolPatch"
 
-    query2 =
-      Map.keys(symbol)
-      |> Enum.filter(fn key -> key !== "categories" end)
-      |> Enum.map(fn key -> "#{key}: {#{key}}" end)
-      |> Enum.join(",")
+    query = """
+      MATCH (user:User {username: {username}})
+      CREATE (new_symbol:#{type} {id: {id}, revision_id: {revision_id}, #{set_new_data(symbol)}}),
+        (new_symbol)-[:CONTRIBUTOR {type: "insert", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
 
-    query2 = "{id: {id}, revision_id: {revision_id}, #{query2}})"
+      WITH new_symbol
 
-    {query3, params1, _counter} =
-      symbol["categories"]
-      |> Enum.reduce({"", %{}, 0}, fn (cat, {queries, params, n}) ->
-        query = """
-          WITH s
-          MATCH (cat#{n}:Category {url: {cat#{n}_url}})
-          CREATE (s)-[:CATEGORY]->(cat#{n})
-        """
-        {queries <> query, Map.put(params, "cat#{n}_url", cat), n + 1}
-      end)
+      MATCH #{match_categories}
+      CREATE #{join_categories}
 
-    query4 = """
-      WITH s
-      MATCH (s)-[crel:CATEGORY]->(category:Category),
-        (user:User {username: {username}})
-      MERGE (s)-[:CONTRIBUTOR {type: "insert", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
+      WITH new_symbol
+
+      MATCH (new_symbol)-[crel:CATEGORY]->(category:Category)
       RETURN {
-        symbol: s,
+        symbol: new_symbol,
         categories: COLLECT({category: {name: category.name, url: category.url}})
       } AS symbol
     """
-
-    query = query1 <> query2 <> query3 <> query4
 
     params2 = %{
       id: :rand.uniform(100_000_000),
@@ -926,58 +933,51 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   end
 
   def update(old_symbol, new_symbol, 0 = _review, username, nil = _patch_revision_id) do
-    query1 = """
+    {match_categories, join_categories, params1} = set_categories(new_symbol["categories"])
+
+    query = """
       MATCH (old_symbol:Symbol {id: {symbol_id}}),
         (user:User {username: {username}})
-      OPTIONAL MATCH (old_symbol)-[r1:UPDATE]->(su:UpdateSymbolPatch)
-      OPTIONAL MATCH (old_symbol)<-[r2:DELETE]-(user2:User)
+
+      MATCH (old_symbol)-[cr:CATEGORY]->(c:Category)
+      DELETE cr
+
+      WITH old_symbol, user, COLLECT(c.id) AS cs
+
       REMOVE old_symbol:Symbol
       SET old_symbol:SymbolRevision
-      DELETE r1, r2
-      WITH old_symbol, user, COLLECT(su) as sus, user2
-    """
+      SET old_symbol.categories = cs
 
-    query2 =
-      Map.keys(new_symbol)
-      |> Enum.filter(fn key -> key !== "categories" end)
-      |> Enum.map(fn key -> "#{key}: {new_#{key}}" end)
-      |> Enum.join(",")
-
-    query2 = """
-      CREATE (new_symbol:Symbol {
-          id: {new_id},
-          revision_id: {new_revision_id},
-          #{query2}
-        }),
+      CREATE (new_symbol:Symbol {id: old_symbol.id, revision_id: {revision_id}, #{set_new_data(new_symbol)}}),
         (new_symbol)-[:REVISION]->(old_symbol),
         (new_symbol)-[:CONTRIBUTOR {type: "update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
-    """
 
-    {queries, params1, _counter} =
-      new_symbol["categories"]
-      |> Enum.reduce({[], %{}, 0},
-        fn cat, {queries, params, n} ->
-          {queries ++ ["""
-            WITH new_symbol, sus, user2
-            MATCH (cat#{n}:Category {url: {cat#{n}_url}})
-            CREATE (new_symbol)-[:CATEGORY]->(cat#{n})
-          """], Map.put(params, "cat#{n}_url", cat), n + 1}
-        end)
+      WITH old_symbol, new_symbol
 
-    query3 = Enum.join(queries, " ")
+      OPTIONAL MATCH (old_symbol)-[sur:UPDATE]->(symbol_update:UpdateSymbolPatch)
+      DELETE sur
 
-    query4 = """
-      WITH new_symbol, sus, user2
+      WITH old_symbol, new_symbol, COLLECT(symbol_update) AS sus
 
       FOREACH (su IN sus |
         CREATE (new_symbol)-[:UPDATE]->(su)
       )
 
-      FOREACH (unused IN CASE user2 WHEN NULL THEN [] ELSE [1] END |
-        CREATE (new_symbol)<-[:DELETE]-(user2)
+      WITH old_symbol, new_symbol
+
+      OPTIONAL MATCH (old_symbol)<-[sdr:DELETE]-(user_delete:User)
+      FOREACH (ignored IN CASE user_delete WHEN NULL THEN [] ELSE [1] END |
+        CREATE (new_symbol)<-[:DELETE]-(user_delete)
+        DELETE sdr
       )
 
       WITH new_symbol
+
+      MATCH #{match_categories}
+      CREATE #{join_categories}
+
+      WITH new_symbol
+
       MATCH (new_symbol)-[:CATEGORY]->(category:Category)
       RETURN {
         symbol: new_symbol,
@@ -985,23 +985,20 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       } AS symbol
     """
 
-    query = query1 <> query2 <> query3 <> query4
-
     params2 = %{
-      new_id: old_symbol["id"],
-      new_name: new_symbol["name"],
-      new_url: new_symbol["url"],
-      new_type: new_symbol["type"],
-      new_description: new_symbol["description"],
-      new_declaration: new_symbol["declaration"],
-      new_parameters: new_symbol["parameters"],
-      new_return_type: new_symbol["return_type"],
-      new_return_description: new_symbol["return_description"],
-      new_members: new_symbol["members"],
-      new_definition: new_symbol["definition"],
-      new_source_location: new_symbol["source_location"],
-      new_additional_information: new_symbol["additional_information"],
-      new_revision_id: :rand.uniform(100_000_000),
+      name: new_symbol["name"],
+      url: new_symbol["url"],
+      type: new_symbol["type"],
+      description: new_symbol["description"],
+      declaration: new_symbol["declaration"],
+      parameters: new_symbol["parameters"],
+      return_type: new_symbol["return_type"],
+      return_description: new_symbol["return_description"],
+      members: new_symbol["members"],
+      definition: new_symbol["definition"],
+      source_location: new_symbol["source_location"],
+      additional_information: new_symbol["additional_information"],
+      revision_id: :rand.uniform(100_000_000),
       symbol_id: old_symbol["id"],
       username: username
     }
@@ -1018,68 +1015,50 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   end
 
   def update(old_symbol, new_symbol, 1, username, nil = _patch_revision_id) do
-    query1 = """
+    {match_categories, join_categories, params1} = set_categories(new_symbol["categories"])
+
+    query = """
       MATCH (old_symbol:Symbol {id: {symbol_id}}),
         (user:User {username: {username}})
-      WITH old_symbol, user
-    """
 
-    query2 =
-      Map.keys(new_symbol)
-      |> Enum.filter(fn key -> key !== "categories" end)
-      |> Enum.map(fn key -> "#{key}: {new_#{key}}" end)
-      |> Enum.join(",")
-
-    query2 = """
       CREATE (new_symbol:UpdateSymbolPatch {
-          id: {symbol_id},
-          against_revision: {against_revision},
-          revision_id: {new_revision_id},
-          #{query2}
+          id: old_symbol.id,
+          against_revision: old_symbol.revision_id,
+          revision_id: {revision_id},
+          #{set_new_data(new_symbol)}
         }),
         (old_symbol)-[:UPDATE]->(new_symbol),
         (new_symbol)-[:CONTRIBUTOR {type: "update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
-    """
 
-    {queries, params1, _counter} =
-      new_symbol["categories"]
-      |> Enum.reduce({[], %{}, 0},
-        fn cat, {queries, params, n} ->
-          {queries ++ ["""
-            WITH old_symbol, new_symbol
-            MATCH (cat#{n}:Category {url: {cat#{n}_url}})
-            CREATE (new_symbol)-[:CATEGORY]->(cat#{n})
-          """], Map.put(params, "cat#{n}_url", cat), n + 1}
-        end)
+      WITH old_symbol, new_symbol
 
-    query3 = Enum.join(queries, " ")
-    query4 = """
+      MATCH #{match_categories}
+      CREATE #{join_categories}
+
       WITH old_symbol
+
       MATCH (old_symbol)-[:CATEGORY]->(category:Category)
+
       RETURN {
         symbol: old_symbol,
         categories: COLLECT({category: {name: category.name, url: category.url}})
       } AS symbol
     """
 
-    query = query1 <> query2 <> query3 <> query4
-
     params2 = %{
-      new_id: old_symbol["id"],
-      new_name: new_symbol["name"],
-      new_url: new_symbol["url"],
-      new_type: new_symbol["type"],
-      new_description: new_symbol["description"],
-      new_declaration: new_symbol["declaration"],
-      new_parameters: new_symbol["parameters"],
-      new_return_type: new_symbol["return_type"],
-      new_return_description: new_symbol["return_description"],
-      new_members: new_symbol["members"],
-      new_definition: new_symbol["definition"],
-      new_source_location: new_symbol["source_location"],
-      new_additional_information: new_symbol["additional_information"],
-      new_revision_id: :rand.uniform(100_000_000),
-      against_revision: old_symbol["revision_id"],
+      name: new_symbol["name"],
+      url: new_symbol["url"],
+      type: new_symbol["type"],
+      description: new_symbol["description"],
+      declaration: new_symbol["declaration"],
+      parameters: new_symbol["parameters"],
+      return_type: new_symbol["return_type"],
+      return_description: new_symbol["return_description"],
+      members: new_symbol["members"],
+      definition: new_symbol["definition"],
+      source_location: new_symbol["source_location"],
+      additional_information: new_symbol["additional_information"],
+      revision_id: :rand.uniform(100_000_000),
       symbol_id: old_symbol["id"],
       username: username
     }
@@ -1103,60 +1082,65 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     if Neo4j.query!(Neo4j.conn, query, params) == [] do
       {:error, 404, "Update patch not found"}
     else
-      query1 = """
+      {match_categories, join_categories, params1} = set_categories(new_symbol["categories"])
+
+      query = """
         MATCH (old_symbol:Symbol {id: {symbol_id}}),
           (symbol_patch:UpdateSymbolPatch {revision_id: {patch_revision_id}}),
           (old_symbol)-[r1:UPDATE]->(symbol_patch),
           (user:User {username: {username}})
+
         REMOVE old_symbol:Symbol
         SET old_symbol:SymbolRevision
         REMOVE symbol_patch:UpdateSymbolPatch
         SET symbol_patch:UpdateSymbolPatchRevision
         DELETE r1
-      """
 
-      query2 =
-        Map.keys(new_symbol)
-        |> Enum.filter(fn key -> key !== "categories" end)
-        |> Enum.map(fn key -> "#{key}: {new_#{key}}" end)
-        |> Enum.join(",")
-
-      query2 = """
-        CREATE (new_symbol:Symbol {#{query2}}),
+        CREATE (new_symbol:Symbol {id: old_symbol.id, revision_id: {revision_id}, #{set_new_data(new_symbol)}}),
           (new_symbol)-[:REVISION]->(old_symbol),
           (new_symbol)-[:CONTRIBUTOR {type: "update", date: #{Utilities.get_date()}, time: timestamp()}]->(user),
           (new_symbol)-[:UPDATE_REVISION]->(symbol_patch)
-      """
 
-      {queries, params1, _counter} =
-        new_symbol["categories"]
-        |> Enum.reduce({[], %{}, 0},
-          fn cat, {queries, params, n} ->
-            {queries ++ ["""
-              WITH old_symbol, new_symbol
-              MATCH (cat#{n}:Category {url: {cat#{n}_url}})
-              CREATE (new_symbol)-[:CATEGORY]->(cat#{n})
-            """], Map.put(params, "cat#{n}_url", cat), n + 1}
-          end)
+        WITH old_symbol, new_symbol, symbol_patch
 
-      query3 = Enum.join(queries, " ")
+        MATCH (symbol_patch)-[cr:CATEGORY]->(c:Category)
+        DELETE cr
 
-      query4 = """
+        WITH old_symbol, new_symbol, symbol_patch, COLLECT(c.id) AS cs
+
+        SET symbol_patch.categories = cs
+
+        WITH old_symbol, new_symbol
+
+        MATCH (old_symbol)-[cr:CATEGORY]->(c:Category)
+        DELETE cr
+
+        WITH old_symbol, new_symbol, COLLECT(c.id) AS cs
+
+        SET old_symbol.categories = cs
+
+        WITH old_symbol, new_symbol
+
+        MATCH #{match_categories}
+        CREATE #{join_categories}
+
         WITH old_symbol, new_symbol
 
         OPTIONAL MATCH (old_symbol)-[r1:UPDATE]->(su:UpdateSymbolPatch)
-        OPTIONAL MATCH (old_symbol)<-[r2:DELETE]-(user2:User)
+        DELETE r1
 
-        DELETE r1, r2
-
-        WITH old_symbol, new_symbol, COLLECT(su) as sus, user2
+        WITH old_symbol, new_symbol, COLLECT(su) as sus
 
         FOREACH (su IN sus |
           CREATE (new_symbol)-[:UPDATE]->(su)
         )
 
+        WITH old_symbol, new_symbol
+
+        OPTIONAL MATCH (old_symbol)<-[r2:DELETE]-(user2:User)
         FOREACH (unused IN CASE user2 WHEN NULL THEN [] ELSE [1] END |
           CREATE (new_symbol)<-[:DELETE]-(user2)
+          DELETE r2
         )
 
         WITH new_symbol
@@ -1168,23 +1152,20 @@ defmodule PhpInternals.Api.Symbols.Symbol do
         } AS symbol
       """
 
-      query = query1 <> query2 <> query3 <> query4
-
       params2 = %{
-        new_id: old_symbol["id"],
-        new_name: new_symbol["name"],
-        new_url: new_symbol["url"],
-        new_type: new_symbol["type"],
-        new_description: new_symbol["description"],
-        new_declaration: new_symbol["declaration"],
-        new_parameters: new_symbol["parameters"],
-        new_return_type: new_symbol["return_type"],
-        new_return_description: new_symbol["return_description"],
-        new_members: new_symbol["members"],
-        new_definition: new_symbol["definition"],
-        new_source_location: new_symbol["source_location"],
-        new_additional_information: new_symbol["additional_information"],
-        new_revision_id: :rand.uniform(100_000_000),
+        name: new_symbol["name"],
+        url: new_symbol["url"],
+        type: new_symbol["type"],
+        description: new_symbol["description"],
+        declaration: new_symbol["declaration"],
+        parameters: new_symbol["parameters"],
+        return_type: new_symbol["return_type"],
+        return_description: new_symbol["return_description"],
+        members: new_symbol["members"],
+        definition: new_symbol["definition"],
+        source_location: new_symbol["source_location"],
+        additional_information: new_symbol["additional_information"],
+        revision_id: :rand.uniform(100_000_000),
         symbol_id: old_symbol["id"],
         username: username,
         patch_revision_id: patch_revision_id
@@ -1203,7 +1184,9 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   end
 
   def update(old_symbol, new_symbol, 1, username, patch_revision_id) do
-    query1 = """
+    {match_categories, join_categories, params1} = set_categories(new_symbol["categories"])
+
+    query = """
       MATCH (old_symbol:Symbol {id: {symbol_id}}),
         (symbol_patch:UpdateSymbolPatch {revision_id: {patch_revision_id}}),
         (old_symbol)-[r1:UPDATE]->(symbol_patch),
@@ -1214,34 +1197,31 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       DELETE r1
 
       WITH old_symbol, user, symbol_patch
-    """
 
-    query2 =
-      Map.keys(new_symbol)
-      |> Enum.filter(fn key -> key !== "categories" end)
-      |> Enum.map(fn key -> "#{key}: {new_#{key}}" end)
-      |> Enum.join(",")
-
-    query2 = """
-      CREATE (new_symbol:UpdateSymbolPatch {id: {symbol_id}, against_revision: {against_revision}, #{query2}}),
+      CREATE (new_symbol:UpdateSymbolPatch {
+          id: old_symbol.id,
+          against_revision: old_symbol.revision_id,
+          revision_id: {revision_id},
+          #{set_new_data(new_symbol)}
+        }),
         (old_symbol)-[:UPDATE]->(new_symbol),
         (new_symbol)-[:UPDATE_REVISION]->(symbol_patch),
         (new_symbol)-[:CONTRIBUTOR {type: "update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
-    """
 
-    {queries, params1, _counter} =
-      new_symbol["categories"]
-      |> Enum.reduce({[], %{}, 0},
-        fn cat, {queries, params, n} ->
-          {queries ++ ["""
-            WITH old_symbol, new_symbol
-            MATCH (cat#{n}:Category {url: {cat#{n}_url}})
-            CREATE (new_symbol)-[:CATEGORY]->(cat#{n})
-          """], Map.put(params, "cat#{n}_url", cat), n + 1}
-        end)
+      WITH old_symbol, new_symbol, symbol_patch
 
-    query3 = Enum.join(queries, " ")
-    query4 = """
+      MATCH (symbol_patch)-[cr:CATEGORY]->(c:Category)
+      DELETE cr
+
+      WITH old_symbol, new_symbol, symbol_patch, COLLECT(c.id) AS cs
+
+      SET symbol_patch.categories = cs
+
+      WITH old_symbol, new_symbol
+
+      MATCH #{match_categories}
+      CREATE #{join_categories}
+
       WITH old_symbol
       MATCH (old_symbol)-[:CATEGORY]->(category:Category)
       RETURN {
@@ -1250,24 +1230,20 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       } AS symbol
     """
 
-    query = query1 <> query2 <> query3 <> query4
-
     params2 = %{
-      new_id: old_symbol["id"],
-      new_name: new_symbol["name"],
-      new_url: new_symbol["url"],
-      new_type: new_symbol["type"],
-      new_description: new_symbol["description"],
-      new_declaration: new_symbol["declaration"],
-      new_parameters: new_symbol["parameters"],
-      new_return_type: new_symbol["return_type"],
-      new_return_description: new_symbol["return_description"],
-      new_members: new_symbol["members"],
-      new_definition: new_symbol["definition"],
-      new_source_location: new_symbol["source_location"],
-      new_additional_information: new_symbol["additional_information"],
-      new_revision_id: :rand.uniform(100_000_000),
-      against_revision: old_symbol["revision_id"],
+      name: new_symbol["name"],
+      url: new_symbol["url"],
+      type: new_symbol["type"],
+      description: new_symbol["description"],
+      declaration: new_symbol["declaration"],
+      parameters: new_symbol["parameters"],
+      return_type: new_symbol["return_type"],
+      return_description: new_symbol["return_description"],
+      members: new_symbol["members"],
+      definition: new_symbol["definition"],
+      source_location: new_symbol["source_location"],
+      additional_information: new_symbol["additional_information"],
+      revision_id: :rand.uniform(100_000_000),
       symbol_id: old_symbol["id"],
       username: username,
       patch_revision_id: patch_revision_id
@@ -1282,11 +1258,17 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def apply_patch?(symbol_id, %{"action" => "insert"}, username) do
     query = """
-      MATCH (s:InsertSymbolPatch {id: {symbol_id}})-[:CATEGORY]->(category:Category),
+      MATCH (s:InsertSymbolPatch {id: {symbol_id}}),
         (user:User {username: {username}})
+
       REMOVE s:InsertSymbolPatch
       SET s:Symbol
-      MERGE (s)-[:CONTRIBUTOR {type: "apply_insert", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
+      CREATE (s)-[:CONTRIBUTOR {type: "apply_insert", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
+
+      WITH s
+
+      MATCH (s)-[:CATEGORY]->(category:Category)
+
       RETURN {
         symbol: s,
         categories: COLLECT({category: {name: category.name, url: category.url}})
@@ -1309,35 +1291,46 @@ defmodule PhpInternals.Api.Symbols.Symbol do
          {:ok} <- revision_ids_match?(symbol_id, patch_revision_id) do
       query = """
         MATCH (old_symbol:Symbol {id: {symbol_id}}),
+          (user:User {username: {username}}),
           (old_symbol)-[r1:UPDATE]->(new_symbol:UpdateSymbolPatch {revision_id: {patch_id}})
-        DELETE r1
+
+        MATCH (old_symbol)-[cr:CATEGORY]->(c:Category)
+        DELETE cr, r1
+
+        WITH old_symbol, new_symbol, user, COLLECT(c.id) AS cs
+
+        REMOVE old_symbol:Symbol
+        SET old_symbol:SymbolRevision
+        SET old_symbol.categories = cs
+        REMOVE new_symbol:UpdateSymbolPatch
+        REMOVE new_symbol.against_revision
+        SET new_symbol:Symbol
+
+        CREATE (new_symbol)-[:REVISION]->(old_symbol),
+          (new_symbol)-[:CONTRIBUTOR {type: "apply_update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
 
         WITH old_symbol, new_symbol
 
-        OPTIONAL MATCH (old_symbol)-[r2:UPDATE]->(su:UpdateSymbolPatch)
-        OPTIONAL MATCH (old_symbol)<-[r3:DELETE]-(user2:User)
-        REMOVE old_symbol:Symbol
-        REMOVE new_symbol:UpdateSymbolPatch
-        REMOVE new_symbol.against_revision
-        SET old_symbol:SymbolRevision
-        SET new_symbol:Symbol
-        DELETE r2, r3
+        OPTIONAL MATCH (old_symbol)-[sur:UPDATE]->(symbol_update:UpdateSymbolPatch)
+        DELETE sur
 
-        WITH old_symbol, new_symbol, collect(su) as sus, user2
+        WITH old_symbol, new_symbol, COLLECT(symbol_update) AS sus
 
-        CREATE (new_symbol)-[:REVISION]->(old_symbol)
         FOREACH (su IN sus |
           CREATE (new_symbol)-[:UPDATE]->(su)
         )
-        FOREACH (unused IN CASE user2 WHEN NULL THEN [] ELSE [1] END |
-          CREATE (new_symbol)<-[:DELETE]-(user2)
+
+        WITH old_symbol, new_symbol
+
+        OPTIONAL MATCH (old_symbol)<-[sdr:DELETE]-(user_delete:User)
+        FOREACH (ignored IN CASE user_delete WHEN NULL THEN [] ELSE [1] END |
+          CREATE (new_symbol)<-[:DELETE]-(user_delete)
+          DELETE sdr
         )
 
         WITH new_symbol
 
-        MATCH (new_symbol)-[:CATEGORY]->(category:Category),
-          (user:User {username: {username}})
-        MERGE (new_symbol)-[:CONTRIBUTOR {type: "apply_update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
+        MATCH (new_symbol)-[:CATEGORY]->(category:Category)
         RETURN {
           symbol: new_symbol,
           categories: COLLECT({category: {name: category.name, url: category.url}})
@@ -1371,8 +1364,16 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
       REMOVE s:Symbol
       SET s:SymbolDeleted
-
       DELETE r
+
+      WITH s, u, u2
+
+      MATCH (s)-[cr:CATEGORY]->(c:Category)
+      DELETE cr
+
+      WITH s, u, u2, COLLECT(c.id) AS cs
+
+      SET s.categories = cs
       CREATE (s)-[:CONTRIBUTOR {type: "delete", date: #{Utilities.get_date()}, time: timestamp()}]->(u),
         (s)-[:CONTRIBUTOR {type: "apply_delete", date: #{Utilities.get_date()}, time: timestamp()}]->(u2)
 
@@ -1397,9 +1398,20 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       query = """
         MATCH (isp:InsertSymbolPatch {id: {symbol_id}}),
           (user:User {username: {username}})
+
         REMOVE isp:InsertSymbolPatch
         SET isp:InsertSymbolPatchDeleted
-        MERGE (isp)-[:CONTRIBUTOR {type: "discard_insert", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
+
+        CREATE (isp)-[:CONTRIBUTOR {type: "discard_insert", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
+
+        WITH isp
+
+        MATCH (isp)-[cr:CATEGORY]->(c:Category)
+        DELETE cr
+
+        WITH isp, COLLECT(c.id) AS cs
+
+        SET isp.categories = cs
       """
 
       params = %{symbol_id: symbol_id, username: username}
@@ -1420,9 +1432,20 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       query = """
         MATCH (usp:UpdateSymbolPatch {revision_id: {revision_id}}),
           (user:User {username: {username}})
+
         REMOVE usp:UpdateSymbolPatch
         SET usp:UpdateSymbolPatchDeleted
-        MERGE (usp)-[:CONTRIBUTOR {type: "discard_update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
+
+        CREATE (usp)-[:CONTRIBUTOR {type: "discard_update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
+
+        WITH usp
+
+        MATCH (usp)-[cr:CATEGORY]->(c:Category)
+        DELETE cr
+
+        WITH usp, COLLECT(c.id) AS cs
+
+        SET usp.categories = cs
       """
 
       params = %{revision_id: patch_revision_id, username: username}
