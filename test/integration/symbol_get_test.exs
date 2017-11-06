@@ -555,10 +555,10 @@ defmodule SymbolGetTest do
           url: '...2',
           definition: '.2',
           source_location: '..2',
+          categories: [c.id],
           type: 'macro',
           revision_id: #{sym_rev_b}
         }),
-        (s2)-[:CATEGORY]->(c),
         (s2)-[:CONTRIBUTOR {date: 20170830, time: 2, type: 'insert'}]->(u),
         (s)-[:CATEGORY]->(c),
         (s)-[:REVISION]->(s2)
