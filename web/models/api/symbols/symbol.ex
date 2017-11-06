@@ -1470,8 +1470,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
           (:User)-[r:DELETE]->(s),
           (u2:User {username: {username}})
         DELETE r
-        MERGE (s)-[r2:CONTRIBUTOR {type: "discard_delete"}]->(u2)
-        SET r2.date = timestamp()
+        CREATE (s)-[:CONTRIBUTOR {type: "discard_delete", date: #{Utilities.get_date()}, time: timestamp()}]->(u2)
       """
 
       params = %{symbol_id: symbol_id, username: username}
