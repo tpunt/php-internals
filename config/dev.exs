@@ -7,9 +7,11 @@ use Mix.Config
 # watchers to your application. For example, we use it
 # with brunch.io to recompile .js and .css sources.
 config :php_internals, PhpInternals.Endpoint,
-  http: [port: 4000],
+  http: [port: {:system, "PORT"}],
+  url: [host: "${HOST_DEV}", port: {:system, "PORT"}],
   debug_errors: true,
-  code_reloader: true,
+  code_reloader: false,
+  server: true,
   check_origin: false,
   watchers: []
 
@@ -21,10 +23,9 @@ config :logger, :console, format: "[$level] $message\n"
 config :phoenix, :stacktrace_depth, 20
 
 config :neo4j_sips, Neo4j,
-  url: "http://localhost:7474",
   basic_auth: [
-    username: System.get_env("NEO4J_USERNAME_DEV"),
-    password: System.get_env("NEO4J_PASSWORD_DEV")
+    username: "${NEO4J_USERNAME_DEV}",
+    password: "${NEO4J_PASSWORD_DEV}"
   ],
   pool_size: 5,
   max_overflow: 2,

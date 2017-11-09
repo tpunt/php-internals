@@ -7,8 +7,7 @@ use Mix.Config
 
 # Configures the endpoint
 config :php_internals, PhpInternals.Endpoint,
-  url: [host: "localhost"],
-  secret_key_base: System.get_env("SECRET_KEY_BASE"),
+  secret_key_base: "${SECRET_KEY_BASE}",
   render_errors: [view: PhpInternals.ErrorView, accepts: ~w(json)],
   pubsub: [name: PhpInternals.PubSub,
            adapter: Phoenix.PubSub.PG2]
@@ -19,8 +18,8 @@ config :logger, :console,
   metadata: [:request_id]
 
 config :oauth2, PhpInternals.Auth.GitHub,
-  client_id: System.get_env("GITHUB_CLIENT_ID"),
-  client_secret: System.get_env("GITHUB_CLIENT_SECRET"),
+  client_id: "${GITHUB_CLIENT_ID}",
+  client_secret: "${GITHUB_CLIENT_SECRET}",
   redirect_uri: "http://phpinternals.net/api/auth/github/callback"
 
 # Import environment specific config. This must remain at the bottom
