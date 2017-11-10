@@ -9,6 +9,7 @@ config :php_internals, PhpInternals.Endpoint,
 config :logger, level: :info
 
 config :neo4j_sips, Neo4j,
+  url: "${NEO4J_URL_PROD}",
   basic_auth: [
     username: "${NEO4J_USERNAME_PROD}",
     password: "${NEO4J_PASSWORD_PROD}"

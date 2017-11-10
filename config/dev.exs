@@ -23,6 +23,7 @@ config :logger, :console, format: "[$level] $message\n"
 config :phoenix, :stacktrace_depth, 20
 
 config :neo4j_sips, Neo4j,
+  url: "${NEO4J_URL_DEV}",
   basic_auth: [
     username: "${NEO4J_USERNAME_DEV}",
     password: "${NEO4J_PASSWORD_DEV}"
