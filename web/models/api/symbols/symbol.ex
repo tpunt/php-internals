@@ -1379,17 +1379,17 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       CREATE (s)-[:CONTRIBUTOR {type: "delete", date: #{Utilities.get_date()}, time: timestamp()}]->(u),
         (s)-[:CONTRIBUTOR {type: "apply_delete", date: #{Utilities.get_date()}, time: timestamp()}]->(u2)
 
-      RETURN s
+      RETURN s AS symbol
     """
 
     params = %{symbol_id: symbol_id, username: username}
 
-    result = Neo4j.query!(Neo4j.conn, query, params)
+    result = List.first Neo4j.query!(Neo4j.conn, query, params)
 
-    if result === [] do
+    if result === nil do
       {:error, 404, "Delete patch not found"}
     else
-      update_cache_after_delete(symbol_id)
+      update_cache_after_delete(symbol_id, result["symbol"]["name"])
 
       {:ok, 204}
     end
@@ -1493,13 +1493,14 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       REMOVE s:Symbol
       SET s:SymbolDeleted
       CREATE (s)-[:CONTRIBUTOR {type: "delete", date: #{Utilities.get_date()}, time: timestamp()}]->(u)
+      RETURN s AS symbol
     """
 
     params = %{symbol_id: symbol_id, username: username}
 
-    Neo4j.query!(Neo4j.conn, query, params)
+    result = List.first Neo4j.query!(Neo4j.conn, query, params)
 
-    update_cache_after_delete(symbol_id)
+    update_cache_after_delete(symbol_id, result["symbol"]["name"])
   end
 
   def soft_delete(symbol_id, 1 = _review, username) do
@@ -1559,7 +1560,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
     new_symbol
   end
 
-  def update_cache_after_delete(symbol_id) do
+  def update_cache_after_delete(symbol_id, symbol_name) do
+    ResultCache.invalidate("symbols/#{symbol_name}")
     ResultCache.invalidate("symbols/#{symbol_id}?overview")
     ResultCache.invalidate("symbols/#{symbol_id}?normal")
     ResultCache.flush("symbols")

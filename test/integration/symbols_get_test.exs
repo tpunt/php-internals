@@ -159,6 +159,102 @@ defmodule SymbolsGetTest do
   end
 
   @doc """
+  GET /api/symbols?search==existing_symbol
+  """
+  test "Search (exact name) all symbols for an existing symbol (cache test)" do
+    sym_id = :rand.uniform(100_000_000)
+    sym_name = Integer.to_string(:rand.uniform(100_000_000))
+    sym_rev = :rand.uniform(100_000_000)
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {url: 'existent'}),
+        (u:User {access_token: 'at2'})
+      CREATE (s:Symbol {
+          id: #{sym_id},
+          name: '#{sym_name}',
+          description: '.',
+          url: '#{sym_name}',
+          definition: '.',
+          source_location: '..',
+          type: 'macro',
+          revision_id: #{sym_rev}
+        }),
+        (s)-[:CATEGORY]->(c),
+        (s)-[:CONTRIBUTOR]->(u)
+    """)
+
+    # prime the cache
+    conn = conn(:get, "/api/symbols", %{"search" => "=#{sym_name}"})
+    response = Router.call(conn, @opts)
+    assert response.status === 200
+    assert %{"symbols" => [%{"symbol" => %{"url" => ^sym_name}}], "meta" => _}
+      = Poison.decode! response.resp_body
+
+    conn =
+      conn(:delete, "/api/symbols/#{sym_id}", %{})
+      |> put_req_header("authorization", "at2")
+    response = Router.call(conn, @opts)
+    assert response.status === 204
+
+    conn = conn(:get, "/api/symbols", %{"search" => "=#{sym_name}"})
+    response = Router.call(conn, @opts)
+    assert response.status === 200
+    assert %{"symbols" => [], "meta" => _} = Poison.decode! response.resp_body
+
+    Neo4j.query!(Neo4j.conn, "MATCH (s:SymbolDeleted {revision_id: #{sym_rev}})-[r]-() DELETE r, s")
+  end
+
+  @doc """
+  GET /api/symbols?search==existing_symbol
+  """
+  test "Search (exact name) all symbols for an existing symbol (cache test 2)" do
+    sym_id = :rand.uniform(100_000_000)
+    sym_name = Integer.to_string(:rand.uniform(100_000_000))
+    sym_rev = :rand.uniform(100_000_000)
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {url: 'existent'}),
+        (u:User {access_token: 'at2'})
+      CREATE (s:Symbol {
+          id: #{sym_id},
+          name: '#{sym_name}',
+          description: '.',
+          url: '#{sym_name}',
+          definition: '.',
+          source_location: '..',
+          type: 'macro',
+          revision_id: #{sym_rev}
+        }),
+        (s)-[:CATEGORY]->(c),
+        (s)-[:CONTRIBUTOR]->(u)
+    """)
+
+    # prime the cache
+    conn = conn(:get, "/api/symbols", %{"search" => "=#{sym_name}"})
+    response = Router.call(conn, @opts)
+    assert response.status === 200
+    assert %{"symbols" => [%{"symbol" => %{"url" => ^sym_name}}], "meta" => _}
+      = Poison.decode! response.resp_body
+
+    conn =
+      conn(:delete, "/api/symbols/#{sym_id}", %{})
+      |> put_req_header("authorization", "at1")
+    response = Router.call(conn, @opts)
+    assert response.status === 202
+
+    conn =
+      conn(:patch, "/api/symbols/#{sym_id}?apply_patch=delete", %{})
+      |> put_req_header("authorization", "at2")
+    response = Router.call(conn, @opts)
+    assert response.status === 204
+
+    conn = conn(:get, "/api/symbols", %{"search" => "=#{sym_name}"})
+    response = Router.call(conn, @opts)
+    assert response.status === 200
+    assert %{"symbols" => [], "meta" => _} = Poison.decode! response.resp_body
+
+    Neo4j.query!(Neo4j.conn, "MATCH (s:SymbolDeleted {revision_id: #{sym_rev}})-[r]-() DELETE r, s")
+  end
+
+  @doc """
   GET /api/symbols?search=~&full_search=true
   """
   test "search all symbols by description" do
