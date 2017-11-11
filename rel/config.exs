@@ -8,7 +8,7 @@ Path.join(["rel", "plugins", "*.exs"])
 
 use Mix.Releases.Config,
     # This sets the default release built by `mix release`
-    default_release: :default,
+    default_release: (if Mix.env() === :prod, do: :php_internals, else: :php_internals_dev),
     # This sets the default environment used by `mix release`
     default_environment: Mix.env()
 
@@ -29,7 +29,7 @@ environment :dev do
   # the --env flag to Distillery explicitly if you want to use
   # dev mode.
   set dev_mode: true
-  set include_erts: false
+  set include_erts: true
   set cookie: :"${ERLANG_COOKIE_DEV}"
 end
 
@@ -48,5 +48,13 @@ release :php_internals do
   set version: current_version(:php_internals)
   set applications: [
     :runtime_tools
+  ]
+end
+
+release :php_internals_dev do
+  set version: current_version(:php_internals)
+  set applications: [
+    :runtime_tools,
+    :php_internals
   ]
 end
