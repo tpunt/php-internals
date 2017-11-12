@@ -400,6 +400,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
       MATCH (s:Symbol {id: {symbol_id}})-[:REVISION*]->(sr:SymbolRevision {revision_id: {revision_id}}),
         (sr)-[r:CONTRIBUTOR]->(u:User)
 
+      WHERE r.type IN ["insert", "update"]
+
       MATCH (src:Category)
       WHERE src.id IN sr.categories
 

@@ -732,6 +732,8 @@ defmodule PhpInternals.Api.Categories.Category do
       MATCH (c:Category {url: {category_url}})-[:REVISION*]->(cr:CategoryRevision {revision_id: {revision_id}}),
         (cr)-[r:CONTRIBUTOR]->(u:User)
 
+      WHERE r.type IN ["insert", "update"]
+
       OPTIONAL MATCH (sc:Category)
       WHERE sc.id IN cr.subcategories
 
