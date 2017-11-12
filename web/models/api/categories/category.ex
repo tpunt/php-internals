@@ -729,8 +729,7 @@ defmodule PhpInternals.Api.Categories.Category do
 
   def valid_revision?(category_url, revision_id) do
     query = """
-      MATCH (c:Category {url: {category_url}}),
-        (cr:CategoryRevision {revision_id: {revision_id}}),
+      MATCH (c:Category {url: {category_url}})-[:REVISION*]->(cr:CategoryRevision {revision_id: {revision_id}}),
         (cr)-[r:CONTRIBUTOR]->(u:User)
 
       OPTIONAL MATCH (sc:Category)

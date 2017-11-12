@@ -397,9 +397,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def valid_revision?(symbol_id, revision_id) do
     query = """
-      MATCH (s:Symbol {id: {symbol_id}}),
-        (sr:SymbolRevision {revision_id: {revision_id}}),
-        (s)-[:REVISION]->(sr),
+      MATCH (s:Symbol {id: {symbol_id}})-[:REVISION*]->(sr:SymbolRevision {revision_id: {revision_id}}),
         (sr)-[r:CONTRIBUTOR]->(u:User)
 
       MATCH (src:Category)
