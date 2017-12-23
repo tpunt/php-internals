@@ -8,7 +8,7 @@ use Mix.Config
 # with brunch.io to recompile .js and .css sources.
 config :php_internals, PhpInternals.Endpoint,
   http: [port: {:system, "PORT"}],
-  url: [host: "${HOST_DEV}", port: {:system, "PORT"}],
+  url: [host: System.get_env("HOST_DEV") || "${HOST_DEV}", port: {:system, "PORT"}],
   debug_errors: true,
   code_reloader: false,
   server: true,
@@ -23,10 +23,10 @@ config :logger, :console, format: "[$level] $message\n"
 config :phoenix, :stacktrace_depth, 20
 
 config :neo4j_sips, Neo4j,
-  url: "${NEO4J_URL_DEV}",
+  url: System.get_env("NEO4J_URL_DEV") || "${NEO4J_URL_DEV}",
   basic_auth: [
-    username: "${NEO4J_USERNAME_DEV}",
-    password: "${NEO4J_PASSWORD_DEV}"
+    username: System.get_env("NEO4J_USERNAME_DEV") || "${NEO4J_USERNAME_DEV}",
+    password: System.get_env("NEO4J_PASSWORD_DEV") || "${NEO4J_PASSWORD_DEV}"
   ],
   pool_size: 5,
   max_overflow: 2,
