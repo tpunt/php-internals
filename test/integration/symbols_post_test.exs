@@ -754,4 +754,53 @@ defmodule SymbolsPostTest do
       DETACH DELETE c, s
     """)
   end
+
+  @doc """
+  POST /api/symbols -H authorization: at3
+  """
+  test "Authenticated attempt at inserting a new duplicated symbol (cache invalidation test)" do
+    cat_name = Integer.to_string(:rand.uniform(100_000_000))
+    cat_revid = :rand.uniform(100_000_000)
+    sym_name = :rand.uniform(100_000_000)
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (u:User {access_token: 'at3'})
+
+      CREATE (c:Category {name: '#{cat_name}', introduction: '.', url: '#{cat_name}', revision_id: #{cat_revid}}),
+        (c)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 6}]->(u)
+    """)
+
+    data = %{"symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".",
+      "source_location" => ".", "type" => "macro", "categories" => [cat_name],
+      "declaration" => ".."}}
+
+    # prime the cache
+    response = Router.call(conn(:get, "/api/symbols", %{"category" => cat_name}), @opts)
+
+    assert %{"symbols" => []} = Poison.decode!(response.resp_body)
+
+    conn =
+      conn(:post, "/api/symbols/", data)
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "at3")
+
+    response = Router.call(conn, @opts)
+    assert response.status === 201
+
+    # prime the cache
+    response = Router.call(conn(:get, "/api/symbols", %{"search" => "=#{sym_name}"}), @opts)
+    assert 1 === Poison.decode!(response.resp_body)["meta"]["total"]
+
+    response = Router.call(conn, @opts)
+    assert response.status === 201
+
+    response = Router.call(conn(:get, "/api/symbols", %{"search" => "=#{sym_name}"}), @opts)
+    assert 2 === Poison.decode!(response.resp_body)["meta"]["total"]
+
+    Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {name: '#{cat_name}'}),
+        (s:Symbol {name: '#{sym_name}'})
+      DETACH DELETE c, s
+    """)
+  end
 end

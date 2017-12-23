@@ -1539,6 +1539,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
     new_symbol = ResultCache.set(key_id, Phoenix.View.render_to_string(SymbolView, "show.json", symbol: symbol))
 
+    ResultCache.invalidate("symbols/#{symbol["symbol"]["symbol"]["name"]}")
     ResultCache.flush("symbols")
     ResultCache.invalidate_contributions()
 
