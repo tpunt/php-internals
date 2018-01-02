@@ -6,6 +6,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   alias PhpInternals.Api.Users.User
   alias PhpInternals.Utilities
   alias PhpInternals.Stats.Counter
+  alias PhpInternals.Api.Settings.Setting
 
   def index(%{user: %{privilege_level: 0}} = conn, %{"patches" => _scope}) do
     conn
@@ -54,7 +55,10 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
          {:ok, type} <- Symbol.valid_type?(params["type"]),
          {:ok, _category} <- Category.valid_cache?(params["category"]) do
       Counter.exec(["incr", "visits:symbols"])
-      send_resp(conn, 200, Symbol.fetch_all_cache(order_by, ordering, offset, limit, type, params["category"], params["search"], params["full_search"]))
+
+      conn
+      |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+      |> send_resp(200, Symbol.fetch_all_cache(order_by, ordering, offset, limit, type, params["category"], params["search"], params["full_search"]))
     else
       {:error, status_code, error} ->
         conn
@@ -150,10 +154,15 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
          {:ok, view_type} <- Symbol.valid_view_type?(params["view"]),
          {:ok, symbol} <- Symbol.valid_cache?(symbol_id) do
       Counter.exec(["incr", "visits:symbols:#{symbol_id}"])
+
       if view_type === "overview" do
-        send_resp(conn, 200, symbol)
+        conn
+        |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+        |> send_resp(200, symbol)
       else
-        send_resp(conn, 200, Symbol.fetch_cache(symbol_id, view_type))
+        conn
+        |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+        |> send_resp(200, Symbol.fetch_cache(symbol_id, view_type))
       end
     else
       {:error, status_code, status} ->

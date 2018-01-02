@@ -4,10 +4,13 @@ defmodule PhpInternals.Api.Contributions.ContributionController do
   alias PhpInternals.Utilities
   alias PhpInternals.Api.Contributions.Contribution
   alias PhpInternals.Api.Users.User
+  alias PhpInternals.Api.Settings.Setting
 
   def index(conn, %{"view" => "overview", "author" => username}) do
     with {:ok, _username} <- User.valid?(username) do
-      send_resp(conn, 200, Contribution.fetch_all_overview_for_cache(username))
+      conn
+      |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+      |> send_resp(200, Contribution.fetch_all_overview_for_cache(username))
     else
       {:error, status_code, error} ->
         conn
@@ -19,7 +22,9 @@ defmodule PhpInternals.Api.Contributions.ContributionController do
   def index(conn, %{"view" => "overview"} = params) do
     with {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
-      send_resp(conn, 200, Contribution.fetch_all_overview_cache(offset, limit))
+      conn
+      |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+      |> send_resp(200, Contribution.fetch_all_overview_cache(offset, limit))
     else
       {:error, status_code, error} ->
         conn
@@ -33,7 +38,9 @@ defmodule PhpInternals.Api.Contributions.ContributionController do
       with {:ok, _username} <- User.valid?(username),
            {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
            {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
-        send_resp(conn, 200, Contribution.fetch_all_normal_for_cache(username, offset, limit))
+        conn
+        |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+        |> send_resp(200, Contribution.fetch_all_normal_for_cache(username, offset, limit))
       else
         {:error, status_code, error} ->
           conn
@@ -51,7 +58,9 @@ defmodule PhpInternals.Api.Contributions.ContributionController do
     if !params["view"] || params["view"] === "normal" do
       with {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
            {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
-        send_resp(conn, 200, Contribution.fetch_all_normal_cache(offset, limit))
+        conn
+        |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+        |> send_resp(200, Contribution.fetch_all_normal_cache(offset, limit))
       else
         {:error, status_code, error} ->
           conn

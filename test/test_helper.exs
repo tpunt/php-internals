@@ -26,7 +26,8 @@ defmodule PopulateDatabase do
         (a)-[:CATEGORY]->(c),
         (c)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 1499974146854}]->(u),
         (s)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 1499974146854}]->(u),
-        (a)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 1499974146854}]->(u)
+        (a)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 1499974146854}]->(u),
+        (:Settings {cache_expiration_time: 0})
     """
 
     Neo4j.query!(Neo4j.conn, query)

@@ -63,6 +63,12 @@ defmodule PhpInternals.Router do
     scope "/contributions", Contributions do
       get "/", ContributionController, :index
     end
+
+    scope "/settings", Settings do
+      get "/", SettingController, :index
+      get "/:setting_name", SettingController, :show
+      patch "/:setting_name", SettingController, :update
+    end
   end
 
   scope "/", PhpInternals.Site, as: :site do

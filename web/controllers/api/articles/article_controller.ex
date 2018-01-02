@@ -6,6 +6,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
   alias PhpInternals.Api.Users.User
   alias PhpInternals.Utilities
   alias PhpInternals.Stats.Counter
+  alias PhpInternals.Api.Settings.Setting
 
   def index(conn, params) do
     with {:ok, order_by} <- Article.valid_order_by?(params["order_by"]),
@@ -19,6 +20,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
       articles = Article.fetch_all_cache(order_by, ordering, offset, limit, params["category"], params["author"], params["search"], params["full_search"])
 
       conn
+      |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
       |> send_resp(200, articles)
     else
       {:error, status_code, error} ->
@@ -31,7 +33,9 @@ defmodule PhpInternals.Api.Articles.ArticleController do
   def show(conn, %{"series_name" => series_url, "article_name" => article_url}) do
     with {:ok, article} <- Article.valid_in_series_cache?(series_url, article_url) do
       Counter.exec(["incr", "visits:articles:#{series_url}:#{article_url}"])
+
       conn
+      |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
       |> send_resp(200, article)
     else
       {:error, status_code, error} ->
@@ -45,13 +49,17 @@ defmodule PhpInternals.Api.Articles.ArticleController do
     case Article.valid_series_cache?(article_url) do
       {:ok, articles} ->
         Counter.exec(["incr", "visits:articles:#{article_url}"])
+
         conn
+        |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
         |> send_resp(200, articles)
       _ ->
         case Article.valid_cache?(article_url) do
           {:ok, article} ->
             Counter.exec(["incr", "visits:articles::#{article_url}"])
+
             conn
+            |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
             |> send_resp(200, article)
           {:error, status_code, error} ->
             conn
