@@ -114,6 +114,10 @@ defmodule PhpInternals.Api.Categories.CategoryView do
     %{category: render_one(category, CategoryView, "category_overview.json")}
   end
 
+  def render("show_overview_without_categories.json", %{category: category}) do
+    %{category: render_one(category, CategoryView, "category_overview_without_categories.json")}
+  end
+
   def render("show_patches.json", %{category_patches: category_patches}) do
     render_one(category_patches, CategoryView, "show_updates.json")
     |> Map.merge(render_one(category_patches, CategoryView, "show_delete.json"))
@@ -168,7 +172,7 @@ defmodule PhpInternals.Api.Categories.CategoryView do
     |> Map.merge(render_linked_categories(category["subcategories"], category["supercategories"]))
   end
 
-  def render("show_overview_without_categories.json", %{category: %{"category" => category}}) do
+  def render("category_overview_without_categories.json", %{category: %{"category" => category}}) do
     %{name: category["name"], url: category["url"]}
   end
 
