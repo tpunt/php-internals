@@ -168,6 +168,10 @@ defmodule PhpInternals.Api.Categories.CategoryView do
     |> Map.merge(render_linked_categories(category["subcategories"], category["supercategories"]))
   end
 
+  def render("show_overview_without_categories.json", %{category: %{"category" => category}}) do
+    %{name: category["name"], url: category["url"]}
+  end
+
   defp render_linked_categories(nil, nil), do: %{}
   defp render_linked_categories(subcategories, supercategories) do
     %{
