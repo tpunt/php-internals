@@ -162,7 +162,11 @@ defmodule PhpInternals.Api.Contributions.Contribution do
             'CategoryDeleted',
             'CategoryRevision'
           ] THEN 'category'
-          WHEN HEAD(LABELS(cn)) = 'Article' THEN 'article'
+          WHEN HEAD(LABELS(cn)) IN [
+            'Article',
+            'ArticleRevision',
+            'ArticleDeleted'
+          ] THEN 'article'
           ELSE 'symbol'
         END AS filter
 
