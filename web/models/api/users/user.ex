@@ -4,7 +4,19 @@ defmodule PhpInternals.Api.Users.User do
   alias PhpInternals.Cache.ResultCache
   alias PhpInternals.Api.Users.UserView
 
-  @valid_fields ["name", "avatar_url", "blog_url", "email", "bio", "location", "github_url"]
+  @valid_fields [
+    "name",
+    "avatar_url",
+    "blog_url",
+    "email",
+    "bio",
+    "location",
+    "github_url",
+    "twitter_url",
+    "linkedin_url",
+    "googleplus_url"
+  ]
+
   @admin_valid_fields ["privilege_level", "access_token"] # "username" ?
   @patch_limit 20
 

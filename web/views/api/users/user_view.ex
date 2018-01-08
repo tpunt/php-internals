@@ -36,7 +36,10 @@ defmodule PhpInternals.Api.Users.UserView do
       email: user["email"],
       bio: user["bio"],
       location: user["location"],
-      github_url: user["github_url"]
+      github_url: user["github_url"],
+      twitter_url: user["twitter_url"],
+      linkedin_url: user["linkedin_url"],
+      googleplus_url: user["googleplus_url"]
     }
   end
 end

@@ -58,7 +58,7 @@ defmodule UserPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 400
-    assert %{"error" => %{"message" => "Unknown fields given (expecting: name, avatar_url, blog_url, email, bio, location, github_url)"}}
+    assert %{"error" => %{"message" => "Unknown fields given (expecting: name, avatar_url, blog_url, email, bio, location, github_url, twitter_url, linkedin_url, googleplus_url)"}}
       = Poison.decode!(response.resp_body)
   end
 
