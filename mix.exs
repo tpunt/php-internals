@@ -3,7 +3,7 @@ defmodule PhpInternals.Mixfile do
 
   def project do
     [app: :php_internals,
-     version: "0.0.9",
+     version: "0.0.10",
      elixir: "~> 1.4",
      elixirc_paths: elixirc_paths(Mix.env),
      compilers: [:phoenix] ++ Mix.compilers,
