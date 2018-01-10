@@ -69,6 +69,10 @@ defmodule PhpInternals.Router do
       get "/:setting_name", SettingController, :show
       patch "/:setting_name", SettingController, :update
     end
+
+    scope "/locks", Locks do
+      patch "/:revision_id", LockController, :update
+    end
   end
 
   scope "/", PhpInternals.Site, as: :site do

@@ -7,6 +7,7 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   alias PhpInternals.Utilities
   alias PhpInternals.Stats.Counter
   alias PhpInternals.Api.Settings.Setting
+  alias PhpInternals.Api.Locks.Lock
 
   def index(%{user: %{privilege_level: 0}} = conn, %{"patches" => _scope}) do
     conn
@@ -386,7 +387,9 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
          {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
          {:ok, %{"symbol" => old_symbol}} <- Symbol.valid?(symbol_id),
          {:ok, refs_patch} <- Utilities.valid_optional_id?(params["references_patch"]),
-         {:ok} <- Utilities.revision_ids_match?(rev_id, refs_patch || old_symbol["revision_id"]) do
+         {:ok} <- Utilities.revision_ids_match?(rev_id, refs_patch || old_symbol["revision_id"]),
+         {:ok} <- Lock.has_lock?(old_symbol["revision_id"], conn.user.username),
+         {:ok} <- Lock.has_lock?(refs_patch, conn.user.username) do
       symbol = Map.merge(symbol, %{"url" => url_name})
       symbol = Symbol.update(old_symbol, symbol, review, conn.user.username, refs_patch)
 
@@ -409,8 +412,9 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   defp remove(conn, %{"symbol_id" => symbol_id, "review" => review}) do
     with {:ok} <- User.within_patch_limit?(conn.user),
          {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
-         {:ok, _symbol} <- Symbol.valid?(symbol_id),
-         {:ok} <- Symbol.has_no_delete_patch?(symbol_id) do
+         {:ok, %{"symbol" => symbol}} <- Symbol.valid?(symbol_id),
+         {:ok} <- Symbol.has_no_delete_patch?(symbol_id),
+         {:ok} <- Lock.has_lock?(symbol["revision_id"], conn.user.username) do
       Symbol.soft_delete(symbol_id, review, conn.user.username)
 
       status_code = if review == 0, do: 204, else: 202

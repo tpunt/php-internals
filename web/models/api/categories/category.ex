@@ -4,6 +4,7 @@ defmodule PhpInternals.Api.Categories.Category do
   alias PhpInternals.Cache.ResultCache
   alias PhpInternals.Utilities
   alias PhpInternals.Api.Categories.CategoryView
+  alias PhpInternals.Api.Locks.Lock
 
   @required_fields ["name", "introduction"]
   @optional_fields ["subcategories", "supercategories"]
@@ -1453,15 +1454,14 @@ defmodule PhpInternals.Api.Categories.Category do
 
     category = List.first Neo4j.query!(Neo4j.conn, query, params)
 
-    if category["c"] === nil do
-      {:error, 404, "Category not found"}
-    else
-      if category["ucp"] === nil do
-        {:error, 404, "Update patch not found for the specified category"}
-      else
-        if category["ucp"]["against_revision"] !== category["c"]["revision_id"] do
-          {:error, 400, "Cannot apply patch due to revision ID mismatch"}
-        else
+    cond do
+      category["c"] === nil -> {:error, 404, "Category not found"}
+      category["ucp"] === nil -> {:error, 404, "Update patch not found for the specified category"}
+      category["ucp"]["against_revision"] !== category["c"]["revision_id"] ->
+        {:error, 400, "Cannot apply patch due to revision ID mismatch"}
+      true ->
+        with {:ok} <- Lock.has_lock?(patch_revision_id, username),
+             {:ok} <- Lock.has_lock?(category["c"]["revision_id"], username) do
           query = """
             MATCH (category:Category {url: {category_url}}),
               (category)-[:UPDATE]->(ucp:UpdateCategoryPatch {revision_id: {patch_revision_id}}),
@@ -1618,8 +1618,9 @@ defmodule PhpInternals.Api.Categories.Category do
           update_cache_after_update(category["c"], category["ucp"])
 
           {:ok, fetch_cache(category["ucp"]["url"], "normal")}
+        else
+          error -> error
         end
-      end
     end
   end
 
@@ -1633,45 +1634,46 @@ defmodule PhpInternals.Api.Categories.Category do
 
     category = Neo4j.query!(Neo4j.conn, query, params) |> List.first
 
-    if category["c"] == nil do
-      {:error, 404, "Category not found"}
-    else
-      if category["cp"] == nil do
-        {:error, 404, "Delete patch not found for the specified category"}
-      else
-        query = """
-          MATCH (c:Category {url: {category_url}})<-[r:DELETE]-(user2:User),
-            (user:User {username: {username}})
+    cond do
+      category["c"] === nil -> {:error, 404, "Category not found"}
+      category["cp"] === nil -> {:error, 404, "Delete patch not found for the specified category"}
+      true ->
+        with {:ok} <- Lock.has_lock?(category["c"]["revision_id"], username) do
+          query = """
+            MATCH (c:Category {url: {category_url}})<-[r:DELETE]-(user2:User),
+              (user:User {username: {username}})
 
-          REMOVE c:Category
-          SET c:CategoryDeleted
+            REMOVE c:Category
+            SET c:CategoryDeleted
 
-          CREATE (c)-[:CONTRIBUTOR {type: "delete", date: #{Utilities.get_date()}, time: timestamp()}]->(user2),
-            (c)-[:CONTRIBUTOR {type: "apply_delete", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
+            CREATE (c)-[:CONTRIBUTOR {type: "delete", date: #{Utilities.get_date()}, time: timestamp()}]->(user2),
+              (c)-[:CONTRIBUTOR {type: "apply_delete", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
 
-          DELETE r
+            DELETE r
 
-          WITH c
+            WITH c
 
-          OPTIONAL MATCH (spc:Category)-[:SUBCATEGORY]->(c)
+            OPTIONAL MATCH (spc:Category)-[:SUBCATEGORY]->(c)
 
-          WITH COLLECT(spc.url) AS spcs, c
+            WITH COLLECT(spc.url) AS spcs, c
 
-          OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sbc:Category)
+            OPTIONAL MATCH (c)-[:SUBCATEGORY]->(sbc:Category)
 
-          RETURN {
-            url: c.url,
-            subcategories: COLLECT(sbc.url),
-            supercategories: spcs
-          } AS category
-        """
+            RETURN {
+              url: c.url,
+              subcategories: COLLECT(sbc.url),
+              supercategories: spcs
+            } AS category
+          """
 
-        %{"category" => category} = List.first Neo4j.query!(Neo4j.conn, query, params)
+          %{"category" => category} = List.first Neo4j.query!(Neo4j.conn, query, params)
 
-        update_cache_after_delete(category)
+          update_cache_after_delete(category)
 
-        {:ok, 204}
-      end
+          {:ok, 204}
+        else
+          error -> error
+        end
     end
   end
 
@@ -1712,27 +1714,28 @@ defmodule PhpInternals.Api.Categories.Category do
 
     category = Neo4j.query!(Neo4j.conn, query, params) |> List.first
 
-    if category["c"] == nil do
-      {:error, 404, "Category not found"}
-    else
-      if category["cp"] == nil do
-        {:error, 404, "Update patch not found for the specified category"}
-      else
-        query = """
-          MATCH (c:Category {url: {category_url}}),
-            (user:User {username: {username}}),
-            (c)-[:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
-          REMOVE cp:UpdateCategoryPatch
-          SET cp:UpdateCategoryPatchDeleted
-          CREATE (cp)-[:CONTRIBUTOR {type: "discard_update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
-        """
+    cond do
+      category["c"] === nil -> {:error, 404, "Category not found"}
+      category["cp"] === nil -> {:error, 404, "Update patch not found for the specified category"}
+      true ->
+        with {:ok} <- Lock.has_lock?(patch_revision_id, username) do
+          query = """
+            MATCH (c:Category {url: {category_url}}),
+              (user:User {username: {username}}),
+              (c)-[:UPDATE]->(cp:UpdateCategoryPatch {revision_id: {patch_revision_id}})
+            REMOVE cp:UpdateCategoryPatch
+            SET cp:UpdateCategoryPatchDeleted
+            CREATE (cp)-[:CONTRIBUTOR {type: "discard_update", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
+          """
 
-        Neo4j.query!(Neo4j.conn, query, params)
+          Neo4j.query!(Neo4j.conn, query, params)
 
-        ResultCache.invalidate_contributions()
+          ResultCache.invalidate_contributions()
 
-        {:ok, 200}
-      end
+          {:ok, 200}
+        else
+          error -> error
+        end
     end
   end
 

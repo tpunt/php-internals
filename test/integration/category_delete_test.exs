@@ -43,7 +43,16 @@ defmodule CategoryDeleteTest do
   """
   test "Authorised delete request for an existing category" do
     name = :rand.uniform(100_000_000)
-    Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}'})")
+    rev_id = :rand.uniform(100_000_000)
+    Neo4j.query!(Neo4j.conn, """
+      CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})
+    """)
+
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at1")
+    assert Router.call(conn, @opts).status === 200
 
     conn =
       conn(:delete, "/api/categories/#{name}")
@@ -62,6 +71,12 @@ defmodule CategoryDeleteTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at1")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}'})-[r]-()
@@ -87,11 +102,20 @@ defmodule CategoryDeleteTest do
   """
   test "Authorised delete for a category" do
     name = :rand.uniform(100_000_000)
-    Neo4j.query!(Neo4j.conn, "CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}'})")
+    rev_id = :rand.uniform(100_000_000)
+    Neo4j.query!(Neo4j.conn, """
+      CREATE (c:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})
+    """)
 
     # prime the cache
     conn = conn(:get, "/api/categories/#{name}", %{})
     Router.call(conn, @opts)
+
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
 
     conn =
       conn(:delete, "/api/categories/#{name}")
@@ -109,6 +133,12 @@ defmodule CategoryDeleteTest do
     response = Router.call(conn(:get, "/api/categories/#{name}", %{}), @opts)
 
     assert response.status === 404
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:CategoryDeleted {name: '#{name}'})-[r]-()
@@ -201,12 +231,15 @@ defmodule CategoryDeleteTest do
   """
   test "Authorised delete for an existing category (cache invalidation test)" do
     name = Integer.to_string(:rand.uniform(100_000_000))
+    rev_id = :rand.uniform(100_000_000)
     name2 = Integer.to_string(:rand.uniform(100_000_000))
+    rev_id2 = :rand.uniform(100_000_000)
     name3 = Integer.to_string(:rand.uniform(100_000_000))
+    rev_id3 = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
-      CREATE (c:Category {name: '#{name}', introduction: '.', url: '#{name}'})
-      CREATE (c2:Category {name: '#{name2}', introduction: '..', url: '#{name2}'})
-      CREATE (c3:Category {name: '#{name3}', introduction: '...', url: '#{name3}'})
+      CREATE (c:Category {name: '#{name}', introduction: '.', url: '#{name}', revision_id: #{rev_id}})
+      CREATE (c2:Category {name: '#{name2}', introduction: '..', url: '#{name2}', revision_id: #{rev_id2}})
+      CREATE (c3:Category {name: '#{name3}', introduction: '...', url: '#{name3}', revision_id: #{rev_id3}})
       CREATE (c3)-[:SUBCATEGORY]->(c)-[:SUBCATEGORY]->(c2)
     """)
 
@@ -231,6 +264,12 @@ defmodule CategoryDeleteTest do
       "url" => ^name3, "supercategories" => [],
       "subcategories" => [%{"category" => %{"name" => ^name}}]}}
         = Poison.decode!(response.resp_body)
+
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
 
     conn =
       conn(:delete, "/api/categories/#{name}")
@@ -263,6 +302,12 @@ defmodule CategoryDeleteTest do
       "url" => ^name3, "supercategories" => [], "subcategories" => []}}
         = Poison.decode!(response.resp_body)
 
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
+
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:CategoryDeleted {name: '#{name}'})-[r]-(),
         (c2:Category {name: '#{name2}'}),
@@ -276,12 +321,15 @@ defmodule CategoryDeleteTest do
   """
   test "Authorised delete request and apply for an existing category (cache invalidation test)" do
     name = Integer.to_string(:rand.uniform(100_000_000))
+    rev_id = :rand.uniform(100_000_000)
     name2 = Integer.to_string(:rand.uniform(100_000_000))
+    rev_id2 = :rand.uniform(100_000_000)
     name3 = Integer.to_string(:rand.uniform(100_000_000))
+    rev_id3 = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
-      CREATE (c:Category {name: '#{name}', introduction: '.', url: '#{name}'})
-      CREATE (c2:Category {name: '#{name2}', introduction: '..', url: '#{name2}'})
-      CREATE (c3:Category {name: '#{name3}', introduction: '...', url: '#{name3}'})
+      CREATE (c:Category {name: '#{name}', introduction: '.', url: '#{name}', revision_id: #{rev_id}})
+      CREATE (c2:Category {name: '#{name2}', introduction: '..', url: '#{name2}', revision_id: #{rev_id2}})
+      CREATE (c3:Category {name: '#{name3}', introduction: '...', url: '#{name3}', revision_id: #{rev_id3}})
       CREATE (c3)-[:SUBCATEGORY]->(c)-[:SUBCATEGORY]->(c2)
     """)
 
@@ -307,6 +355,11 @@ defmodule CategoryDeleteTest do
       "subcategories" => [%{"category" => %{"name" => ^name}}]}}
         = Poison.decode!(response.resp_body)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at1")
+    assert Router.call(conn, @opts).status === 200
 
     conn =
       conn(:delete, "/api/categories/#{name}")
@@ -320,6 +373,18 @@ defmodule CategoryDeleteTest do
         (c)<-[:DELETE]-(:User {access_token: 'at1'})
       RETURN c
     """)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at1")
+    assert Router.call(conn, @opts).status === 200
+
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
 
     conn =
       conn(:patch, "/api/categories/#{name}?apply_patch=delete", %{})
@@ -352,6 +417,12 @@ defmodule CategoryDeleteTest do
     assert %{"category" => %{"name" => ^name3, "introduction" => "...",
       "url" => ^name3, "supercategories" => [], "subcategories" => []}}
         = Poison.decode!(response.resp_body)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:CategoryDeleted {name: '#{name}'})-[r]-(),

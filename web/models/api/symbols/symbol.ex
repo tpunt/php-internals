@@ -4,6 +4,7 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   alias PhpInternals.Cache.ResultCache
   alias PhpInternals.Utilities
   alias PhpInternals.Api.Symbols.SymbolView
+  alias PhpInternals.Api.Locks.Lock
 
   @valid_order_bys ["name", "date"]
   @default_order_by "name"
@@ -1290,7 +1291,9 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def apply_patch?(symbol_id, %{"action" => "update", "patch_revision_id" => patch_revision_id}, username) do
     with {:ok, symbol_patch} <- update_patch_exists?(symbol_id, patch_revision_id),
-         {:ok} <- revision_ids_match?(symbol_id, patch_revision_id) do
+         {:ok} <- revision_ids_match?(symbol_id, patch_revision_id),
+         {:ok} <- Lock.has_lock?(patch_revision_id, username),
+         {:ok} <- Lock.has_lock?(symbol_patch["symbol_update"]["update"]["symbol"]["against_revision"], username) do
       query = """
         MATCH (old_symbol:Symbol {id: {symbol_id}}),
           (user:User {username: {username}}),
@@ -1359,39 +1362,44 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   end
 
   def apply_patch?(symbol_id, %{"action" => "delete"}, username) do
-    query = """
-      MATCH (s:Symbol {id: {symbol_id}}),
-        (u:User)-[r:DELETE]->(s),
-        (u2:User {username: {username}})
+    with {:ok, symbol} <- valid?(symbol_id),
+         {:ok} <- Lock.has_lock?(symbol["symbol"]["revision_id"], username) do
+      query = """
+        MATCH (s:Symbol {id: {symbol_id}}),
+          (u:User)-[r:DELETE]->(s),
+          (u2:User {username: {username}})
 
-      REMOVE s:Symbol
-      SET s:SymbolDeleted
-      DELETE r
+        REMOVE s:Symbol
+        SET s:SymbolDeleted
+        DELETE r
 
-      WITH s, u, u2
+        WITH s, u, u2
 
-      MATCH (s)-[cr:CATEGORY]->(c:Category)
-      DELETE cr
+        MATCH (s)-[cr:CATEGORY]->(c:Category)
+        DELETE cr
 
-      WITH s, u, u2, COLLECT(c.id) AS cs
+        WITH s, u, u2, COLLECT(c.id) AS cs
 
-      SET s.categories = cs
-      CREATE (s)-[:CONTRIBUTOR {type: "delete", date: #{Utilities.get_date()}, time: timestamp()}]->(u),
-        (s)-[:CONTRIBUTOR {type: "apply_delete", date: #{Utilities.get_date()}, time: timestamp()}]->(u2)
+        SET s.categories = cs
+        CREATE (s)-[:CONTRIBUTOR {type: "delete", date: #{Utilities.get_date()}, time: timestamp()}]->(u),
+          (s)-[:CONTRIBUTOR {type: "apply_delete", date: #{Utilities.get_date()}, time: timestamp()}]->(u2)
 
-      RETURN s AS symbol
-    """
+        RETURN s AS symbol
+      """
 
-    params = %{symbol_id: symbol_id, username: username}
+      params = %{symbol_id: symbol_id, username: username}
 
-    result = List.first Neo4j.query!(Neo4j.conn, query, params)
+      result = List.first Neo4j.query!(Neo4j.conn, query, params)
 
-    if result === nil do
-      {:error, 404, "Delete patch not found"}
+      if result === nil do
+        {:error, 404, "Delete patch not found"}
+      else
+        update_cache_after_delete(symbol_id, result["symbol"]["name"])
+
+        {:ok, 204}
+      end
     else
-      update_cache_after_delete(symbol_id, result["symbol"]["name"])
-
-      {:ok, 204}
+      error -> error
     end
   end
 
@@ -1430,7 +1438,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
   end
 
   def discard_patch?(symbol_id, %{"action" => "update", "patch_revision_id" => patch_revision_id}, username) do
-    with {:ok, _symbol} <- update_patch_exists?(symbol_id, patch_revision_id) do
+    with {:ok, _symbol} <- update_patch_exists?(symbol_id, patch_revision_id),
+         {:ok} <- Lock.has_lock?(patch_revision_id, username) do
       query = """
         MATCH (usp:UpdateSymbolPatch {revision_id: {revision_id}}),
           (user:User {username: {username}})

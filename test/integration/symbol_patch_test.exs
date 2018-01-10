@@ -119,6 +119,12 @@ defmodule SymbolPatchTest do
       "definition" => "..","source_location" => "..","type" => "macro",
       "categories" => ["existent"], "declaration" => ".."}, "revision_id" => sym_rev}
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at1")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/symbols/#{sym_id}", data)
       |> put_req_header("content-type", "application/json")
@@ -149,6 +155,12 @@ defmodule SymbolPatchTest do
     assert %{"symbol_updates" => %{"symbol" => %{}, "updates" =>
       [%{"user" => %{}, "revision_id" => _, "date" => _, "against_revision" => _}]}}
         = Poison.decode!(response.resp_body)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at1")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}})-[r1]-(),
@@ -183,6 +195,12 @@ defmodule SymbolPatchTest do
       "definition" => "..","source_location" => "..","type" => "macro",
       "categories" => ["existent"], "declaration" => ".."}, "revision_id" => sym_rev}
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/symbols/#{sym_id}", data)
       |> put_req_header("content-type", "application/json")
@@ -205,6 +223,12 @@ defmodule SymbolPatchTest do
     response2 = Router.call(conn, @opts)
 
     assert Poison.decode!(response.resp_body) === Poison.decode!(response2.resp_body)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}})-[r1]-(),
@@ -243,6 +267,12 @@ defmodule SymbolPatchTest do
     conn = conn(:get, "/api/symbols/#{sym_id}", %{})
     Router.call(conn, @opts)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/symbols/#{sym_id}", data)
       |> put_req_header("content-type", "application/json")
@@ -267,6 +297,12 @@ defmodule SymbolPatchTest do
     response2 = Router.call(conn, @opts)
 
     assert Poison.decode!(response.resp_body) === Poison.decode!(response2.resp_body)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {name: '#{new_sym_name}'})-[r1]-(),
@@ -316,6 +352,18 @@ defmodule SymbolPatchTest do
     conn = conn(:get, "/api/symbols/#{sym_id}", %{})
     Router.call(conn, @opts)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev_b}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/symbols/#{sym_id}", %{"apply_patch" => "update,#{sym_rev_b}"})
       |> put_req_header("authorization", "at3")
@@ -338,6 +386,18 @@ defmodule SymbolPatchTest do
     response2 = Router.call(conn, @opts)
 
     assert Poison.decode!(response.resp_body) === Poison.decode!(response2.resp_body)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev_b}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev_b}})-[r1]-(),
@@ -383,6 +443,12 @@ defmodule SymbolPatchTest do
         (su)-[:CONTRIBUTOR {date: 20170830, time: 2}]->(u)
     """)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev_b}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/symbols/#{sym_id}", %{"discard_patch" => "update,#{sym_rev_b}"})
       |> put_req_header("authorization", "at3")
@@ -399,6 +465,12 @@ defmodule SymbolPatchTest do
         (su)-[:CONTRIBUTOR {type: 'discard_update'}]->(:User {access_token: 'at3'})
       RETURN su
     """)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev_b}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}})-[r1]-(),
@@ -528,6 +600,12 @@ defmodule SymbolPatchTest do
     conn = conn(:get, "/api/symbols/#{sym_id}", %{})
     Router.call(conn, @opts)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/symbols/#{sym_id}", %{"apply_patch" => "delete"})
       |> put_req_header("authorization", "at3")
@@ -547,6 +625,12 @@ defmodule SymbolPatchTest do
     response2 = Router.call(conn, @opts)
 
     assert response2.status === 404
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (sd:SymbolDeleted {revision_id: #{sym_rev}})-[r]-()
@@ -633,6 +717,18 @@ defmodule SymbolPatchTest do
       "source_location" => "...","type" => "macro","categories" => ["existent"],
       "declaration" => ".."}, "revision_id" => rev_id2}
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id2}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/symbols/#{rev_id}", data)
       |> put_req_header("authorization", "at3")
@@ -647,6 +743,18 @@ defmodule SymbolPatchTest do
         (usp)-[:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'})
       RETURN s
     """)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id2}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{rev_id}})-[r1]-(),
@@ -694,6 +802,18 @@ defmodule SymbolPatchTest do
     conn = conn(:get, "/api/symbols/#{rev_id}", %{})
     Router.call(conn, @opts)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id2}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/symbols/#{rev_id}", data)
       |> put_req_header("authorization", "at3")
@@ -713,6 +833,18 @@ defmodule SymbolPatchTest do
     response2 = Router.call(conn, @opts)
 
     assert Poison.decode!(response.resp_body) === Poison.decode!(response2.resp_body)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id2}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (sr:SymbolRevision {revision_id: #{rev_id}})-[r1]-(),
@@ -788,6 +920,12 @@ defmodule SymbolPatchTest do
 
     assert %{"symbols" => []} = Poison.decode!(response.resp_body)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/symbols/#{sym_id}", data)
       |> put_req_header("content-type", "application/json")
@@ -806,6 +944,12 @@ defmodule SymbolPatchTest do
     response = Router.call(conn(:get, "/api/symbols", %{"category" => "#{cat_name}"}), @opts)
 
     refute [] === Poison.decode!(response.resp_body)["symbols"]
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{cat_name}'}),

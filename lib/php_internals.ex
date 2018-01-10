@@ -11,7 +11,8 @@ defmodule PhpInternals do
       worker(Neo4j.Sips, [Application.get_env(:neo4j_sips, Neo4j)]),
       supervisor(PhpInternals.Cache.Supervisor, []),
       supervisor(PhpInternals.Stats.Supervisor, []),
-      worker(PhpInternals.Api.Settings.Setting, [[name: PhpInternals.Api.Settings.Setting]])
+      worker(PhpInternals.Api.Settings.Setting, [[name: PhpInternals.Api.Settings.Setting]]),
+      worker(PhpInternals.Api.Locks.Lock, [[name: PhpInternals.Api.Locks.Lock]])
     ]
 
     # See http://elixir-lang.org/docs/stable/elixir/Supervisor.html

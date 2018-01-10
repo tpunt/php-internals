@@ -30,6 +30,12 @@ defmodule CategoryPatchTest do
     """)
     data = %{"category" => %{"name" => "#{name}", "introduction" => "."}, "revision_id" => rev_id}
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at1")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/categories/#{name}", data)
       |> put_req_header("authorization", "at1")
@@ -50,6 +56,12 @@ defmodule CategoryPatchTest do
 
     assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
 
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at1")
+    assert Router.call(conn, @opts).status === 200
+
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {revision_id: #{rev_id}})-[r1]-(),
         (c)-[:UPDATE]->(ucp:UpdateCategoryPatch)-[r2]-()
@@ -64,6 +76,12 @@ defmodule CategoryPatchTest do
       CREATE (:Category {name: '#{name}', introduction: '...', url: '#{name}', revision_id: #{rev_id}})
     """)
     data = %{"review" => "1", "category" => %{"name" => "#{name}", "introduction" => "."}, "revision_id" => rev_id}
+
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
 
     conn =
       conn(:patch, "/api/categories/#{name}", data)
@@ -85,6 +103,12 @@ defmodule CategoryPatchTest do
 
     assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
 
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
+
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {revision_id: #{rev_id}})-[r1]-(),
         (c)-[:UPDATE]->(ucp:UpdateCategoryPatch)-[r2]-()
@@ -100,6 +124,12 @@ defmodule CategoryPatchTest do
     """)
     data = %{"review" => "1", "category" => %{"name" => "#{name}", "introduction" => "."}, "revision_id" => rev_id}
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/categories/#{name}", data)
       |> put_req_header("authorization", "at3")
@@ -108,17 +138,23 @@ defmodule CategoryPatchTest do
     assert response.status === 202
     assert %{"category" => %{"name" => _, "introduction" => "...", "url" => _, "revision_id" => _}}
       = Poison.decode! response.resp_body
-      refute [] === Neo4j.query!(Neo4j.conn, """
-        MATCH (c:Category {revision_id: #{rev_id}}),
-          (c)-[:UPDATE]->(ucp:UpdateCategoryPatch {against_revision: #{rev_id}}),
-          (ucp)-[:CONTRIBUTOR {type: 'update'}]->(:User {access_token: 'at3'})
-        RETURN c
-      """)
+    refute [] === Neo4j.query!(Neo4j.conn, """
+      MATCH (c:Category {revision_id: #{rev_id}}),
+        (c)-[:UPDATE]->(ucp:UpdateCategoryPatch {against_revision: #{rev_id}}),
+        (ucp)-[:CONTRIBUTOR {type: 'update'}]->(:User {access_token: 'at3'})
+      RETURN c
+    """)
 
     conn = conn(:get, "/api/categories/#{name}", %{})
     response2 = Router.call(conn, @opts)
 
     assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {revision_id: #{rev_id}})-[r1]-(),
@@ -149,6 +185,18 @@ defmodule CategoryPatchTest do
     data = %{"review" => "1", "references_patch" => "#{rev_id2}", "category" =>
       %{"name" => "#{name}.", "introduction" => "....."}, "revision_id" => rev_id2}
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id2}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/categories/#{name}", data)
       |> put_req_header("authorization", "at3")
@@ -169,6 +217,18 @@ defmodule CategoryPatchTest do
     response2 = Router.call(conn, @opts)
 
     assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id2}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {revision_id: #{rev_id}}),
@@ -208,6 +268,12 @@ defmodule CategoryPatchTest do
     conn = conn(:get, "/api/categories/#{name}", %{})
     Router.call(conn, @opts)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/categories/#{name}", data)
       |> put_req_header("authorization", "at2")
@@ -227,6 +293,12 @@ defmodule CategoryPatchTest do
     response2 = Router.call(conn, @opts)
 
     assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}'}),
@@ -253,6 +325,12 @@ defmodule CategoryPatchTest do
     conn = conn(:get, "/api/categories/#{name}", %{})
     Router.call(conn, @opts)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/categories/#{name}", data)
       |> put_req_header("authorization", "at3")
@@ -274,6 +352,12 @@ defmodule CategoryPatchTest do
     response2 = Router.call(conn, @opts)
 
     assert Poison.decode!(response2.resp_body) === Poison.decode!(response.resp_body)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}'}),
@@ -311,6 +395,18 @@ defmodule CategoryPatchTest do
     conn = conn(:get, "/api/categories/#{name}", %{})
     Router.call(conn, @opts)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id2}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/categories/#{name}", data)
       |> put_req_header("authorization", "at3")
@@ -337,6 +433,18 @@ defmodule CategoryPatchTest do
 
     assert response3.status === 200
     assert Poison.decode!(response3.resp_body) === Poison.decode!(response.resp_body)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id2}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}.'}),
@@ -376,6 +484,18 @@ defmodule CategoryPatchTest do
     conn = conn(:get, "/api/categories/#{name}", %{})
     Router.call(conn, @opts)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id2}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/categories/#{name}", data)
       |> put_req_header("authorization", "at3")
@@ -403,6 +523,18 @@ defmodule CategoryPatchTest do
 
     assert response3.status === 200
     assert Poison.decode!(response3.resp_body) === Poison.decode!(response.resp_body)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id2}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}.'}),
@@ -569,6 +701,18 @@ defmodule CategoryPatchTest do
     conn = conn(:get, "/api/categories/#{name}", %{})
     Router.call(conn, @opts)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id2}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/categories/#{name}", %{"apply_patch" => "update,#{rev_id2}"})
       |> put_req_header("authorization", "at3")
@@ -595,6 +739,18 @@ defmodule CategoryPatchTest do
 
     assert response3.status === 200
     assert Poison.decode!(response3.resp_body) === Poison.decode!(response.resp_body)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id2}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c1:Category {revision_id: #{rev_id2}}),
@@ -700,6 +856,12 @@ defmodule CategoryPatchTest do
     conn = conn(:get, "/api/categories/#{name}", %{})
     Router.call(conn, @opts)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/categories/#{name}", %{"apply_patch" => "delete"})
       |> put_req_header("authorization", "at3")
@@ -717,6 +879,12 @@ defmodule CategoryPatchTest do
     response2 = Router.call(conn, @opts)
 
     assert response2.status === 404
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:CategoryDeleted {revision_id: #{rev_id}})-[r]-()
@@ -787,6 +955,12 @@ defmodule CategoryPatchTest do
         (c)-[:UPDATE]->(ucp)
     """)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id2}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/categories/#{name}", %{"discard_patch" => "update,#{rev_id2}"})
       |> put_req_header("authorization", "at3")
@@ -801,6 +975,12 @@ defmodule CategoryPatchTest do
         (ucpd)-[r2:CONTRIBUTOR {type: "discard_update"}]->(:User {access_token: 'at3'})
       RETURN c
     """)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id2}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {revision_id: #{rev_id}}),
@@ -868,6 +1048,7 @@ defmodule CategoryPatchTest do
     name = :rand.uniform(100_000_000)
     rev_id = :rand.uniform(100_000_000)
     rev_id2 = :rand.uniform(100_000_000)
+    rev_id3 = :rand.uniform(100_000_000)
     Neo4j.query!(Neo4j.conn, """
       MATCH (u:User {access_token: 'at2'})
 
@@ -876,14 +1057,14 @@ defmodule CategoryPatchTest do
           name: '#{name}.#{name}',
           introduction: '.',
           url: '#{name}.#{name}',
-          revision_id: #{rev_id2 + 1},
+          revision_id: #{rev_id2},
           against_revision: #{rev_id}
         }),
         (ucp2:UpdateCategoryPatch {
           name: '#{name}..#{name}',
           introduction: '.',
           url: '#{name}..#{name}',
-          revision_id: #{rev_id2 + 2},
+          revision_id: #{rev_id3},
           against_revision: #{rev_id}
         }),
         (c)-[:UPDATE]->(ucp1),
@@ -897,6 +1078,12 @@ defmodule CategoryPatchTest do
     # prime the cache
     conn = conn(:get, "/api/categories/#{name}", %{})
     Router.call(conn, @opts)
+
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     conn =
       conn(:patch, "/api/categories/#{name}", data)
@@ -926,6 +1113,12 @@ defmodule CategoryPatchTest do
 
     assert response3.status === 200
     assert Poison.decode!(response3.resp_body) === Poison.decode!(response.resp_body)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{rev_id}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name}...#{name}'})-[r]-(),
@@ -1022,6 +1215,13 @@ defmodule CategoryPatchTest do
 
     data = %{"category" => %{"name" => name1, "introduction" => "......",
       "supercategories" => [name5], "subcategories" => [name4]}, "revision_id" => name1revid}
+
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{name1revid}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/categories/#{name1}", data)
       |> put_req_header("authorization", "at3")
@@ -1070,6 +1270,12 @@ defmodule CategoryPatchTest do
       "url" => ^name5, "supercategories" => [],
       "subcategories" => [%{"category" => %{"name" => ^name1}}]}}
         = Poison.decode!(response.resp_body)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{name1revid}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name1}'}),
@@ -1149,6 +1355,19 @@ defmodule CategoryPatchTest do
     data = %{"category" => %{"name" => name1, "introduction" => ".......",
       "supercategories" => [name5], "subcategories" => [name4]}, "revision_id" => name1updaterevid,
       "references_patch" => "#{name1updaterevid}"}
+
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{name1revid}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{name1updaterevid}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/categories/#{name1}", data)
       |> put_req_header("authorization", "at3")
@@ -1196,6 +1415,18 @@ defmodule CategoryPatchTest do
       "url" => ^name5, "supercategories" => [],
       "subcategories" => [%{"category" => %{"name" => ^name1}}]}}
         = Poison.decode!(response.resp_body)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{name1revid}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{name1updaterevid}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name1}'}),
@@ -1273,6 +1504,18 @@ defmodule CategoryPatchTest do
       "url" => ^name5, "supercategories" => [], "subcategories" => []}}
         = Poison.decode!(response.resp_body)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{name1revid}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{name1updaterevid}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:patch, "/api/categories/#{name1}", %{"apply_patch" => "update,#{name1updaterevid}"})
       |> put_req_header("authorization", "at3")
@@ -1321,6 +1564,18 @@ defmodule CategoryPatchTest do
       "url" => ^name5, "supercategories" => [],
       "subcategories" => [%{"category" => %{"name" => ^name1}}]}}
         = Poison.decode!(response.resp_body)
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{name1revid}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{name1updaterevid}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {name: '#{name1}'}),

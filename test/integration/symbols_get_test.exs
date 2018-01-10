@@ -189,6 +189,12 @@ defmodule SymbolsGetTest do
     assert %{"symbols" => [%{"symbol" => %{"url" => ^sym_name}}], "meta" => _}
       = Poison.decode! response.resp_body
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:delete, "/api/symbols/#{sym_id}", %{})
       |> put_req_header("authorization", "at2")
@@ -199,6 +205,12 @@ defmodule SymbolsGetTest do
     response = Router.call(conn, @opts)
     assert response.status === 200
     assert %{"symbols" => [], "meta" => _} = Poison.decode! response.resp_body
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, "MATCH (s:SymbolDeleted {revision_id: #{sym_rev}})-[r]-() DELETE r, s")
   end
@@ -234,11 +246,29 @@ defmodule SymbolsGetTest do
     assert %{"symbols" => [%{"symbol" => %{"url" => ^sym_name}}], "meta" => _}
       = Poison.decode! response.resp_body
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at1")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:delete, "/api/symbols/#{sym_id}", %{})
       |> put_req_header("authorization", "at1")
     response = Router.call(conn, @opts)
     assert response.status === 202
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at1")
+    assert Router.call(conn, @opts).status === 200
+
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
 
     conn =
       conn(:patch, "/api/symbols/#{sym_id}?apply_patch=delete", %{})
@@ -250,6 +280,12 @@ defmodule SymbolsGetTest do
     response = Router.call(conn, @opts)
     assert response.status === 200
     assert %{"symbols" => [], "meta" => _} = Poison.decode! response.resp_body
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, "MATCH (s:SymbolDeleted {revision_id: #{sym_rev}})-[r]-() DELETE r, s")
   end

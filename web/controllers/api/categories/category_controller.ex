@@ -6,6 +6,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   alias PhpInternals.Api.Users.User
   alias PhpInternals.Stats.Counter
   alias PhpInternals.Api.Settings.Setting
+  alias PhpInternals.Api.Locks.Lock
 
   def index(%{user: %{privilege_level: 0}} = conn, %{"patches" => _scope}) do
     conn
@@ -409,7 +410,9 @@ defmodule PhpInternals.Api.Categories.CategoryController do
          {:ok, refs_patch} <- Utilities.valid_optional_id?(params["references_patch"]),
          {:ok} <- Category.update_patch_exists?(old_url, refs_patch),
          {:ok} <- Utilities.revision_ids_match?(rev_id, refs_patch || old_category["revision_id"]),
-         {:ok} <- Category.valid_linked_categories?(new_category["subcategories"], new_category["supercategories"], old_url) do
+         {:ok} <- Category.valid_linked_categories?(new_category["subcategories"], new_category["supercategories"], old_url),
+         {:ok} <- Lock.has_lock?(old_category["revision_id"], conn.user.username),
+         {:ok} <- Lock.has_lock?(refs_patch, conn.user.username) do
       new_category = Map.merge(new_category, %{"url" => new_url})
       new_category = Category.update(old_category, new_category, review, conn.user.username, refs_patch)
       status_code = if review === 0, do: 200, else: 202
@@ -426,7 +429,8 @@ defmodule PhpInternals.Api.Categories.CategoryController do
     with {:ok} <- User.within_patch_limit?(conn.user),
          {:ok, %{"category" => category}} <- Category.valid_and_fetch?(category_url),
          {:ok} <- Category.contains_nothing?(category_url),
-         {:ok} <- Category.has_no_delete_patch?(category_url) do
+         {:ok} <- Category.has_no_delete_patch?(category_url),
+         {:ok} <- Lock.has_lock?(category["revision_id"], conn.user.username) do
       Category.soft_delete(category, review, conn.user.username)
 
       status_code = if review == 0, do: 204, else: 202

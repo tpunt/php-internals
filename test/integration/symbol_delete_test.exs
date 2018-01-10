@@ -66,6 +66,12 @@ defmodule SymbolDeleteTest do
         (s)-[:CATEGORY]->(c)
     """)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at1")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:delete, "/api/symbols/#{sym_id}")
       |> put_req_header("content-type", "application/json")
@@ -84,6 +90,12 @@ defmodule SymbolDeleteTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at1")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}})-[r1]-(),
@@ -114,6 +126,12 @@ defmodule SymbolDeleteTest do
         (s)-[:CATEGORY]->(c)
     """)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:delete, "/api/symbols/#{sym_id}", %{"review" => "1"})
       |> put_req_header("content-type", "application/json")
@@ -132,6 +150,12 @@ defmodule SymbolDeleteTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}})-[r1]-(),
@@ -166,6 +190,12 @@ defmodule SymbolDeleteTest do
     conn = conn(:get, "/api/symbols/#{sym_id}", %{})
     Router.call(conn, @opts)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:delete, "/api/symbols/#{sym_id}")
       |> put_req_header("content-type", "application/json")
@@ -184,6 +214,12 @@ defmodule SymbolDeleteTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 404
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at2")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (sd:SymbolDeleted {revision_id: #{sym_rev}})-[r]-()
@@ -217,6 +253,12 @@ defmodule SymbolDeleteTest do
     conn = conn(:get, "/api/symbols/#{sym_id}", %{})
     Router.call(conn, @opts)
 
+    # acquire a lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "acquire"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
+
     conn =
       conn(:delete, "/api/symbols/#{sym_id}")
       |> put_req_header("content-type", "application/json")
@@ -235,6 +277,12 @@ defmodule SymbolDeleteTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 404
+
+    # release the lock
+    conn =
+      conn(:patch, "/api/locks/#{sym_rev}", %{"lock" => "release"})
+      |> put_req_header("authorization", "at3")
+    assert Router.call(conn, @opts).status === 200
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (sd:SymbolDeleted {revision_id: #{sym_rev}})-[r]-()
