@@ -1,4 +1,6 @@
 defmodule PhpInternals.Utilities do
+  use PhpInternals.Web, :model
+
   @default_result_limit 20
   @max_result_limit 100
   @default_ordering "ASC"
@@ -92,6 +94,20 @@ defmodule PhpInternals.Utilities do
     case Integer.parse(id) do
       {int_id, ""} -> {:ok, int_id}
       _ -> {:error, 400, "Invalid integer ID given"}
+    end
+  end
+
+  def valid_revision_id?(revision_id) do
+    query = """
+      MATCH (node {revision_id: {revision_id}})
+      RETURN node
+    """
+
+    params = %{revision_id: revision_id}
+
+    case List.first Neo4j.query!(Neo4j.conn, query, params) do
+      nil -> {:error, 404, "Invalid revision ID"}
+      _result -> {:ok}
     end
   end
 
