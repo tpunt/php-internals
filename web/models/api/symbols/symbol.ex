@@ -572,7 +572,8 @@ defmodule PhpInternals.Api.Symbols.Symbol do
             id: s.id,
             name: s.name,
             url: s.url,
-            type: s.type
+            type: s.type,
+            revision_id: s.revision_id
           },
           categories: categories
         }

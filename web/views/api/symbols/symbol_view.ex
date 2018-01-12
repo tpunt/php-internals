@@ -141,7 +141,7 @@ defmodule PhpInternals.Api.Symbols.SymbolView do
   end
 
   def render("symbol_overview.json", %{symbol: %{"symbol" => symbol, "categories" => categories}}) do
-    %{id: symbol["id"], name: symbol["name"], url: symbol["url"], type: symbol["type"]}
+    %{id: symbol["id"], name: symbol["name"], url: symbol["url"], type: symbol["type"], revision_id: symbol["revision_id"]}
     |> Map.merge(CategoryView.render("index_overview.json", %{categories: categories}))
   end
 
