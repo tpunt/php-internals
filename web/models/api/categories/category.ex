@@ -402,6 +402,7 @@ defmodule PhpInternals.Api.Categories.Category do
         category: {
           name: c.name,
           url: c.url,
+          revision_id: c.revision_id,
           subcategories: subcategories,
           supercategories: supercategories
         }

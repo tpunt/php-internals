@@ -168,8 +168,13 @@ defmodule PhpInternals.Api.Categories.CategoryView do
   end
 
   def render("category_overview.json", %{category: %{"category" => category}}) do
-    %{name: category["name"], url: category["url"]}
-    |> Map.merge(render_linked_categories(category["subcategories"], category["supercategories"]))
+    if category["revision_id"] do
+      %{name: category["name"], url: category["url"], revision_id: category["revision_id"]}
+      |> Map.merge(render_linked_categories(category["subcategories"], category["supercategories"]))
+    else
+      %{name: category["name"], url: category["url"]}
+      |> Map.merge(render_linked_categories(category["subcategories"], category["supercategories"]))
+    end
   end
 
   def render("category_overview_without_categories.json", %{category: %{"category" => category}}) do
