@@ -5,7 +5,6 @@ defmodule PhpInternals.Api.Categories.CategoryController do
   alias PhpInternals.Utilities
   alias PhpInternals.Api.Users.User
   alias PhpInternals.Stats.Counter
-  alias PhpInternals.Api.Settings.Setting
   alias PhpInternals.Api.Locks.Lock
 
   def index(%{user: %{privilege_level: 0}} = conn, %{"patches" => _scope}) do
@@ -57,7 +56,7 @@ defmodule PhpInternals.Api.Categories.CategoryController do
       all_categories = Category.fetch_all_cache(order_by, ordering, offset, limit, params["search"], params["full_search"])
 
       conn
-      |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+      |> Utilities.set_cache_control_header
       |> send_resp(200, all_categories)
     else
       {:error, status_code, error} ->
@@ -162,11 +161,11 @@ defmodule PhpInternals.Api.Categories.CategoryController do
       case view_type do
         "overview" ->
           conn
-          |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+          |> Utilities.set_cache_control_header
           |> send_resp(200, category)
         "normal" ->
           conn
-          |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+          |> Utilities.set_cache_control_header
           |> send_resp(200, Category.fetch_cache(category_url, "normal"))
       end
     else

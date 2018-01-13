@@ -4,12 +4,11 @@ defmodule PhpInternals.Api.Contributions.ContributionController do
   alias PhpInternals.Utilities
   alias PhpInternals.Api.Contributions.Contribution
   alias PhpInternals.Api.Users.User
-  alias PhpInternals.Api.Settings.Setting
 
   def index(conn, %{"view" => "overview", "author" => username}) do
     with {:ok, _username} <- User.valid?(username) do
       conn
-      |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+      |> Utilities.set_cache_control_header
       |> send_resp(200, Contribution.fetch_all_overview_for_cache(username))
     else
       {:error, status_code, error} ->
@@ -23,7 +22,7 @@ defmodule PhpInternals.Api.Contributions.ContributionController do
     with {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
       conn
-      |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+      |> Utilities.set_cache_control_header
       |> send_resp(200, Contribution.fetch_all_overview_cache(offset, limit))
     else
       {:error, status_code, error} ->
@@ -39,7 +38,7 @@ defmodule PhpInternals.Api.Contributions.ContributionController do
            {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
            {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
         conn
-        |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+        |> Utilities.set_cache_control_header
         |> send_resp(200, Contribution.fetch_all_normal_for_cache(username, offset, limit))
       else
         {:error, status_code, error} ->
@@ -59,7 +58,7 @@ defmodule PhpInternals.Api.Contributions.ContributionController do
       with {:ok, offset} <- Utilities.valid_offset?(params["offset"]),
            {:ok, limit} <- Utilities.valid_limit?(params["limit"]) do
         conn
-        |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+        |> Utilities.set_cache_control_header
         |> send_resp(200, Contribution.fetch_all_normal_cache(offset, limit))
       else
         {:error, status_code, error} ->

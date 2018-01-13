@@ -6,7 +6,6 @@ defmodule PhpInternals.Api.Articles.ArticleController do
   alias PhpInternals.Api.Users.User
   alias PhpInternals.Utilities
   alias PhpInternals.Stats.Counter
-  alias PhpInternals.Api.Settings.Setting
 
   def index(conn, params) do
     with {:ok, order_by} <- Article.valid_order_by?(params["order_by"]),
@@ -20,7 +19,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
       articles = Article.fetch_all_cache(order_by, ordering, offset, limit, params["category"], params["author"], params["search"], params["full_search"])
 
       conn
-      |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+      |> Utilities.set_cache_control_header
       |> send_resp(200, articles)
     else
       {:error, status_code, error} ->
@@ -35,7 +34,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
       Counter.exec(["incr", "visits:articles:#{series_url}:#{article_url}"])
 
       conn
-      |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+      |> Utilities.set_cache_control_header
       |> send_resp(200, article)
     else
       {:error, status_code, error} ->
@@ -51,7 +50,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
         Counter.exec(["incr", "visits:articles:#{article_url}"])
 
         conn
-        |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+        |> Utilities.set_cache_control_header
         |> send_resp(200, articles)
       _ ->
         case Article.valid_cache?(article_url) do
@@ -59,7 +58,7 @@ defmodule PhpInternals.Api.Articles.ArticleController do
             Counter.exec(["incr", "visits:articles::#{article_url}"])
 
             conn
-            |> put_resp_header("cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+            |> Utilities.set_cache_control_header
             |> send_resp(200, article)
           {:error, status_code, error} ->
             conn

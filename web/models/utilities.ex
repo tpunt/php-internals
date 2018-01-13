@@ -1,5 +1,8 @@
 defmodule PhpInternals.Utilities do
   use PhpInternals.Web, :model
+  use PhpInternals.Web, :controller
+
+  alias PhpInternals.Api.Settings.Setting
 
   @default_result_limit 20
   @max_result_limit 100
@@ -128,5 +131,16 @@ defmodule PhpInternals.Utilities do
     {date, _} = Integer.parse("#{year}#{month}#{day}")
 
     date
+  end
+
+  def set_cache_control_header(conn) do
+    cc_header = Enum.find(conn.req_headers, nil, fn {header, _value} ->
+      header === "cache-control"
+    end)
+
+    case cc_header do
+      nil -> put_resp_header(conn, "cache-control", "max-age=#{Setting.get("cache_expiration_time")}, public")
+      {_header, value} -> put_resp_header(conn, "cache-control", value)
+    end
   end
 end
