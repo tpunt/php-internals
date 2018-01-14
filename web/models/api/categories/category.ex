@@ -1761,8 +1761,7 @@ defmodule PhpInternals.Api.Categories.Category do
             (user:User {username: {username}}),
             (c)<-[r:DELETE]-(:User)
           DELETE r
-          MERGE (c)-[r2:CONTRIBUTOR {type: "discard_delete"}]->(user)
-          SET r2.date = timestamp()
+          MERGE (c)-[:CONTRIBUTOR {type: "discard_delete", date: #{Utilities.get_date()}, time: timestamp()}]->(user)
         """
 
         Neo4j.query!(Neo4j.conn, query, params)
