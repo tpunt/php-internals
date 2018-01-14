@@ -178,7 +178,11 @@ defmodule PhpInternals.Api.Categories.CategoryView do
   end
 
   def render("category_overview_without_categories.json", %{category: %{"category" => category}}) do
-    %{name: category["name"], url: category["url"]}
+    if category["revision_id"] do
+      %{name: category["name"], url: category["url"], revision_id: category["revision_id"]}
+    else
+      %{name: category["name"], url: category["url"]}
+    end
   end
 
   defp render_linked_categories(nil, nil), do: %{}

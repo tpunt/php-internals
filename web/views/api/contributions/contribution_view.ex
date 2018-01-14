@@ -70,7 +70,7 @@ defmodule PhpInternals.Api.Contributions.ContributionView do
 
     case contribution["filter"] do
       "category" ->
-        Map.put(contribution, "towards", CategoryView.render("show_overview.json", %{category: contribution["towards"]}))
+        Map.put(contribution, "towards", CategoryView.render("show_overview_without_categories.json", %{category: contribution["towards"]}))
       "article" ->
         Map.put(contribution, "towards", ArticleView.render("show_brief_overview.json", %{article: contribution["towards"]}))
       "symbol" ->
