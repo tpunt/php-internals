@@ -123,7 +123,11 @@ defmodule PhpInternals.Api.Symbols.Symbol do
 
   def validate_field("name", value) do
     if String.length(value) > 0 and String.length(value) < 101 do
-      {:ok, %{"name" => value}}
+      if Regex.match?(~r/^[a-zA-Z_][a-zA-Z0-9_]*$/i, value) do
+        {:ok, %{"name" => value}}
+      else
+        {:error, "The name field is an invalid symbol name"}
+      end
     else
       {:error, "The name field should have a length of between 1 and 100 (inclusive)"}
     end

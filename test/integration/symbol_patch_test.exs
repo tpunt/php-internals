@@ -19,7 +19,7 @@ defmodule SymbolPatchTest do
   PATCH /api/symbols/0123 -H authorization: at1
   """
   test "authorised invalid update patch submission for a non-existent symbol" do
-    data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
+    data = %{"symbol" => %{"name" => "abc","description" => "..","definition" => "..",
       "source_location" => "..","type" => "macro","categories" => ["existent"],
       "declaration" => ".."}, "revision_id" => 1}
 
@@ -39,7 +39,7 @@ defmodule SymbolPatchTest do
   PATCH /api/symbols/0123 -H authorization: at1
   """
   test "authorised invalid update patch submission from required fields" do
-    data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
+    data = %{"symbol" => %{"name" => "abc","description" => "..","definition" => "..",
       "source_location" => "..","type" => "macro"}, "revision_id" => 1}
 
     conn =
@@ -58,7 +58,7 @@ defmodule SymbolPatchTest do
   PATCH /api/symbols/0123 -H authorization: at1
   """
   test "authorised invalid update patch submission from an invalid category" do
-    data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
+    data = %{"symbol" => %{"name" => "abc","description" => "..","definition" => "..",
       "source_location" => "..","type" => "macro","categories" => ["invalid"],
       "declaration" => ".."}, "revision_id" => 1}
 
@@ -78,7 +78,7 @@ defmodule SymbolPatchTest do
   PATCH /api/symbols/0123 -H authorization: at1
   """
   test "authorised invalid update patch submission from no categories" do
-    data = %{"symbol" => %{"name" => "...","description" => "..","definition" => "..",
+    data = %{"symbol" => %{"name" => "abc","description" => "..","definition" => "..",
       "source_location" => "..","type" => "macro","categories" => [], "declaration" => ".."},
       "revision_id" => 1}
 
@@ -100,12 +100,12 @@ defmodule SymbolPatchTest do
   test "authorised valid update patch submission for review 1" do
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
-    new_sym_name = :rand.uniform(100_000_000)
+    new_sym_name = "_#{:rand.uniform(100_000_000)}"
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {url: 'existent'})
       CREATE (s:Symbol {
           id: #{sym_id},
-          name: '...',
+          name: 'abc',
           description: '.',
           url: '...',
           definition: '.',
@@ -115,7 +115,7 @@ defmodule SymbolPatchTest do
         }),
         (s)-[:CATEGORY]->(c)
     """)
-    data = %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..",
+    data = %{"symbol" => %{"name" => new_sym_name, "description" => "..",
       "definition" => "..","source_location" => "..","type" => "macro",
       "categories" => ["existent"], "declaration" => ".."}, "revision_id" => sym_rev}
 
@@ -133,7 +133,7 @@ defmodule SymbolPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 202
-    assert %{"symbol" => %{"name" => "..."}} = Poison.decode!(response.resp_body)
+    assert %{"symbol" => %{"name" => "abc"}} = Poison.decode!(response.resp_body)
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
         (s)-[:UPDATE]->(su:UpdateSymbolPatch {name: '#{new_sym_name}'}),
@@ -175,13 +175,13 @@ defmodule SymbolPatchTest do
   test "authorised valid update patch submission for review 2" do
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
-    new_sym_name = :rand.uniform(100_000_000)
+    new_sym_name = "_#{:rand.uniform(100_000_000)}"
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {url: 'existent'})
       CREATE (s:Symbol {
           id: #{sym_id},
-          name: '...',
+          name: 'abc',
           description: '.',
           url: '...',
           definition: '.',
@@ -191,7 +191,7 @@ defmodule SymbolPatchTest do
         }),
         (s)-[:CATEGORY]->(c)
     """)
-    data = %{"review" => "1", "symbol" => %{"name" => "#{new_sym_name}","description" => "..",
+    data = %{"review" => "1", "symbol" => %{"name" => new_sym_name, "description" => "..",
       "definition" => "..","source_location" => "..","type" => "macro",
       "categories" => ["existent"], "declaration" => ".."}, "revision_id" => sym_rev}
 
@@ -209,7 +209,7 @@ defmodule SymbolPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 202
-    assert %{"symbol" => %{"name" => "..."}} = Poison.decode!(response.resp_body)
+    assert %{"symbol" => %{"name" => "abc"}} = Poison.decode!(response.resp_body)
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
         (su:UpdateSymbolPatch {name: '#{new_sym_name}'}),
@@ -243,13 +243,13 @@ defmodule SymbolPatchTest do
   test "authorised valid update patch submission" do
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
-    new_sym_name = :rand.uniform(100_000_000)
+    new_sym_name = "_#{:rand.uniform(100_000_000)}"
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {url: 'existent'})
       CREATE (s:Symbol {
           id: #{sym_id},
-          name: '...',
+          name: 'abc',
           description: '.',
           url: '...',
           definition: '.',
@@ -259,7 +259,7 @@ defmodule SymbolPatchTest do
         }),
         (s)-[:CATEGORY]->(c)
     """)
-    data = %{"symbol" => %{"name" => "#{new_sym_name}","description" => "..","definition" => "..",
+    data = %{"symbol" => %{"name" => new_sym_name,"description" => "..","definition" => "..",
       "source_location" => "..","type" => "macro","categories" => ["existent"],
       "declaration" => ".."}, "revision_id" => sym_rev}
 
@@ -281,8 +281,7 @@ defmodule SymbolPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert %{"symbol" => %{"name" => new_sym_name2}} = Poison.decode!(response.resp_body)
-    assert String.to_integer(new_sym_name2) === new_sym_name
+    assert %{"symbol" => %{"name" => ^new_sym_name}} = Poison.decode!(response.resp_body)
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (c:Category {url: 'existent'}),
         (s:Symbol {name: '#{new_sym_name}'}),
@@ -323,7 +322,7 @@ defmodule SymbolPatchTest do
         (u:User {id: 3})
       CREATE (s:Symbol {
           id: #{sym_id},
-          name: '...',
+          name: 'abc',
           description: '.',
           url: '...',
           definition: '.',
@@ -333,7 +332,7 @@ defmodule SymbolPatchTest do
         }),
         (su:UpdateSymbolPatch {
           id: #{sym_id},
-          name: '...2',
+          name: 'abc2',
           description: '..',
           url: '...2',
           definition: '..',
@@ -371,7 +370,7 @@ defmodule SymbolPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert %{"symbol" => %{"name" => "...2"}} = Poison.decode!(response.resp_body)
+    assert %{"symbol" => %{"name" => "abc2"}} = Poison.decode!(response.resp_body)
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev_b}}),
         (sr:SymbolRevision {revision_id: #{sym_rev}}),
@@ -418,7 +417,7 @@ defmodule SymbolPatchTest do
         (u:User {id: 3})
       CREATE (s:Symbol {
           id: #{sym_id},
-          name: '...',
+          name: 'abc',
           description: '.',
           url: '...',
           definition: '.',
@@ -428,7 +427,7 @@ defmodule SymbolPatchTest do
         }),
         (su:UpdateSymbolPatch {
           id: #{sym_id},
-          name: '...2',
+          name: 'abc2',
           description: '..',
           url: '...2',
           definition: '..',
@@ -490,7 +489,7 @@ defmodule SymbolPatchTest do
         (u:User {id: 3})
       CREATE (s:InsertSymbolPatch {
           id: #{sym_id},
-          name: '...',
+          name: 'abc',
           description: '.',
           url: '...',
           definition: '.',
@@ -509,7 +508,7 @@ defmodule SymbolPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert %{"symbol" => %{"name" => "..."}} = Poison.decode!(response.resp_body)
+    assert %{"symbol" => %{"name" => "abc"}} = Poison.decode!(response.resp_body)
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{sym_rev}}),
         (c:Category {url: 'existent'}),
@@ -541,7 +540,7 @@ defmodule SymbolPatchTest do
         (u:User {id: 3})
       CREATE (s:InsertSymbolPatch {
           id: #{sym_id},
-          name: '...',
+          name: 'abc',
           description: '.',
           url: '...',
           definition: '.',
@@ -584,7 +583,7 @@ defmodule SymbolPatchTest do
         (u:User {access_token: 'at1'})
       CREATE (s:Symbol {
           id: #{sym_id},
-          name: '...',
+          name: 'abc',
           description: '.',
           url: '...',
           definition: '.',
@@ -650,7 +649,7 @@ defmodule SymbolPatchTest do
         (u:User {access_token: 'at3'})
       CREATE (s:Symbol {
           id: #{sym_id},
-          name: '...',
+          name: 'abc',
           description: '.',
           url: '...',
           definition: '.',
@@ -690,7 +689,7 @@ defmodule SymbolPatchTest do
       MATCH (c:Category {name: 'existent'})
       CREATE (s:Symbol {
           id: #{rev_id},
-          name: '.',
+          name: 'a',
           description: '.',
           url: '.',
           definition: '.',
@@ -700,7 +699,7 @@ defmodule SymbolPatchTest do
         }),
         (usp:UpdateSymbolPatch {
           id: #{rev_id},
-          name: '..',
+          name: 'ab',
           description: '..',
           url: '..',
           definition: '..',
@@ -713,7 +712,7 @@ defmodule SymbolPatchTest do
         (usp)-[:CATEGORY]->(c)
     """)
     data = %{"review" => "1", "references_patch" => "#{rev_id2}", "symbol" =>
-      %{"name" => "...","description" => "...","definition" => "...",
+      %{"name" => "abc","description" => "...","definition" => "...",
       "source_location" => "...","type" => "macro","categories" => ["existent"],
       "declaration" => ".."}, "revision_id" => rev_id2}
 
@@ -735,10 +734,10 @@ defmodule SymbolPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 202
-    assert %{"symbol" => %{"name" => "."}} = Poison.decode! response.resp_body
+    assert %{"symbol" => %{"name" => "a"}} = Poison.decode! response.resp_body
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{rev_id}}),
-        (s)-[:UPDATE]->(usp:UpdateSymbolPatch {name: '...'}),
+        (s)-[:UPDATE]->(usp:UpdateSymbolPatch {name: 'abc'}),
         (usp)-[:UPDATE_REVISION]->(uspr:UpdateSymbolPatchRevision {revision_id: #{rev_id2}}),
         (usp)-[:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'})
       RETURN s
@@ -759,7 +758,7 @@ defmodule SymbolPatchTest do
     Neo4j.query!(Neo4j.conn, """
       MATCH (s:Symbol {revision_id: #{rev_id}})-[r1]-(),
         (uspr:UpdateSymbolPatchRevision {revision_id: #{rev_id2}})-[r2]-(),
-        (s)-[r3:UPDATE]->(usp:UpdateSymbolPatch {name: '...'})-[r4]-()
+        (s)-[r3:UPDATE]->(usp:UpdateSymbolPatch {name: 'abc'})-[r4]-()
       DELETE r1, r2, r3, r4, s, usp, uspr
     """)
   end
@@ -771,7 +770,7 @@ defmodule SymbolPatchTest do
       MATCH (c:Category {name: 'existent'})
       CREATE (s:Symbol {
           id: #{rev_id},
-          name: '.',
+          name: 'a',
           description: '.',
           url: '.',
           definition: '.',
@@ -781,7 +780,7 @@ defmodule SymbolPatchTest do
         }),
         (usp:UpdateSymbolPatch {
           id: #{rev_id},
-          name: '..',
+          name: 'ab',
           description: '..',
           url: '..',
           definition: '..',
@@ -793,7 +792,7 @@ defmodule SymbolPatchTest do
         (s)-[:CATEGORY]->(c),
         (usp)-[:CATEGORY]->(c)
     """)
-    data = %{"references_patch" => "#{rev_id2}", "symbol" => %{"name" => "...",
+    data = %{"references_patch" => "#{rev_id2}", "symbol" => %{"name" => "abc",
       "description" => "...","definition" => "...", "source_location" => "...",
       "type" => "macro","categories" => ["existent"], "declaration" => ".."},
       "revision_id" => rev_id2}
@@ -820,10 +819,10 @@ defmodule SymbolPatchTest do
     response = Router.call(conn, @opts)
 
     assert response.status === 200
-    assert %{"symbol" => %{"name" => "..."}} = Poison.decode! response.resp_body
+    assert %{"symbol" => %{"name" => "abc"}} = Poison.decode! response.resp_body
     refute [] === Neo4j.query!(Neo4j.conn, """
       MATCH (sr:SymbolRevision {revision_id: #{rev_id}}),
-        (s:Symbol {name: '...'})-[:REVISION]->(sr),
+        (s:Symbol {name: 'abc'})-[:REVISION]->(sr),
         (s)-[:UPDATE_REVISION]->(uspr:UpdateSymbolPatchRevision {revision_id: #{rev_id2}}),
         (s)-[:CONTRIBUTOR {type: "update"}]->(:User {access_token: 'at3'})
       RETURN s
@@ -848,7 +847,7 @@ defmodule SymbolPatchTest do
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (sr:SymbolRevision {revision_id: #{rev_id}})-[r1]-(),
-        (s:Symbol {name: '...'})-[r2:REVISION]->(sr),
+        (s:Symbol {name: 'abc'})-[r2:REVISION]->(sr),
         (s)-[r3]-(),
         (uspr:UpdateSymbolPatchRevision {revision_id: #{rev_id2}})-[r4]-()
       DELETE r1, r2, r3, r4, s, sr, uspr
@@ -887,7 +886,7 @@ defmodule SymbolPatchTest do
   test "Authenticated attempt at inserting a new symbol (cache invalidation test)" do
     cat_name = Integer.to_string(:rand.uniform(100_000_000))
     cat_revid = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_name = "_#{:rand.uniform(100_000_000)}"
     sym_id = :rand.uniform(100_000_000)
     sym_rev = :rand.uniform(100_000_000)
 
@@ -899,7 +898,7 @@ defmodule SymbolPatchTest do
         (c2)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 6}]->(u),
         (s:Symbol {
             id: #{sym_id},
-            name: '...',
+            name: 'abc',
             description: '.',
             declaration: '.',
             url: '...',
@@ -911,7 +910,7 @@ defmodule SymbolPatchTest do
           (s)-[:CATEGORY]->(c)
     """)
 
-    data = %{"symbol" => %{"name" => "...", "description" => ".", "definition" => ".",
+    data = %{"symbol" => %{"name" => sym_name, "description" => ".", "definition" => ".",
       "source_location" => ".", "type" => "macro", "categories" => [cat_name],
       "declaration" => ".."}, "revision_id" => sym_rev}
 

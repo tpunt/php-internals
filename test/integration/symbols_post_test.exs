@@ -35,8 +35,8 @@ defmodule SymbolsPostTest do
   POST /api/symbols -H authorization: at1
   """
   test "Authenticated attempt at inserting a new symbol patch 1" do
-    sym_name = :rand.uniform(100_000_000)
-    data = %{"symbol" => %{"name" => "#{sym_name}", "description" => ".",
+    sym_name = "_#{:rand.uniform(100_000_000)}"
+    data = %{"symbol" => %{"name" => sym_name, "description" => ".",
       "definition" => ".", "source_location" => ".", "type" => "macro",
       "categories" => ["existent"], "declaration" => ".."}}
 
@@ -62,8 +62,8 @@ defmodule SymbolsPostTest do
   POST /api/symbols?review=1 -H authorization: at2
   """
   test "Authenticated attempt at inserting a new symbol patch 2" do
-    sym_name = :rand.uniform(100_000_000)
-    data = %{"review" => "1", "symbol" => %{"name" => "#{sym_name}", "description" => ".",
+    sym_name = "_#{:rand.uniform(100_000_000)}"
+    data = %{"review" => "1", "symbol" => %{"name" => sym_name, "description" => ".",
       "definition" => ".", "source_location" => ".", "type" => "macro",
       "categories" => ["existent"], "declaration" => ".."}}
 
@@ -89,8 +89,8 @@ defmodule SymbolsPostTest do
   POST /api/symbols?review=1 -H authorization: at3
   """
   test "Authenticated attempt at inserting a new symbol patch 3" do
-    sym_name = :rand.uniform(100_000_000)
-    data = %{"review" => "1", "symbol" => %{"name" => "#{sym_name}", "description" => ".",
+    sym_name = "_#{:rand.uniform(100_000_000)}"
+    data = %{"review" => "1", "symbol" => %{"name" => sym_name, "description" => ".",
       "definition" => ".", "source_location" => ".", "type" => "macro",
       "categories" => ["existent"], "declaration" => ".."}}
 
@@ -116,8 +116,8 @@ defmodule SymbolsPostTest do
   POST /api/symbols -H authorization: at2
   """
   test "Authenticated attempt at inserting a new symbol 1" do
-    sym_name = :rand.uniform(100_000_000)
-    data = %{"symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".",
+    sym_name = "_#{:rand.uniform(100_000_000)}"
+    data = %{"symbol" => %{"name" => sym_name, "description" => ".", "definition" => ".",
       "source_location" => ".", "type" => "macro", "categories" => ["existent"],
       "declaration" => "..", "additional_information" => "."}}
 
@@ -157,8 +157,8 @@ defmodule SymbolsPostTest do
   POST /api/symbols -H authorization: at3
   """
   test "Authenticated attempt at inserting a new symbol 2" do
-    sym_name = :rand.uniform(100_000_000)
-    data = %{"symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".",
+    sym_name = "_#{:rand.uniform(100_000_000)}"
+    data = %{"symbol" => %{"name" => sym_name, "description" => ".", "definition" => ".",
       "source_location" => ".", "type" => "macro", "categories" => ["existent"],
       "declaration" => ".."}}
 
@@ -711,7 +711,7 @@ defmodule SymbolsPostTest do
   test "Authenticated attempt at inserting a new symbol (cache invalidation test)" do
     cat_name = Integer.to_string(:rand.uniform(100_000_000))
     cat_revid = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_name = "_#{:rand.uniform(100_000_000)}"
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (u:User {access_token: 'at3'})
@@ -720,7 +720,7 @@ defmodule SymbolsPostTest do
         (c)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 6}]->(u)
     """)
 
-    data = %{"symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".",
+    data = %{"symbol" => %{"name" => sym_name, "description" => ".", "definition" => ".",
       "source_location" => ".", "type" => "macro", "categories" => [cat_name],
       "declaration" => ".."}}
 
@@ -761,7 +761,7 @@ defmodule SymbolsPostTest do
   test "Authenticated attempt at inserting a new duplicated symbol (cache invalidation test)" do
     cat_name = Integer.to_string(:rand.uniform(100_000_000))
     cat_revid = :rand.uniform(100_000_000)
-    sym_name = :rand.uniform(100_000_000)
+    sym_name = "_#{:rand.uniform(100_000_000)}"
 
     Neo4j.query!(Neo4j.conn, """
       MATCH (u:User {access_token: 'at3'})
@@ -770,7 +770,7 @@ defmodule SymbolsPostTest do
         (c)-[:CONTRIBUTOR {type: "insert", date: 20170810, time: 6}]->(u)
     """)
 
-    data = %{"symbol" => %{"name" => "#{sym_name}", "description" => ".", "definition" => ".",
+    data = %{"symbol" => %{"name" => sym_name, "description" => ".", "definition" => ".",
       "source_location" => ".", "type" => "macro", "categories" => [cat_name],
       "declaration" => ".."}}
 
