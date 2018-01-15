@@ -5,7 +5,6 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
   alias PhpInternals.Api.Symbols.Symbol
   alias PhpInternals.Api.Users.User
   alias PhpInternals.Utilities
-  alias PhpInternals.Stats.Counter
   alias PhpInternals.Api.Locks.Lock
 
   def index(%{user: %{privilege_level: 0}} = conn, %{"patches" => _scope}) do
@@ -54,8 +53,6 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
          {:ok, limit} <- Utilities.valid_limit?(params["limit"]),
          {:ok, type} <- Symbol.valid_type?(params["type"]),
          {:ok, _category} <- Category.valid_cache?(params["category"]) do
-      Counter.exec(["incr", "visits:symbols"])
-
       conn
       |> Utilities.set_cache_control_header
       |> send_resp(200, Symbol.fetch_all_cache(order_by, ordering, offset, limit, type, params["category"], params["search"], params["full_search"]))
@@ -153,8 +150,6 @@ defmodule PhpInternals.Api.Symbols.SymbolController do
     with {:ok, symbol_id} <- Utilities.valid_id?(symbol_id),
          {:ok, view_type} <- Symbol.valid_view_type?(params["view"]),
          {:ok, symbol} <- Symbol.valid_cache?(symbol_id) do
-      Counter.exec(["incr", "visits:symbols:#{symbol_id}"])
-
       if view_type === "overview" do
         conn
         |> Utilities.set_cache_control_header
