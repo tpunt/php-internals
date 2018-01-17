@@ -3,7 +3,7 @@
   <channel>
     <title>PHP Internals</title>
     <description>A website dedicated to providing information on PHP's inner workings</description>
-    <link>https://phpinternals.net</link>
+    <link><%= "https://#{@host}" %></link>
     <%= for article <- @articles do %>
       <item>
         <title><%= article["article"]["title"] %></title>
