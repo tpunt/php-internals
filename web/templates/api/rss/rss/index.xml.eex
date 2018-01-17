@@ -7,12 +7,12 @@
     <%= for article <- @articles do %>
       <item>
         <title><%= article["article"]["title"] %></title>
-        <link><%= article["article"]["url"] %></link>
+        <link><%= "https://#{@host}/articles/#{article["article"]["url"]}" %></link>
         <description>
           <![CDATA[<%= parse_markdown(article["article"]["excerpt"]) %>]]>
         </description>
         <pubDate><%= render_date(article["article"]["time"])  %></pubDate>
-        <guid isPermaLink="true"><%= article["article"]["url"] %></guid>
+        <guid isPermaLink="true"><%= "https://#{@host}/articles/#{article["article"]["url"]}" %></guid>
       </item>
     <% end %>
   </channel>

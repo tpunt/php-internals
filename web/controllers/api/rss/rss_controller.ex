@@ -14,7 +14,7 @@ defmodule PhpInternals.Api.Rss.RssController do
       ResultCache.fetch(key, fn ->
         %{"result" => %{"articles" => articles}} = Article.fetch_all(order_by, "DESC", 0, 20, nil, nil, nil, nil)
         ResultCache.group("articles", key)
-        Phoenix.View.render_to_string(RssView, "index.xml", articles: articles)
+        Phoenix.View.render_to_string(RssView, "index.xml", %{articles: articles, host: conn.host})
       end)
 
     conn
