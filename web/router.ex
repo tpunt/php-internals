@@ -73,6 +73,10 @@ defmodule PhpInternals.Router do
     scope "/locks", Locks do
       patch "/:revision_id", LockController, :update
     end
+
+    scope "/rss", Rss do
+      get "/", RssController, :index
+    end
   end
 
   scope "/", PhpInternals.Site, as: :site do

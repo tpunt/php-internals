@@ -17,7 +17,7 @@ defmodule PhpInternals.Mixfile do
   # Type `mix help compile.app` for more information.
   def application do
     [mod: {PhpInternals, []},
-     applications: [:phoenix, :cowboy, :logger, :neo4j_sips, :oauth2, :corsica, :redix, :phoenix_pubsub, :exactor]]
+     applications: [:phoenix, :cowboy, :logger, :neo4j_sips, :oauth2, :corsica, :redix, :phoenix_pubsub, :exactor, :calendar, :earmark]]
   end
 
   # Specifies which paths to compile per environment.
@@ -36,6 +36,8 @@ defmodule PhpInternals.Mixfile do
      {:redix, "~> 0.6.0"},
      {:phoenix_pubsub, "~> 1.0"}, # makes distillery happy
      {:exactor, "~> 2.2.4", warn_missing: false}, # makes distillery happy
-     {:distillery, "~> 1.5", runtime: false}]
+     {:distillery, "~> 1.5", runtime: false},
+     {:calendar, "~> 0.17.2"},
+     {:earmark, "~> 1.2.2"}]
   end
 end

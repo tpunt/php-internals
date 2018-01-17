@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>PHP Internals</title>
+    <description>A website dedicated to providing information on PHP's inner workings</description>
+    <link>https://phpinternals.net</link>
+    <%= for article <- @articles do %>
+      <item>
+        <title><%= article["article"]["title"] %></title>
+        <link><%= article["article"]["url"] %></link>
+        <description>
+          <![CDATA[<%= parse_markdown(article["article"]["excerpt"]) %>]]>
+        </description>
+        <pubDate><%= render_date(article["article"]["time"])  %></pubDate>
+        <guid isPermaLink="true"><%= article["article"]["url"] %></guid>
+      </item>
+    <% end %>
+  </channel>
+</rss>
